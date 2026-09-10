@@ -4,14 +4,14 @@ plugins {
 }
 
 android {
-    namespace = "com.example.pixelshield"
+    namespace = "dev.safelens"
     compileSdk {
         version = release(37)
     }
 
     defaultConfig {
-        applicationId = "com.example.pixelshield"
-        minSdk = 31
+        applicationId = "dev.safelens"
+        minSdk = 26
         targetSdk = 37
         versionCode = 1
         versionName = "1.0"
@@ -36,6 +36,7 @@ android {
 }
 
 dependencies {
+    implementation(project(":safecore"))
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.compose.material3)

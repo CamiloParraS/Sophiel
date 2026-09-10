@@ -13,3 +13,8 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# SPEC.md §3.3 — never commit image data or converted models
+eval/images/
+*.tflite.bak
+/tools/.venv/

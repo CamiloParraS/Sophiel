@@ -24,4 +24,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "pixelshield"
 include(":app")
+include(":safecore")
  
