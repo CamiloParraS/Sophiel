@@ -21,8 +21,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import dev.sophiel.feed.TestFeedScreen
 
-/** Top-level app destinations. M0 stubs — real screens land in later milestones. */
+/** Top-level app destinations. Protection and Benchmark are M0 stubs — they land in later milestones. */
 private enum class Destination { Protection, TestFeed, Benchmark }
 
 class MainActivity : ComponentActivity() {
@@ -45,11 +46,14 @@ class MainActivity : ComponentActivity() {
                         }
                     },
                 ) { padding ->
-                    Box(
-                        modifier = Modifier.fillMaxSize().padding(padding),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text("${current.name} — coming soon")
+                    when (current) {
+                        Destination.TestFeed -> TestFeedScreen(modifier = Modifier.padding(padding))
+                        else -> Box(
+                            modifier = Modifier.fillMaxSize().padding(padding),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text("${current.name} — coming soon")
+                        }
                     }
                 }
             }
