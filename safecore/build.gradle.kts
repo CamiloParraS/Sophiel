@@ -20,5 +20,8 @@ android {
 }
 
 dependencies {
+    implementation(libs.tensorflow.lite)
     testImplementation(libs.junit)
+    androidTestImplementation(libs.androidx.junit)
+    androidTestImplementation(libs.androidx.test.runner)
 }
