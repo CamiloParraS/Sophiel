@@ -1,4 +1,4 @@
-package dev.safelens.capture
+package dev.sophiel.capture
 
 import android.app.Service
 import android.content.Intent

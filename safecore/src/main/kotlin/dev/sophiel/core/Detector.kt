@@ -1,4 +1,4 @@
-package dev.safelens.core
+package dev.sophiel.core
 
 /** Severity ladder. Ordinal order is meaningful; do not reorder. */
 enum class Severity { SAFE, SUGGESTIVE, EXPLICIT }

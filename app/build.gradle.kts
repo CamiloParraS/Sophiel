@@ -4,13 +4,13 @@ plugins {
 }
 
 android {
-    namespace = "dev.safelens"
+    namespace = "dev.sophiel"
     compileSdk {
         version = release(37)
     }
 
     defaultConfig {
-        applicationId = "dev.safelens"
+        applicationId = "dev.sophiel"
         minSdk = 26
         targetSdk = 37
         versionCode = 1

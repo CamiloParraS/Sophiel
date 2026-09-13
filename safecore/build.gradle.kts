@@ -3,7 +3,7 @@ plugins {
 }
 
 android {
-    namespace = "dev.safelens.core"
+    namespace = "dev.sophiel.core"
     compileSdk {
         version = release(37)
     }

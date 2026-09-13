@@ -1,4 +1,4 @@
-package dev.safelens
+package dev.sophiel
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
