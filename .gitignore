@@ -19,3 +19,6 @@ local.properties
 eval/images/
 *.tflite.bak
 /tools/.venv/
+
+# real device screenshots DON'T commit
+app/src/main/assets/testfeed/zz_*.png

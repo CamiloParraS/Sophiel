@@ -34,7 +34,13 @@ import dev.sophiel.core.Verdict
 
 private const val ASSET_DIR = "testfeed"
 
-private data class TestFeedTile(val name: String, val bitmap: Bitmap)
+/** Repeats of the bundled fixture set, so the list is tall enough that scrolling
+ *  back to the top actually disposes and recomposes the first tile (needed to
+ *  demonstrate cacheHit=true on revisit — 10 short tiles alone fit in one screen
+ *  and never leave Compose's active window). */
+private const val REPEAT_COUNT = 4
+
+private data class TestFeedTile(val id: String, val name: String, val bitmap: Bitmap)
 
 /**
  * Permission-free exerciser for [Detector]: a scrollable list of bundled test
@@ -50,11 +56,11 @@ fun TestFeedScreen(modifier: Modifier = Modifier) {
     val verdicts = remember { mutableStateMapOf<String, Verdict>() }
 
     LazyColumn(modifier = modifier.fillMaxSize()) {
-        items(tiles, key = { it.name }) { tile ->
-            LaunchedEffect(tile.name) {
-                verdicts[tile.name] = detector.analyze(tile.bitmap)
+        items(tiles, key = { it.id }) { tile ->
+            LaunchedEffect(tile.id) {
+                verdicts[tile.id] = detector.analyze(tile.bitmap)
             }
-            TestFeedTileRow(tile.name, tile.bitmap, verdicts[tile.name])
+            TestFeedTileRow(tile.name, tile.bitmap, verdicts[tile.id])
         }
     }
 }
@@ -79,11 +85,12 @@ private fun Verdict?.describe(): String = when (this) {
     else -> "$severity · score=${"%.2f".format(score)} · gated=$gated · cacheHit=$cacheHit · ${latencyMs}ms"
 }
 
-private fun loadTestFeedTiles(context: Context): List<TestFeedTile> =
-    context.assets.list(ASSET_DIR).orEmpty()
+private fun loadTestFeedTiles(context: Context): List<TestFeedTile> {
+    val base = context.assets.list(ASSET_DIR).orEmpty()
         .filter { it.endsWith(".png") }
         .sorted()
-        .map { name ->
-            val bitmap = context.assets.open("$ASSET_DIR/$name").use { BitmapFactory.decodeStream(it) }
-            TestFeedTile(name, bitmap)
-        }
+        .map { name -> name to context.assets.open("$ASSET_DIR/$name").use { BitmapFactory.decodeStream(it) } }
+    return (0 until REPEAT_COUNT).flatMap { rep ->
+        base.map { (name, bitmap) -> TestFeedTile(id = "$name#$rep", name = name, bitmap = bitmap) }
+    }
+}
