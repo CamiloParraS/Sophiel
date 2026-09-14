@@ -1,0 +1,3 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPEC.md C1 / M0.V3: :safecore declares ZERO permissions. Do not add any. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" />

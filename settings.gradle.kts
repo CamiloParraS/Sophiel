@@ -22,6 +22,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "pixelshield"
+rootProject.name = "sophiel"
 include(":app")
+include(":safecore")
  
