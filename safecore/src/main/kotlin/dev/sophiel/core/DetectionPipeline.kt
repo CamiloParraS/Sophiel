@@ -15,6 +15,11 @@ import kotlinx.coroutines.withContext
  * Orchestrates one frame through hash → cache lookup → skin gate → classifier
  * → policy. All work runs on [dispatcher], so concurrent [analyze] callers
  * queue rather than run in parallel (SPEC.md §3.4).
+ *
+ * The cache and gate only short-circuit the *score*. [PolicyEngine] runs on
+ * every frame — cache hits and gated frames included — so its hysteresis
+ * sees the whole frame stream. (Caching the post-policy severity would freeze
+ * a static screen at whatever severity its first frame got.)
  */
 class DetectionPipeline(
     private val classifier: NsfwClassifier,
@@ -28,21 +33,17 @@ class DetectionPipeline(
         val start = SystemClock.elapsedRealtime()
         val hash = PerceptualHash.hash(frame)
 
-        val cached = cache.get(hash)
-        if (cached != null) {
-            return@withContext cached.copy(cacheHit = true, latencyMs = elapsedSince(start))
-        }
+        val scored = cache.get(hash)?.copy(cacheHit = true)
+            ?: score(frame).also { cache.put(hash, it) }
 
-        val verdict = if (!gate.shouldClassify(frame)) {
-            Verdict(Severity.SAFE, score = 0f, gated = true, cacheHit = false, latencyMs = elapsedSince(start))
-        } else {
-            val score = classifier.classify(Preprocessor.toInputBuffer(frame))
-            val severity = policy.classify(score)
-            Verdict(severity, score, gated = false, cacheHit = false, latencyMs = elapsedSince(start))
-        }
+        scored.copy(severity = policy.classify(scored.score), latencyMs = elapsedSince(start))
+    }
 
-        cache.put(hash, verdict)
-        verdict
+    /** Gate + classifier only. Severity/latency are placeholders, filled in by [analyze]. */
+    private fun score(frame: Bitmap): Verdict {
+        val gated = !gate.shouldClassify(frame)
+        val score = if (gated) 0f else classifier.classify(Preprocessor.toInputBuffer(frame))
+        return Verdict(Severity.SAFE, score, gated = gated, cacheHit = false, latencyMs = 0)
     }
 
     /** Releases the interpreter and, if [dispatcher] owns an executor thread, shuts it down. */
