@@ -46,7 +46,7 @@ class DetectorLeakTest {
         // shows up as one ~30 MB jump that GC then partly reclaims, so deltas between
         // later cycles stay small even while leaking (verified by removing close()).
         val worstKb = nativeKb.max() - baselineKb
-        assertTrue("native heap ${worstKb} KB above baseline after close()", worstKb < MAX_GROWTH_KB)
+        assertTrue("native heap $worstKb KB above baseline after close()", worstKb < MAX_GROWTH_KB)
         assertTrue("threads grew ${threads[1]} -> ${threads.last()}", threads.last() - threads[1] < 3)
     }
 
@@ -59,6 +59,7 @@ class DetectorLeakTest {
     private companion object {
         const val CYCLES = 5
         const val FRAMES_PER_CYCLE = 10
+
         // ponytail: fixed bound, well under one leaked interpreter (~17 MB weights); tighten if it flakes low.
         const val MAX_GROWTH_KB = 8 * 1024L
     }
