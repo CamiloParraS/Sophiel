@@ -24,3 +24,6 @@ eval/images/
 
 # real device screenshots DON'T commit
 app/src/main/assets/testfeed/zz_*.png
+
+# On Devide Tests results
+docs/Tests/*
