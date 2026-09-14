@@ -1,0 +1,270 @@
+# DECISIONS.md
+
+Running log of decisions: what was chosen, what was rejected, and why. Do not
+relitigate a settled entry without asking the human.
+
+---
+
+## D1 — Device roles (SPEC.md §1.4, CLAUDE.md)
+
+- **Device A (budget)** — primary development device. Default target for
+  `./gradlew :app:installDebug`. Performance problems must surface here first.
+- **Device B (flagship)** — demo and headline numbers only.
+
+Roles are fixed for the life of the project. Do not swap them.
+
+| Role                | Model              | Notes                                                                                                                               |
+| ------------------- | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Device A (budget)   | Samsung Galaxy A71 | Older mid-range. Measured ~20–30 ms slower per classification than Device B with D12's model (human, 2026-09-14, test feed).        |
+| Device B (flagship) | Samsung SM-S721B   | API 36. Sessions up to 2026-09-13 used it as the only attached device (logged as "Device A" in CLAUDE.md before this was assigned). |
+
+---
+
+## D2 — No Hilt (SPEC.md §2.4)
+
+Two modules and one pipeline object do not justify a DI framework or its build
+cost. Use constructor injection and a single hand-rolled `AppContainer`.
+
+---
+
+## D3 — No NNAPI delegate (SPEC.md §2.4)
+
+NNAPI was deprecated in Android 15. Use LiteRT's CPU path. Add the GPU delegate
+only if M5 benchmarks show CPU missing the latency target (SPEC.md §1.4).
+
+---
+
+## D4 — No Compose inside the overlay window (SPEC.md §2.4)
+
+Overlay `ComposeView`s require manually attaching `ViewTreeLifecycleOwner` and
+`SavedStateRegistryOwner` — a reliable source of lost days. The overlay
+(`MaskView`, M4) is a plain `View` subclass drawing on a `Canvas`. Compose is for
+the normal in-app UI only.
+
+---
+
+## D5 — One NSFW model, not two (SPEC.md §6.8)
+
+The reference project shipped two models (~26 MB). We ship one. Halves the
+conversion risk, which is the M1 critical path.
+
+---
+
+## D6 — Toolchain versions deviate from SPEC.md §2.3
+
+SPEC.md §2.3 lists a known-good version set (AGP 8.7.3, Kotlin 2.0.21,
+compileSdk 36, composeBom 2024.12.01) and explicitly permits deviation:
+_"These versions are a known-good starting set, not gospel... record the
+resulting versions here."_
+
+The repo was scaffolded by a current Android Studio with a newer, mutually
+consistent toolchain that already syncs and builds on the dev machine.
+Downgrading to the §2.3 set would be net new risk for no benefit. Kept as-is:
+
+| Item       | SPEC.md §2.3  | Actual (this repo) |
+| ---------- | ------------- | ------------------ |
+| AGP        | 8.7.3         | 9.3.2              |
+| Gradle     | (unspecified) | 9.5.0              |
+| Kotlin     | 2.0.21        | 2.2.10             |
+| compileSdk | 36            | 37                 |
+| targetSdk  | 36            | 37                 |
+| composeBom | 2024.12.01    | 2026.02.01         |
+
+Unchanged from SPEC: **`minSdk = 26`** (hard floor — `TYPE_APPLICATION_OVERLAY`
+requires API 26).
+
+LiteRT / Room / DataStore versions will be pinned when M1/M2/M4 introduce them.
+
+---
+
+## D7 — Package / application ID is `dev.sophiel` (SPEC.md §2.1)
+
+The Studio scaffold used `com.example.sophiel`. Renamed to `dev.sophiel` in
+M0 (cheapest point to do it) to match SPEC.md §2.1, §3.2, and every `adb` command
+in SPEC.md §9 / CLAUDE.md. The git repo directory remains `sophiel`; the
+Gradle `rootProject.name` remains `sophiel`. App display name: **Sophiel**.
+
+---
+
+## D8 — `:safecore` API contract stubbed in M0 (SPEC.md §3.4)
+
+`Detector` / `Verdict` / `Severity` / `DetectorFactory` are committed in M0 as
+the frozen public surface. `DetectorFactory.create` is `TODO()` until M2.
+
+---
+
+## D9 — Model: fallback pre-converted `.tflite`, not our own conversion (SPEC.md M1)
+
+> **Superseded by D12** (2026-09-14). Kept for history.
+
+SPEC.md M1's primary path (`TFLiteConverter.from_saved_model()` against
+GantMan/nsfw_model's Keras checkpoint) needs TensorFlow in Python. No
+`tensorflow` / `tensorflow-cpu` wheel is available for the Python 3.14
+install on the development machine, and bootstrapping a second Python
+(3.12, via msys64) far enough to install TensorFlow was not attempted
+further once `pip` itself failed to bootstrap there — this is exactly the
+"dependency resolution fighting you" situation SPEC.md tells us not to
+burn 30 minutes on.
+
+Took SPEC.md M1's own documented fallback instead: **a pre-converted
+`.tflite` from an existing open-source Android NSFW project.**
+
+- **Source:** `nipunru/nsfw-detector-android` (MIT), commit
+  `d67bea108ce995b8090fd71c446627a2b5c7c13e`,
+  `nsfwdetector/src/main/assets/automl/NSFW.tflite`. A Firebase AutoML
+  Vision Edge export, 2-class (`nonnude`, `nude`).
+- **Fetched and pinned by** `tools/convert_model.py`, which downloads the
+  exact commit-pinned file and verifies it against a recorded SHA-256
+  before installing it as `safecore/src/main/assets/nsfw.tflite`. No
+  training or fine-tuning happened — pre-trained weights only (C2).
+- **Size:** 5,855,200 bytes — within SPEC.md M1.V1's 3–30 MB band.
+- **Input tensor:** `uint8 [1,224,224,3]`, quantization `scale=0.00787402,
+zero_point=128`. This is a full-integer-quantized model, so
+  `Preprocessor.kt` feeds raw 0–255 RGB pixel bytes directly — no float
+  normalization step. (SPEC.md's "do not attempt full-integer
+  quantization" warning is about calibration work _we_ would have to do;
+  this model arrived already quantized by its original authors.)
+- **Output tensor:** `uint8 [1,2]`, quantization `scale=0.00390625,
+zero_point=0`, ordered `[nonnude, nude]`. `NsfwClassifier.classify()`
+  returns the dequantized `nude` probability as the unsafe score in
+  `Verdict.score`'s `[0,1]` range.
+- **Channel order (RGB, not BGR)** is an assumption carried over from the
+  model's Keras/TF training convention, not independently verified here.
+  Because M1's parity gate only checks that the on-device interpreter
+  agrees with `tools/reference_infer.py` — both of which share this
+  project's own preprocessing code — a wrong channel-order assumption
+  would still pass parity; it would only show up as poor accuracy in M5's
+  evaluation. Revisit there if recall is suspiciously low.
+- **Resize interpolation is not exercised by the parity gate.** The 10
+  fixtures in `safecore/src/androidTest/assets/fixtures/` are pre-sized to
+  exactly 224×224, making `Preprocessor`'s resize step a no-op for the
+  parity test specifically. This isolates the parity check to channel
+  order / byte layout / quantization — the actual risk area SPEC.md flags
+  — instead of also gating on bilinear-vs-nearest cross-platform
+  interpolation drift, which is a real but separate risk. Real capture
+  frames (M3+) still go through `Bitmap.createScaledBitmap(..., filter =
+true)`.
+- **Fixtures are synthetic**, generated with a fixed seed (not committed
+  as a repo script; see the docstring in `tools/reference_infer.py`), not
+  sourced photos. This sidesteps licensing questions and JPEG-decoder
+  cross-platform drift (PNG is lossless) for what is a numerical parity
+  check, not an accuracy check.
+
+---
+
+## D10 — `org.tensorflow:tensorflow-lite`, not `com.google.ai.edge.litert` (SPEC.md §2.3)
+
+SPEC.md's catalog suggests `com.google.ai.edge.litert:litert`. Every
+version tried that ships the classic `org.tensorflow.lite.Interpreter`
+compat API (1.0.0–1.4.2, 2.1.x, 2.2.0) transitively pulls
+`com.google.ai.edge.litert:litert-api`, and both AARs declare the same
+Android manifest `namespace` — a real upstream packaging bug that fails
+`processDebugMainManifest` on AGP 9.3.2. The only litert line that avoids
+it (2.0.x) does so by dropping the classic `Interpreter` API entirely in
+favor of a newer `CompiledModel` / `TensorBuffer` Kotlin API with no
+migration guide at the time of writing.
+
+Switched to `org.tensorflow:tensorflow-lite:2.17.0` — the mature, single-
+artifact upstream library LiteRT is meant to eventually replace. It
+exposes the identical `org.tensorflow.lite.Interpreter` API, needs no
+manifest workarounds, and `:app:assembleDebug` succeeds with it. Revisit
+if a future litert release fixes the namespace collision and a concrete
+reason to move (GPU delegate, smaller binary) shows up.
+
+---
+
+## D11 — `PolicyEngine`'s `SUGGESTIVE` threshold defaults to half of `EXPLICIT` (SPEC.md M2)
+
+SPEC.md §3.4's `DetectorFactory.create` only takes one `threshold` (the
+`EXPLICIT` cutoff); §6.2's hysteresis rule ("2 consecutive frames above
+threshold to engage, 3 below to release") is likewise written in terms of
+a single threshold and only governs the `EXPLICIT` engage/release
+transition — it says nothing about where `SUGGESTIVE` begins. `Severity`
+still has three ordinals, so `PolicyEngine` needs a second, lower cutoff.
+
+Defaulted `suggestiveThreshold` to `explicitThreshold / 2f` (e.g. 0.35 at
+the default 0.70 explicit threshold), with no hysteresis on the
+`SUGGESTIVE` boundary itself — only `EXPLICIT` engage/release is
+debounced, since that's the only transition SPEC.md describes as
+strobe-prone (it's also the only one that will eventually drive the M4
+overlay). Both thresholds are constructor parameters, so this is a
+one-line change if M5's evaluation against the UI corpus (§7.3) suggests
+a different split.
+
+---
+
+## D12 — Model: GantMan/nsfw_model MobileNetV2, replacing D9's AutoML model (SPEC.md M1)
+
+On-device testing in M2 showed D9's 2-class AutoML model (`nonnude`/`nude`)
+misbehaving on real content: a non-explicit 3D render scored highest, and a
+more explicit variant of the same image scored lower than the milder one.
+A binary "nude photo" classifier isn't a severity scale, and it has no
+notion of renders or drawings.
+
+Candidates considered:
+
+| Model                              | Rejected / chosen because                                                                                                                                                             |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **GantMan/nsfw_model MobileNetV2** | **Chosen.** SPEC.md M1's primary candidate. 5 classes incl. `drawings`/`hentai`/`sexy`, so renders and non-nude NSFW are in-distribution. Same TFLite runtime.                        |
+| OpenNSFW2 (bhky)                   | ResNet-50 (~24M params, ~95 MB float); Yahoo's training set excluded drawings, so it repeats D9's render problem.                                                                     |
+| Falconsai/nsfw_image_detection     | ViT-base (~86M params, ~340 MB); cannot meet SPEC §1.4's ≥4 fps on the budget device.                                                                                                 |
+| NudeNet v3 (320n/640m)             | Object detector: whole-frame scoring needs box post-processing, adds ONNX Runtime, and its value is region localization — out of scope per SPEC §1.3. Offline spike only (see below). |
+
+- **Source:** GantMan/nsfw_model (MIT) release `1.2.0`,
+  `mobilenet_v2_140_224.1.zip` → `mobilenet_v2_140_224/saved_model.tflite`.
+  The release already ships a converted `.tflite`, so D9's TensorFlow
+  blocker no longer applies — no conversion step at all. Pre-trained weights
+  only (C2).
+- **Pinned by** `tools/convert_model.py`: SHA-256
+  `380f98f7685f9d8a386f8cc595b6dfcb972989aae3d1b8b270d3a4a5b96fab40`.
+- **Size:** 17,355,548 bytes — float32, not quantized, within M1.V1's 3–30 MB
+  band. SPEC M1 prefers dynamic-range quantization; skipped because the float
+  model is already in band. Revisit only if M5 latency on Device A misses.
+- **Input:** `float32 [1,224,224,3]`, RGB in `[0,1]` (÷255), per GantMan's
+  own `nsfw_detector/predict.py`. RGB order follows Keras `load_img`, so it's
+  grounded upstream rather than assumed (unlike D9).
+- **Output:** `float32 [1,5]` softmax, order from the release's
+  `class_labels.txt`: `drawings, hentai, neutral, porn, sexy`.
+- **Score:** `Verdict.score = hentai + porn + 0.5 * sexy` (human's call,
+  2026-09-14). `sexy` counts because not all NSFW is nudity. At full weight,
+  swimwear/cosplay engaged EXPLICIT; at 0.5 the human saw them drop to
+  SUGGESTIVE, which they judged closer to right. Consequence to know: class
+  probabilities sum to 1, so a sexy-only frame caps at 0.5 — below the 0.70
+  EXPLICIT threshold — and **never engages the mask on its own**; only frames
+  with hentai/porn mass do. `SEXY_WEIGHT` is a single constant in
+  `NsfwClassifier` (mirrored in `tools/reference_infer.py`); M5's ROC decides
+  whether 0.5 costs recall.
+- **Parity fixtures** regenerated with `tools/reference_infer.py`; D9's notes
+  on synthetic 224×224 fixtures and untested resize interpolation still hold.
+
+Deferred ideas (recorded, not scheduled):
+
+- **Skin gate vs non-nude NSFW.** Content that `sexy` catches may have little
+  exposed skin and get short-circuited by `SkinGate` before the classifier
+  runs. Measure in M5's ablation before touching `minRatio`.
+  Human also observed (2026-09-14) the YCbCr rule sometimes gating dim /
+  poorly-lit images that do contain skin — a false negative, the costly
+  direction per SPEC §6.1. Include low-light images in the M5 eval set.
+- **Region blur instead of full-screen blur.** Needs a detector (NudeNet-style
+  boxes). Out of scope per SPEC §1.3 — candidate for a future version and the
+  M6 "Future Work" section.
+
+---
+
+## D13 — M2.V5 re-verified after SEXY_WEIGHT 0.5 (2026-09-14, human-run)
+
+`DetectorLeakTest.closeAndRecreateFiveTimesDoesNotLeak` (`Debug.getNativeHeapAllocatedSize`,
+bound worst-minus-baseline < 8192 KB, threads stable) re-run by the human after the
+D12 score change, one device at a time via
+`:safecore:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=...DetectorLeakTest`:
+
+| Device                   | Baseline | Cycles 1–5 (native KB)           | Threads | Verdict               |
+| ------------------------ | -------- | -------------------------------- | ------- | --------------------- |
+| B (SM-S) 10:45 UTC       | 6929     | 6959 / 6960 / 6960 / 6960 / 6960 | 13 flat | PASS (+31 KB worst)   |
+| A (Galaxy A71) 10:51 UTC | 6931     | 8869 / 9503 / 8881 / 8228 / 9125 | 13 flat | PASS (+2572 KB worst) |
+
+No monotonic growth on either device; Device A is noisier (GC/XNNPACK packing
+sawtooth) but ~3× under the bound and ~14× under the proven-leaky `+35.5 MB`
+signal with `close()` removed. Open question (unchanged): SPEC M2.V5 wording asks
+for an Android Studio Profiler pass — human decides whether this automated
+evidence closes V5.
