@@ -40,6 +40,11 @@ private const val ASSET_DIR = "testfeed"
  *  and never leave Compose's active window). */
 private const val REPEAT_COUNT = 4
 
+/** Real capture frames are ~360 px on the short side (SPEC.md §4.6). Decoding bundled
+ *  images at full size (up to 4096 px, ~386 MB of native bitmap memory for the set)
+ *  swamped native heap and hid any real Detector leak in the M2.V5 Profiler pass. */
+private const val DECODE_MIN_SIDE = 360
+
 private data class TestFeedTile(val id: String, val name: String, val bitmap: Bitmap)
 
 /**
@@ -47,7 +52,7 @@ private data class TestFeedTile(val id: String, val name: String, val bitmap: Bi
  * images, each showing its live verdict, score, gate state, and latency
  */
 @Composable
-fun TestFeedScreen(modifier: Modifier = Modifier) {
+fun testFeedScreen(modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val detector = remember { DetectorFactory.create(context) }
     DisposableEffect(detector) { onDispose { detector.close() } }
@@ -60,13 +65,13 @@ fun TestFeedScreen(modifier: Modifier = Modifier) {
             LaunchedEffect(tile.id) {
                 verdicts[tile.id] = detector.analyze(tile.bitmap)
             }
-            TestFeedTileRow(tile.name, tile.bitmap, verdicts[tile.id])
+            testFeedTileRow(tile.name, tile.bitmap, verdicts[tile.id])
         }
     }
 }
 
 @Composable
-private fun TestFeedTileRow(name: String, bitmap: Bitmap, verdict: Verdict?) {
+private fun testFeedTileRow(name: String, bitmap: Bitmap, verdict: Verdict?) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(8.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -89,8 +94,20 @@ private fun loadTestFeedTiles(context: Context): List<TestFeedTile> {
     val base = context.assets.list(ASSET_DIR).orEmpty()
         .filter { it.endsWith(".png") }
         .sorted()
-        .map { name -> name to context.assets.open("$ASSET_DIR/$name").use { BitmapFactory.decodeStream(it) } }
+        .map { name -> name to decodeCaptureSized(context, "$ASSET_DIR/$name") }
     return (0 until REPEAT_COUNT).flatMap { rep ->
         base.map { (name, bitmap) -> TestFeedTile(id = "$name#$rep", name = name, bitmap = bitmap) }
+    }
+}
+
+/** Decodes with the largest power-of-two subsample that keeps the short side >= [DECODE_MIN_SIDE]. */
+private fun decodeCaptureSized(context: Context, path: String): Bitmap {
+    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    context.assets.open(path).use { BitmapFactory.decodeStream(it, null, bounds) }
+    var sample = 1
+    while (minOf(bounds.outWidth, bounds.outHeight) / (sample * 2) >= DECODE_MIN_SIDE) sample *= 2
+    val options = BitmapFactory.Options().apply { inSampleSize = sample }
+    return checkNotNull(context.assets.open(path).use { BitmapFactory.decodeStream(it, null, options) }) {
+        "could not decode $path"
     }
 }
