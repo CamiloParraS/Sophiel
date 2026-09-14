@@ -34,13 +34,17 @@ class NsfwClassifier private constructor(private val interpreter: Interpreter) {
         private const val PORN = 3
         private const val SEXY = 4
 
+        // Calibration knob. Probabilities sum to 1, so sexy-only frames cap at
+        // SEXY_WEIGHT: at 0.5 they top out in SUGGESTIVE and can't engage EXPLICIT alone.
+        private const val SEXY_WEIGHT = 0.5f
+
         /**
-         * Unsafe probability: `hentai + porn + sexy`. `sexy` is included because
-         * not all NSFW content is nudity; the cost is that swimwear-style frames
-         * score high too (docs/DECISIONS.md D12). Pure so it can be unit-tested.
+         * Unsafe probability: `hentai + porn + SEXY_WEIGHT * sexy`. `sexy` counts
+         * because not all NSFW is nudity, at reduced weight so swimwear/cosplay
+         * lands in SUGGESTIVE (docs/DECISIONS.md D12). Pure so it can be unit-tested.
          */
         internal fun unsafeScore(probabilities: FloatArray): Float =
-            probabilities[HENTAI] + probabilities[PORN] + probabilities[SEXY]
+            probabilities[HENTAI] + probabilities[PORN] + SEXY_WEIGHT * probabilities[SEXY]
 
         /** Loads and memory-maps `nsfw.tflite` from assets. Throws if the asset is missing or compressed. */
         fun load(context: Context): NsfwClassifier {
