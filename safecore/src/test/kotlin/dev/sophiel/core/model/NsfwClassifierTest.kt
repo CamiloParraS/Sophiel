@@ -6,9 +6,14 @@ import org.junit.Test
 class NsfwClassifierTest {
 
     @Test
-    fun `unsafeScore sums hentai, porn and sexy`() {
+    fun `unsafeScore sums hentai and porn plus half of sexy`() {
         // drawings, hentai, neutral, porn, sexy
-        assertEquals(0.8f, NsfwClassifier.unsafeScore(floatArrayOf(0.1f, 0.2f, 0.1f, 0.3f, 0.3f)), 1e-6f)
+        assertEquals(0.65f, NsfwClassifier.unsafeScore(floatArrayOf(0.1f, 0.2f, 0.1f, 0.3f, 0.3f)), 1e-6f)
+    }
+
+    @Test
+    fun `a pure sexy frame cannot reach the default explicit threshold`() {
+        assertEquals(0.5f, NsfwClassifier.unsafeScore(floatArrayOf(0f, 0f, 0f, 0f, 1f)), 1e-6f)
     }
 
     @Test
