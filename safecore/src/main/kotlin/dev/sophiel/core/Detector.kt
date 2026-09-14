@@ -1,5 +1,10 @@
 package dev.sophiel.core
 
+import dev.sophiel.core.model.NsfwClassifier
+import dev.sophiel.core.policy.PolicyEngine
+import kotlinx.coroutines.asCoroutineDispatcher
+import java.util.concurrent.Executors
+
 /** Severity ladder. Ordinal order is meaningful; do not reorder. */
 enum class Severity { SAFE, SUGGESTIVE, EXPLICIT }
 
@@ -41,5 +46,9 @@ interface Detector {
 object DetectorFactory {
     /** @param threshold unsafe-probability cutoff for [Severity.EXPLICIT], in [0,1] */
     fun create(context: android.content.Context, threshold: Float = 0.70f): Detector =
-        TODO("Detector implementation lands in M2 (pipeline). SPEC.md §5 M2.")
+        DetectionPipeline(
+            classifier = NsfwClassifier.load(context),
+            policy = PolicyEngine(explicitThreshold = threshold),
+            dispatcher = Executors.newSingleThreadExecutor().asCoroutineDispatcher(),
+        )
 }

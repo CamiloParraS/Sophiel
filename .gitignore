@@ -19,3 +19,11 @@ local.properties
 eval/images/
 *.tflite.bak
 /tools/.venv/
+# downloaded model archives / experiment weights (NudeNet etc.)
+/temp_download/
+
+# real device screenshots DON'T commit
+app/src/main/assets/testfeed/zz_*.png
+
+# On Devide Tests results
+docs/Tests/*

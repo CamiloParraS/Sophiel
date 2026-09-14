@@ -4,9 +4,9 @@ This is the Python reference for ParityTest.kt's M1 parity gate: the score
 computed here for each fixture must match the on-device Interpreter's score
 for the same fixture within 1e-2 absolute (SPEC.md M1.V3).
 
-Preprocessing here mirrors Preprocessor.kt exactly: RGB uint8 bytes, no
-float normalization (the model's input tensor is itself uint8-quantized —
-see docs/DECISIONS.md D9). Fixtures are pre-sized to 224x224 so resize
+Preprocessing here mirrors Preprocessor.kt exactly: NHWC float32 RGB in
+[0,1] (see docs/DECISIONS.md D12). Score is hentai + porn + 0.5*sexy, matching
+NsfwClassifier.unsafeScore. Fixtures are pre-sized to 224x224 so resize
 interpolation never enters the comparison.
 
 Usage:
@@ -26,14 +26,18 @@ from ai_edge_litert.interpreter import Interpreter
 from PIL import Image
 
 INPUT_SIZE = 224
+HENTAI, PORN, SEXY = 1, 3, 4
+SEXY_WEIGHT = 0.5  # must match NsfwClassifier.SEXY_WEIGHT
 
 
 def score(interpreter: Interpreter, image_path: Path) -> float:
     image = Image.open(image_path).convert("RGB")
     if image.size != (INPUT_SIZE, INPUT_SIZE):
-        raise ValueError(f"{image_path} is {image.size}, expected {INPUT_SIZE}x{INPUT_SIZE}")
+        raise ValueError(
+            f"{image_path} is {image.size}, expected {INPUT_SIZE}x{INPUT_SIZE}"
+        )
 
-    pixels = np.asarray(image, dtype=np.uint8)  # HWC, RGB
+    pixels = np.asarray(image, dtype=np.float32) / 255.0  # HWC, RGB, [0,1]
     input_tensor = pixels[np.newaxis, ...]  # NHWC
 
     input_details = interpreter.get_input_details()[0]
@@ -41,10 +45,11 @@ def score(interpreter: Interpreter, image_path: Path) -> float:
 
     interpreter.set_tensor(input_details["index"], input_tensor)
     interpreter.invoke()
-    raw = interpreter.get_tensor(output_details["index"])[0]  # [nonnude, nude], uint8
+    probs = interpreter.get_tensor(output_details["index"])[
+        0
+    ]  # drawings, hentai, neutral, porn, sexy
 
-    scale, zero_point = output_details["quantization"]
-    return float((int(raw[1]) - zero_point) * scale)
+    return float(probs[HENTAI] + probs[PORN] + SEXY_WEIGHT * probs[SEXY])
 
 
 def main() -> None:

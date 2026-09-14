@@ -6,15 +6,18 @@ import org.junit.Test
 class NsfwClassifierTest {
 
     @Test
-    fun `dequantize maps a raw byte to a probability using scale`() {
-        assertEquals(0f, NsfwClassifier.dequantize(0, scale = 0.00390625f, zeroPoint = 0), 1e-6f)
-        assertEquals(0.5f, NsfwClassifier.dequantize(128, scale = 0.00390625f, zeroPoint = 0), 1e-6f)
-        assertEquals(0.99609375f, NsfwClassifier.dequantize(255, scale = 0.00390625f, zeroPoint = 0), 1e-6f)
+    fun `unsafeScore sums hentai and porn plus half of sexy`() {
+        // drawings, hentai, neutral, porn, sexy
+        assertEquals(0.65f, NsfwClassifier.unsafeScore(floatArrayOf(0.1f, 0.2f, 0.1f, 0.3f, 0.3f)), 1e-6f)
     }
 
     @Test
-    fun `dequantize subtracts a non-zero zero point before scaling`() {
-        assertEquals(0f, NsfwClassifier.dequantize(128, scale = 0.00787402f, zeroPoint = 128), 1e-6f)
-        assertEquals(-1f, NsfwClassifier.dequantize(0, scale = 0.00787401575f, zeroPoint = 127), 1e-4f)
+    fun `a pure sexy frame cannot reach the default explicit threshold`() {
+        assertEquals(0.5f, NsfwClassifier.unsafeScore(floatArrayOf(0f, 0f, 0f, 0f, 1f)), 1e-6f)
+    }
+
+    @Test
+    fun `unsafeScore ignores drawings and neutral`() {
+        assertEquals(0f, NsfwClassifier.unsafeScore(floatArrayOf(0.6f, 0f, 0.4f, 0f, 0f)), 1e-6f)
     }
 }

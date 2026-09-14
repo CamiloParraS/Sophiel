@@ -19,6 +19,11 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    // A compressed .tflite cannot be memory-mapped and fails to load at runtime.
+    androidResources {
+        noCompress += "tflite"
+    }
+
     buildTypes {
         release {
             optimization {

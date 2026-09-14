@@ -6,17 +6,17 @@ import java.nio.ByteOrder
 
 /**
  * Resizes frames to the classifier's expected input and packs them into the
- * raw uint8 RGB byte layout [NsfwClassifier]'s model consumes directly.
+ * float32 RGB layout [NsfwClassifier]'s model consumes.
  *
  * SINGLE source of truth for preprocessing. `tools/reference_infer.py` must
- * match this exactly (channel order, byte layout) or the M1 parity gate
- * fails — see SPEC.md M1.
+ * match this exactly (channel order, normalization, byte layout) or the M1
+ * parity gate fails — see SPEC.md M1.
  */
 object Preprocessor {
     const val INPUT_SIZE = 224
     private const val CHANNELS = 3
 
-    /** Resizes [bitmap] to [INPUT_SIZE] if needed and returns a ready-to-run RGB uint8 buffer. */
+    /** Resizes [bitmap] to [INPUT_SIZE] if needed and returns a ready-to-run float32 RGB buffer. */
     fun toInputBuffer(bitmap: Bitmap): ByteBuffer {
         val scaled = if (bitmap.width == INPUT_SIZE && bitmap.height == INPUT_SIZE) {
             bitmap
@@ -30,19 +30,18 @@ object Preprocessor {
     }
 
     /**
-     * Packs ARGB_8888 pixels into RGB uint8 bytes, dropping alpha.
+     * Packs ARGB_8888 pixels into NHWC float32 RGB in `[0,1]`, dropping alpha.
      *
-     * The model's input tensor is itself uint8 with baked-in quantization
-     * (see docs/DECISIONS.md D9), so raw 0-255 pixel bytes are the correct
-     * input — no float normalization step belongs here.
+     * `[0,1]` (divide by 255) matches GantMan/nsfw_model's own `predict.py`
+     * (see docs/DECISIONS.md D12).
      */
     internal fun packRgb(pixels: IntArray): ByteBuffer {
-        val buffer = ByteBuffer.allocateDirect(pixels.size * CHANNELS)
+        val buffer = ByteBuffer.allocateDirect(pixels.size * CHANNELS * Float.SIZE_BYTES)
         buffer.order(ByteOrder.nativeOrder())
         for (pixel in pixels) {
-            buffer.put(((pixel shr 16) and 0xFF).toByte()) // R
-            buffer.put(((pixel shr 8) and 0xFF).toByte()) // G
-            buffer.put((pixel and 0xFF).toByte()) // B
+            buffer.putFloat(((pixel shr 16) and 0xFF) / 255f) // R
+            buffer.putFloat(((pixel shr 8) and 0xFF) / 255f) // G
+            buffer.putFloat((pixel and 0xFF) / 255f) // B
         }
         buffer.rewind()
         return buffer
