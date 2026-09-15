@@ -268,3 +268,58 @@ sawtooth) but ~3× under the bound and ~14× under the proven-leaky `+35.5 MB`
 signal with `close()` removed. Open question (unchanged): SPEC M2.V5 wording asks
 for an Android Studio Profiler pass — human decides whether this automated
 evidence closes V5.
+
+---
+
+## D14 — `AppContainer` / `SophielApp` introduced in M3, cross-component wiring (SPEC.md §2.4/§3.2)
+
+SPEC.md §3.2's directory tree lists `SophielApp.kt` and `AppContainer.kt` from the
+start, but M0–M2 never needed them — `testFeedScreen` just called
+`DetectorFactory.create(context)` locally. M3 is the first point where two
+independent Android components (`MainActivity`, `ProjectionService`) must observe
+and drive the *same* `ProjectionController` (§4.4 state machine) even though the
+service outlives any one Activity instance across rotation/recreation. That's a
+real cross-component need, not speculative — so this is where D2's planned
+container finally gets built, as a single field (`projectionController`) on a
+`SophielApp : Application` reached via `(application as SophielApp).container`.
+
+- `ProjectionController` (`app/capture/ProjectionController.kt`) wraps a pure,
+  Android-type-free reducer, `ProjectionStateMachine.reduce(state, event)`
+  (`app/capture/ProjectionStateMachine.kt`), so the §4.4 diagram's transitions are
+  JVM-unit-testable without Robolectric. `ProjectionStateMachineTest` covers the
+  granted/denied/cancelled/blocked/retry/happy-path/no-op cases.
+- Android side effects (permission requests, launching the consent intent,
+  starting/stopping the service) are supplied by the current Activity via a
+  `ProjectionController.Effects` interface, attached in `onStart()` and cleared in
+  `onStop()` — never held past an Activity instance's life, so rotation can't leak
+  one.
+- The `MediaProjection` consent result's `resultCode`/`data` are **not** threaded
+  through the controller/reducer — they're plain fields on `MainActivity`, set by
+  the consent `ActivityResultLauncher` callback and read by the
+  `startCaptureService` effect when building the service `Intent`. Keeps the state
+  machine's event set free of `android.content.Intent`.
+- Two more pure, JVM-testable pieces followed the same reasoning:
+  `FrameThrottle` (drops frames inside the 80 ms floor, SPEC.md M3) and
+  `BlackFrameDetector.isAllBlack(IntArray)` (the `FLAG_SECURE` all-black check,
+  SPEC.md §4.2), both operating on primitives/arrays rather than `Bitmap` so no
+  Android framework dependency is needed to test them.
+- Added `implementation(libs.kotlinx.coroutines.core)` to `app/build.gradle.kts` —
+  `Detector.analyze()` is a suspend fun and `:app` previously had no coroutines
+  dependency of its own (it only reached `DetectionPipeline` through `:safecore`'s
+  public API, without needing `CoroutineScope`/`launch` itself until now).
+
+---
+
+## D15 — Debug overlay "pill" deferred past M3 (human request, 2026-09-14)
+
+While approving the M3 design, the human asked for a `TYPE_APPLICATION_OVERLAY`
+debug pill showing live verdicts, "focus on the other tasks first and then
+evaluate the idea." Recorded here rather than silently built or silently
+dropped, because it runs directly against SPEC.md's M3 design: *"No overlay
+yet — results go to the notification and Logcat... Separating capture from
+overlay is deliberate. Two hard subsystems debugged at once is one subsystem
+too many"* (§5 M3), and CLAUDE.md's hard rule 8 / stop-and-ask list ("you want
+to add something not in scope"). M3's own notification already surfaces the
+live verdict+score, which covers the "easier to see results" need without
+touching `WindowManager` a milestone early. Not implemented. Revisit explicitly
+with the human once M3 verification is done, rather than folding it in here.

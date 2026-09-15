@@ -807,7 +807,7 @@ python tools/eval.py --labels eval/labels.csv --images eval/images --out docs/RE
 
 ## 10. Milestone checklist
 
-- [ ] **M0** Skeleton — builds, installs, no `INTERNET`
+- [x] **M0** Skeleton — builds, installs, no `INTERNET`
 - [x] **M1** Model — converted, **parity gate passed**
 - [x] **M2** Pipeline + Test Feed — permission-free, end-to-end
 - [ ] **M3** Capture — frames flowing, all permission paths handled

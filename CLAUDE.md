@@ -11,122 +11,56 @@ Agent entrypoint for **Sophiel**. Read this fully, then read `./docs/SPEC.md`.
 > **Update this block at the end of every work session. It is the first thing you and I both read.**
 
 ```
-CURRENT MILESTONE:  M2 — Pipeline and Test Feed
-STATUS:             code complete, verified on-device — V1-V4 pass, V5 only proxy-checked.
-                    MODEL SWAPPED 2026-09-14 (docs/DECISIONS.md D12): GantMan MobileNetV2
-                    5-class float tflite replaces D9's AutoML model; score = hentai+porn+sexy.
-                    M1 re-verified: V1 17.36 MB PASS · V3 ParityTest on SM-S721B PASS (expected
-                    _logits.json regenerated) · :safecore:test PASS · installDebug OK · aapt: no
-                    INTERNET. M2.V4 NOT re-checked with the new model, and SkinGate minRatio is
-                    locally 0.0f (gate effectively off, uncommitted human experiment) — restore
-                    0.05f and re-run V4 before closing M2.
-                    PIPELINE FIX 2026-09-14: DetectionPipeline cached post-policy severity and
-                    skipped PolicyEngine on cache hits / gated frames, so a static explicit
-                    screen stuck at SUGGESTIVE forever. Now policy runs on every frame. New
-                    androidTest PipelineHysteresisTest: FAILS on old code (EXPLICIT expected,
-                    SUGGESTIVE actual), PASSES on new; ParityTest PASS; both on Device A (A71).
-                    Test feed note: tiles share one PolicyEngine, so hysteresis carries across
-                    unrelated tiles (score≈0 can read EXPLICIT for ≤2 tiles after explicit ones)
-                    — expected for a frame stream, not a bug.
-                    SCORE 2026-09-14: hentai + porn + 0.5*sexy (D12, SEXY_WEIGHT knob);
-                    expected_logits regenerated; ParityTest PASS on both devices.
-                    V4 re-checked by human with minRatio back at 0.05f: settings screenshot
-                    gated=true. PASS. (Human noted some dim-lit images also get gated — logged
-                    in D12 for M5.)
-                    V5 AUTOMATED EVIDENCE 2026-09-14: androidTest DetectorLeakTest, 5 create/
-                    analyze/close cycles vs a pre-create native-heap baseline. Proven sensitive:
-                    with close() removed it FAILS (+35.5 MB over baseline on A71). With close():
-                    A71 baseline 7012 KB → cycles 7995–8711 KB; S721B 6957 → 6986 KB flat;
-                    threads 13 constant on both. PASS on both devices. RE-RUN 2026-09-14
-                    ~10:45/10:51 UTC after SEXY_WEIGHT 0.5 (human, logcat `Sophiel:I V5`):
-                    Device B baseline 6929 KB → cycles 6959/6960×5 flat, threads 13 PASS;
-                    Device A baseline 6931 KB → cycles 8869/9503/8881/8228/9125 KB
-                    (worst +2572 KB < 8192 KB bound), threads 13 PASS. No monotonic growth.
-                    SPEC wording still says "via Android Studio Profiler" — human decides
-                    whether this test closes V5 or a Profiler pass is still wanted.
-                    PROFILER PASS 2026-09-14 (human, Device A, docs/Tests/M2 V5 Tests Device A, last
-                    run): native 6.5 MB → 422 MB (open 1) → 809 MB (open 2) → flat ~809 MB for
-                    cycles 3-6 (brief ~668 MB dip on each reopen). Human read it as a fail.
-                    Diagnosis: NOT a Detector leak — testFeedScreen decoded the 56 bundled PNGs
-                    at full resolution (up to 4096 px) = 385.6 MB of native bitmap memory per
-                    screen open; GC frees the previous set lazily, so the plateau is one stale
-                    set + one live set. Bounded, no growth after open 2.
-                    FIX: testFeedScreen decodes with power-of-two inSampleSize keeping short side
-                    ≥ 360 px (SPEC §4.6 capture size) → 71.1 MB per set. installDebug OK, aapt no
-                    INTERNET. Re-measured via adb + dumpsys meminfo (Native Heap Alloc, NOT
-                    Profiler) on Device A, 5 cycles: baseline 11 → feed 121 → 201 → 201/202/201;
-                    Protection 92-93 MB flat. Same bounded shape, ~4x smaller. Caveat: the
-                    before-fix numbers are the human's Profiler readings, not this adb script,
-                    so "4x" compares two tools.
-                    PROFILER PASS 2 2026-09-14 (human, Device A, fixed build, docs/Tests/M2 V5
-                    Test2 Device A/results.md): native 6.3 MB → 116 MB (open 1) → ~199 MB (open
-                    2) → flat ~198-199 MB through cycle 8+ (total ~343 MB); ~1 s dip / ~0.5 s
-                    spike on each reopen; no difference Protection vs TestFeed; screen off →
-                    back to cycle-1 level. Matches the adb re-measure (121 → 201). Bounded
-                    plateau, no growth over 8 cycles = no leak; plateau is one live + one
-                    not-yet-collected image set/Detector, reclaimed when GC runs.
-                    PROFILER PASS Device B 2026-09-14 (human): same bounded plateau, upward
-                    GC-marked spikes on each reopen instead of dips (faster decode/model init
-                    lands before GC frees the old set). PASS.
-                    V5 VERDICT: agent recommends PASS (Profiler per SPEC + DetectorLeakTest);
-                    awaiting human confirmation before marking M2 closed.
-                    FINAL M2 CHECK 2026-09-14 (current working tree, incl. human's
-                    testFeedScreen rename): :safecore:test all pass; connectedAndroidTest
-                    (Parity, PipelineHysteresis, DetectorLeak) PASS on A71 + S721B;
-                    installDebug OK on both; aapt no INTERNET. V3 re-verified on Device A via
-                    adb scroll: fixture_00 cacheHit=false on open → cacheHit=true, 1 ms after
-                    scroll-to-bottom-and-back. PASS. → M2 ready to close; M3 next.
-                    GIT HYGIENE before committing: `docs/M2 V5 Tests Device A/*` (5 PNG + md)
-                    are STAGED in the index though moved on disk — unstage (hard rule 4).
-                    `live-view-*.asdb` (Profiler capture) untracked in repo root — don't
-                    commit. safecore/.gitignore's `/docs/M2 V5 Tests Device A*` line is a no-op
-                    (path relative to safecore/). HEAD 336c6aa changed SEXY_WEIGHT without its
-                    parity reference/logits/test — those are still uncommitted.
-                    Side note: the bottom nav bar sits under the system navigation bar (only
-                    16 px of the buttons exposed on the A71) — separate UI bug, not fixed here.
-LAST VERIFIED:      2026-09-13 · Verified on a connected Samsung SM-S721B (API 36). Concrete
-                    Device A/B models are still unassigned in docs/DECISIONS.md ("to be
-                    filled in by the human before M3") — this was the only device attached,
-                    treated as Device A for this session, human should confirm/update
-                    DECISIONS.md before M3.
-                    V1 — aapt dump permissions on rebuilt debug APK: no INTERNET. PASS.
-                    V2 — testFeedScreen renders, every tile shows a verdict line. PASS.
-                    V3 — FAILED initially: scrolling fixture_00 off/back on-screen never
-                    re-ran its LaunchedEffect (cacheHit stayed false), because the original
-                    10 short tiles barely exceeded one viewport's height, so Compose never
-                    disposed/recomposed the item — confirmed via a temporary Log.d instrumented
-                    in LaunchedEffect (removed after diagnosis). Fixed in testFeedScreen.kt by
-                    repeating the bundled 10 fixtures REPEAT_COUNT=4 times (40 tiles, same
-                    Bitmap objects reused, no new image content) so a real scroll-away/back
-                    forces disposal. Re-verified: fixture_00 shows cacheHit=true, 0ms after
-                    fling-to-bottom-and-back. PASS.
-                    V4 — none of the 10 synthetic fixtures resembled a real UI screenshot, so
-                    V4 (skin gate rejects a plain settings screen) had nothing to test against.
-                    Human supplied two real device screenshots (Settings home, phone home
-                    screen, no name/face) — added as app/src/main/assets/testfeed/zz_*.png,
-                    gitignored (not committed — see .gitignore comment; these are real
-                    captured content, not synthetic parity fixtures like fixture_00-09, so a
-                    fresh clone won't have them and would need the human to re-supply them).
-                    Confirmed zz_settings_screenshot.png → gated=true, score=0.00, classifier
-                    never invoked. Bonus: zz_homescreen_screenshot.png (has a skin-toned photo
-                    in a media widget) → gated=false, score=0.02 — gate discriminates rather
-                    than blanket-rejecting screenshots. PASS.
-                    V5 — NOT fully verified. No Android Studio Profiler session available
-                    headlessly; instead cycled TestFeed↔Protection 5x (each cycle disposes and
-                    recreates the Detector via DisposableEffect) and watched `adb shell dumpsys
-                    meminfo`: native heap stabilized ~71-72MB after cycle 1 (no monotonic
-                    growth across cycles 2-5), TOTAL PSS trended down, no exceptions in
-                    logcat. This is a proxy signal only, not the Profiler-based leak check
-                    SPEC.md M2.V5 asks for — human must still run the real Profiler pass
-                    across 5 cycles before M2 is fully closed.
-BLOCKED ON:         Human to (1) run the real Android Studio Profiler check for V5 across 5
-                    close()/recreate cycles, (2) decide whether to commit the testFeedScreen.kt
-                    fix (REPEAT_COUNT) and .gitignore change now sitting uncommitted.
-                    Device roles now assigned in DECISIONS.md D1 (2026-09-14): Device A =
-                    Galaxy A71 (SM-A715F), Device B = SM-S721B. The 2026-09-13 notes below
-                    that say "treated as Device A" were actually run on Device B.
-NEXT:               Close out M2.V5 on-device via Profiler, then M3 — Capture
-                    (ProjectionController, ProjectionService, FrameSource; SPEC.md §5 M3).
+CURRENT MILESTONE:  M3 — Capture
+STATUS:             code complete on branch feat/capture (created off main, which has M2
+                    merged). NOT yet verified on-device — no device was attached this
+                    session (`adb devices` empty). Human must run V1-V7 on Device A first.
+                    Built: ProjectionStateMachine.kt (pure §4.4 reducer) + ProjectionController
+                    (stateful wrapper, Effects interface for Android side effects, attached by
+                    MainActivity in onStart/cleared in onStop) + FrameThrottle (80ms floor) +
+                    BlackFrameDetector (FLAG_SECURE all-black check) + FrameSource (ImageReader,
+                    rowStride crop, always closes Image) + ProjectionService (rewritten from the
+                    M0 stub: startForeground(..., FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION)
+                    before getMediaProjection(), MediaProjection.Callback.onStop wired to
+                    teardown, onConfigurationChanged does resize()+setSurface() not recreate,
+                    notification shows live verdict+score, Log.d(Sophiel, ...) per frame).
+                    Introduced AppContainer.kt + SophielApp.kt (DECISIONS.md D14) — first time
+                    M0-M2 didn't need cross-component (Activity+Service) shared state.
+                    MainActivity's Protection destination is no longer a stub: Start/Stop button
+                    driven by controller.state, wires the POST_NOTIFICATIONS and consent
+                    ActivityResultLaunchers.
+                    TESTS FIRST (TDD, per user request): app/src/test/kotlin/dev/sophiel/capture/
+                    ProjectionStateMachineTest (12 cases: granted/denied/cancelled/blocked/retry/
+                    happy-path/no-op), FrameThrottleTest, BlackFrameDetectorTest — all written
+                    before their implementations, all pass. app had no src/test before this.
+                    VERIFIED THIS SESSION (no device required): `:app:testDebugUnitTest` +
+                    `:safecore:test` all pass; `:app:assembleDebug` succeeds; `aapt dump
+                    permissions` on the new APK — no INTERNET. `:app:installDebug` NOT run (no
+                    device attached).
+                    NOT YET VERIFIED (needs Device A, per SPEC.md M3's V1-V7): full permission
+                    flow from cold install (V1); deny-overlay -> BLOCKED (V2); cancel-consent ->
+                    IDLE (V3); rotation mid-session does not throw SecurityException (V4);
+                    status-bar stop tears down cleanly, dumpsys media_projection shows nothing
+                    (V5); 10 min continuous capture, no stall/IllegalStateException (V6);
+                    FLAG_SECURE app (e.g. a banking app) surfaces "protected content" not 0.0
+                    (V7).
+                    DEFERRED (DECISIONS.md D15): human asked for a debug overlay "pill" showing
+                    live verdicts, to evaluate after other M3 work. This conflicts with SPEC.md's
+                    explicit M3/M4 separation ("no overlay yet... two hard subsystems debugged at
+                    once is one too many") and CLAUDE.md's out-of-scope stop-and-ask rule. Not
+                    built. Bring back to the human explicitly once M3 verification lands — the
+                    notification already surfaces live verdict+score in the meantime.
+M2 CLOSED:          2026-09-14, confirmed by the human. All V1-V5 passed on both devices
+                    (Device A = Galaxy A71, Device B = SM-S721B, per DECISIONS.md D1); model is
+                    GantMan MobileNetV2 (D12), score = hentai+porn+0.5*sexy. Full history
+                    (model swap, the DetectionPipeline hysteresis fix, the V5 Profiler saga,
+                    git-hygiene notes) lives in prior commits' CLAUDE.md revisions and
+                    DECISIONS.md D9-D13 — not repeated here.
+BLOCKED ON:         Human with Device A: run SPEC.md M3's V1-V7 on-device (see STATUS above),
+                    then either fix what fails or confirm M3 closed. Also decide whether/how to
+                    build the deferred debug pill (DECISIONS.md D15).
+NEXT:               After M3 verification: M4 — Overlay (MaskView, OverlayController,
+                    tap-to-reveal, threshold slider; SPEC.md §5 M4). Feature freeze at end of M4.
 ```
 
 Milestones are **strictly sequential**. Do not start M(n+1) until every verification item in M(n) passes. If you believe a milestone should be skipped or reordered, stop and ask.
