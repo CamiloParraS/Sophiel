@@ -390,6 +390,8 @@ This is the highest-risk area of the project. Implement it exactly as specified.
 | Apps using `FLAG_SECURE` yield black frames.                                                                                    | Detect all-black frames and surface "protected content — not analyzable" rather than scoring them.                   |
 | The user can revoke the session from the status bar at any time.                                                                | Register `MediaProjection.Callback.onStop()` and tear down cleanly. Untested teardown leaks the `VirtualDisplay`.    |
 | Overlays cannot be drawn over system permission dialogs or parts of system UI.                                                  | Never claim total coverage. State this in `docs/LIMITATIONS.md`.                                                     |
+| Android 15+ stops the projection when a secure keyguard (PIN/fingerprint) locks the device. A session cannot outlive screen-off. | Tear down on `ACTION_SCREEN_OFF` (DECISIONS.md D18). Resuming needs fresh consent; there is no silent re-init.        |
+| `MediaProjection` mirrors the composited display, **including our own overlay windows** (observed with the debug pill, D18).    | Anything we draw is in the next frame. See M4's feedback-loop note.                                                   |
 
 ### 4.3 `SYSTEM_ALERT_WINDOW` is not a runtime permission
 
@@ -461,7 +463,11 @@ val cropped = Bitmap.createBitmap(bitmap, 0, 0, width, height)
 image.close()
 ```
 
-Configure the reader as `ImageReader.newInstance(w, h, PixelFormat.RGBA_8888, /* maxImages = */ 2)` and use `acquireLatestImage()`, which discards backlog. **Drop frames rather than queue them** — the pipeline must never build a backlog.
+Configure the reader as `ImageReader.newInstance(w, h, PixelFormat.RGBA_8888, /* maxImages = */ 2)` and use `acquireLatestImage()`, which discards backlog. **Drop frames rather than queue them** — the pipeline must never build a backlog. Concretely (DECISIONS.md D19):
+
+- **Decide before decoding.** Check the throttle and "is a frame already being analysed?" _before_ copying the `Image` into a `Bitmap`. The display produces 60–120 frames/s; decoding each one only to drop it is wasted CPU and GC.
+- **One frame in flight.** The 80 ms throttle alone is not backpressure: if analysis takes longer than 80 ms, frames queue on the inference thread without bound. Drop new frames while one is in flight.
+- **Close on the owning thread.** Close the `ImageReader` on its own handler thread, and the interpreter on the inference thread. Closing either one from another thread mid-use is a native use-after-free: SIGSEGV with no Java stack trace (observed on Device B).
 
 ### 4.6 Capture resolution
 
@@ -474,6 +480,8 @@ val captureH = (screenHeight * scale).toInt() and 0xFFFFFFFE.toInt()
 ```
 
 The classifier input is 224×224. Capturing 1440p to downscale to 224 wastes bandwidth, memory, and battery for no accuracy gain. Pass the real device `densityDpi` to `createVirtualDisplay()`.
+
+**Crop the system bars, and only the system bars.** Before a frame reaches `Detector.analyze()`, crop the status bar, navigation bar, and display cutout. Get them from `WindowMetrics` insets via `getInsetsIgnoringVisibility(systemBars() | displayCutout())`, scaled to capture size and recomputed in `onConfigurationChanged()`. They are never content, but they are always in the frame. Do **not** center-crop: a portrait screen is ~2:1, so a center square discards about half of it, and explicit content at the top or bottom of a feed would be silently missed. Recall matters more than tidiness here. The remaining aspect mismatch is handled by squashing to 224×224 in `Preprocessor`, which matches how the model was trained (Keras `load_img(target_size=…)` also ignores aspect). Content-aware ROI segmentation needs a detector and is out of scope (§1.3). If M5 shows recall loss on tall frames, the upgrade is tiling: two square crops, take the max score, at 2× classifier cost.
 
 ---
 
@@ -608,6 +616,8 @@ WindowManager.LayoutParams(
 
 Omitting `FLAG_NOT_FOCUSABLE` steals input from every other app and makes the device feel bricked. On API 31+, prefer `RenderEffect.createBlurEffect()` over manually blurring bitmaps.
 
+**Feedback-loop trap.** The mask is itself captured (§4.2). Once engaged, the next frames show the scrim, not the content. They score SAFE, hysteresis releases after 3 frames, the content reappears, and the mask re-engages: it strobes. Decide how frames are treated while masked before writing `OverlayController` (for example, freeze the verdict while masked and re-evaluate only on tap-to-reveal or a large dHash change), and cover it in V2.
+
 **Verification**
 
 - `V1` — Explicit content in a gallery app triggers the overlay within 400 ms.
@@ -694,7 +704,14 @@ class SkinGate(private val minRatio: Float = 0.05f) {
 }
 ```
 
-Use the standard YCbCr rule — roughly `Cr ∈ [133, 173]`, `Cb ∈ [77, 127]` — which is far more robust across skin tones than an RGB threshold. Tune `minRatio` in M5 against the UI corpus (§7.3) and report the chosen value.
+Use the standard YCbCr rule — roughly `Cr ∈ [133, 173]`, `Cb ∈ [77, 127]` — which is far more robust across skin tones than an RGB threshold. On its own, though, the box's lower `Cr` edge is only 5 above neutral gray, so warm-tinted grayscale and dim warm scenes pass. Add two guards (DECISIONS.md D19):
+
+- `Y ≥ 40`: near-black pixels carry mostly noise chroma.
+- `Cr − Cb ≥ 20`: roughly `0.67·(R − B)`, exactly 0 for any gray, so this demands real skin-ward chroma.
+
+Tune `minRatio`, `MIN_LUMA`, and `MIN_SKIN_CHROMA` in M5 against the UI corpus (§7.3) plus low-light skin images, and report the chosen values.
+
+**Known blind spot:** any colour-based gate sees a true black-and-white image as zero skin, so it is gated SAFE without being classified. This is the unrecoverable direction. Measure it in M5 (include B&W images in the eval set) and state it in §8. Do not "fix" it by classifying every achromatic frame: dark-mode UIs are achromatic too, and the gate's hit rate would collapse.
 
 Expect the gate to reject 60–80% of typical screen content. That is most of your battery budget saved, and it is exactly the kind of measurable engineering decision to feature in your report.
 
@@ -764,13 +781,14 @@ Copy into `docs/LIMITATIONS.md` and expand with your measured numbers.
 
 1. **Reactive, not preventive.** Analysis happens after the content is drawn. Masking lands in ~200–400 ms; a fast reader may glimpse content. "Before you engage" is a UX goal, not a technical guarantee.
 2. **`FLAG_SECURE` blindness.** Apps that mark their windows secure yield black frames and cannot be analyzed.
-3. **Consent friction.** The system requires fresh consent for every capture session. Protection cannot survive a reboot silently, by design.
+3. **Consent friction.** The system requires fresh consent for every capture session. Protection cannot survive a reboot, or turning the screen off, silently, by design. Android 15+ itself ends the projection on a secure lock.
 4. **Whole-frame decisions.** A classifier, not a localizer. The entire screen is masked.
 5. **Threshold is a value judgement.** "Explicit" is contextual and culturally variable. The threshold is user-configurable precisely because no single value is correct.
 6. **Single-model bias.** Inherits the biases of its training data. State what is known about the source dataset.
 7. **Small evaluation set.** N is a few hundred, self-labeled. Report confidence intervals, not just point estimates.
 8. **Overlay gaps.** System dialogs and portions of system UI cannot be covered.
 9. **Energy figures are whole-device estimates**, valid only unplugged. Isolating NPU/CPU power requires vendor profiling tools.
+10. **Grayscale blindness in the skin gate.** True black-and-white imagery has no skin chroma and is gated SAFE without classification (§6.1). Report the measured miss rate.
 
 ---
 

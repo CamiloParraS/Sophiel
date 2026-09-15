@@ -11,6 +11,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.ServiceInfo
 import android.graphics.Bitmap
+import android.graphics.Rect
 import android.hardware.display.DisplayManager
 import android.hardware.display.VirtualDisplay
 import android.media.projection.MediaProjection
@@ -20,6 +21,7 @@ import android.os.IBinder
 import android.os.SystemClock
 import android.util.DisplayMetrics
 import android.util.Log
+import android.view.WindowInsets
 import android.view.WindowManager
 import androidx.core.app.NotificationCompat
 import androidx.core.content.IntentCompat
@@ -142,7 +144,7 @@ class ProjectionService : Service() {
     private fun startCapture(projection: MediaProjection) {
         detector = DetectorFactory.create(applicationContext)
         val size = computeCaptureSize()
-        val source = FrameSource(size.width, size.height, ::onFrame)
+        val source = FrameSource(size.width, size.height, size.crop, ::wantsFrame, ::onFrame)
         frameSource = source
         virtualDisplay = projection.createVirtualDisplay(
             "SophielCapture",
@@ -158,38 +160,44 @@ class ProjectionService : Service() {
         super.onConfigurationChanged(newConfig)
         val display = virtualDisplay ?: return
         val size = computeCaptureSize()
-        val newSource = FrameSource(size.width, size.height, ::onFrame)
+        val newSource = FrameSource(size.width, size.height, size.crop, ::wantsFrame, ::onFrame)
         display.resize(size.width, size.height, size.densityDpi)
         display.setSurface(newSource.surface)
         frameSource?.close()
         frameSource = newSource
     }
 
-    private fun onFrame(bitmap: Bitmap) {
-        val now = SystemClock.elapsedRealtime()
-        if (!throttle.shouldProcess(now)) return
-        val detector = detector ?: return
+    /** Called on the FrameSource thread before an Image is decoded; false drops it undecoded. */
+    private fun wantsFrame(): Boolean =
+        detector != null && inFlight?.isActive != true && throttle.shouldProcess(SystemClock.elapsedRealtime())
 
-        serviceScope.launch {
-            val pixels = IntArray(bitmap.width * bitmap.height)
-            bitmap.getPixels(pixels, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
-            if (BlackFrameDetector.isAllBlack(pixels)) {
-                Log.d(TAG, "protected content (all-black frame, likely FLAG_SECURE)")
-                updateNotification("Protected content — not analyzable")
-                debugPill?.update("PROTECTED — not analyzable")
-                return@launch
+    private fun onFrame(bitmap: Bitmap) {
+        val detector = detector ?: return bitmap.recycle()
+
+        inFlight = serviceScope.launch {
+            try {
+                val pixels = IntArray(bitmap.width * bitmap.height)
+                bitmap.getPixels(pixels, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
+                if (BlackFrameDetector.isAllBlack(pixels)) {
+                    Log.d(TAG, "protected content (all-black frame, likely FLAG_SECURE)")
+                    updateNotification("Protected content — not analyzable")
+                    debugPill?.update("PROTECTED — not analyzable")
+                    return@launch
+                }
+                val verdict = detector.analyze(bitmap)
+                Log.d(
+                    TAG,
+                    "severity=${verdict.severity} score=${verdict.score} gated=${verdict.gated} latencyMs=${verdict.latencyMs}"
+                )
+                updateNotification(verdict)
+                debugPill?.update(
+                    "%s · score=%.2f · gated=%b · %dms".format(
+                        verdict.severity, verdict.score, verdict.gated, verdict.latencyMs,
+                    ),
+                )
+            } finally {
+                bitmap.recycle()
             }
-            val verdict = detector.analyze(bitmap)
-            Log.d(
-                TAG,
-                "severity=${verdict.severity} score=${verdict.score} gated=${verdict.gated} latencyMs=${verdict.latencyMs}"
-            )
-            updateNotification(verdict)
-            debugPill?.update(
-                "%s · score=%.2f · gated=%b · %dms".format(
-                    verdict.severity, verdict.score, verdict.gated, verdict.latencyMs,
-                ),
-            )
         }
     }
 
@@ -201,7 +209,6 @@ class ProjectionService : Service() {
         virtualDisplay?.release()
         frameSource?.close()
         mediaProjection?.stop()
-        detector?.close()
         serviceScope.cancel()
         detector?.close() // waits out any in-flight inference
         controller.onTeardownComplete()
@@ -222,7 +229,21 @@ class ProjectionService : Service() {
         val scale = MIN_CAPTURE_SHORT_SIDE / minOf(metrics.widthPixels, metrics.heightPixels)
         val width = (metrics.widthPixels * scale).toInt() and 0xFFFFFFFE.toInt()
         val height = (metrics.heightPixels * scale).toInt() and 0xFFFFFFFE.toInt()
-        return CaptureSize(width, height, metrics.densityDpi)
+
+        // Crop status/navigation bars and the cutout (SPEC.md §4.6): never content, always in
+        // the frame. "Ignoring visibility" keeps the crop stable when an app hides the bars,
+        // so the dHash cache isn't invalidated by a fullscreen toggle.
+        val crop = Rect(0, 0, width, height)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            val bars = windowManager.currentWindowMetrics.windowInsets
+                .getInsetsIgnoringVisibility(WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout())
+            crop.set(
+                (bars.left * scale).toInt(), (bars.top * scale).toInt(),
+                width - (bars.right * scale).toInt(), height - (bars.bottom * scale).toInt(),
+            )
+        } // ponytail: no bar crop below API 30 (no insets API from a Service); both project devices are 33+.
+        Log.d(TAG, "capture ${width}x$height crop=$crop")
+        return CaptureSize(width, height, metrics.densityDpi, crop)
     }
 
     private fun startForegroundWithType() {
@@ -267,4 +288,4 @@ class ProjectionService : Service() {
     }
 }
 
-private data class CaptureSize(val width: Int, val height: Int, val densityDpi: Int)
+private data class CaptureSize(val width: Int, val height: Int, val densityDpi: Int, val crop: Rect)

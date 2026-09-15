@@ -497,3 +497,47 @@ fresh consent dialog and reaches `RUNNING` again.
 
 **M3 V1-V7 now all verified PASS** (V1-V6 on Device A per D17, V7 and the screen-off fix on
 Device B this session). M3 is ready to close.
+
+---
+
+## D19 — Post-M3 hardening: capture crash, backpressure, bar crop, skin-gate guards (2026-09-15, human request)
+
+Human reported random background crashes, false gate triggers on grayscale and low-light
+frames, and border noise, and asked for capture optimizations. SPEC.md edits were authorised.
+
+**Crash root cause (evidence, not theory).** `adb logcat -b crash` on Device B showed
+`SIGSEGV` in `Bitmap_copyPixelsFromBuffer` on the `FrameSource` thread (twice), plus
+`IllegalStateException: Image is already closed` in `FrameSource.toCroppedBitmap`.
+`FrameSource.close()` closed the `ImageReader` from the main thread (teardown on screen-off,
+Stop, or rotation) while the listener was mid-copy on its own thread. Fixed by posting the
+close onto the reader's handler thread. The same pattern existed, unobserved, for
+`Interpreter.close()` versus an in-flight `run()`. `DetectionPipeline.close()` now closes on
+the inference thread via `runBlocking(dispatcher)` (blocking for at most one inference), and
+a `closed` flag makes a late `analyze()` throw `CancellationException` instead of touching a
+freed interpreter. Battery optimisation was never the cause.
+
+**Backpressure.** The 80 ms throttle ran *after* each `Image` was decoded, so every
+display frame (60-120/s) became a full-size bitmap copy before being dropped. There was also
+no in-flight check, so analysis slower than 80 ms queued work without bound, violating
+SPEC.md §4.5. `FrameSource` now asks `wantsFrame()` before decoding, and `ProjectionService`
+drops frames while one is in flight. Bitmaps are recycled after analysis.
+
+**Crop.** System bars and cutout are cropped via `WindowMetrics` insets (API 30+; no crop
+below). There is no center-crop: it would discard about half a portrait screen, which costs
+recall. Squash-to-224 is kept because it matches the model's Keras `load_img` training
+resize. Rationale is in SPEC.md §4.6. The crop rect is logged at session start
+(`capture WxH crop=Rect(...)`) — **not yet verified on-device that the insets are non-zero
+from a Service context.**
+
+**Skin gate.** Added `Y ≥ 40` and `Cr − Cb ≥ 20` to the YCbCr box (SPEC.md §6.1). Both are
+calibration knobs for M5. Tests pin that dark, pale, and dim skin still pass. The known
+blind spot, true B&W imagery being gated SAFE, is recorded in SPEC.md §6.1 and §8 rather
+than worked around.
+
+**Screen-off is not changed.** D18's teardown stands. Android 15+ ends projection on a
+secure lock anyway, and consent tokens are single-use. Re-initialising needs fresh consent,
+so the only UX lever is a "tap to resume" notification. That is not built; it is the
+human's call.
+
+**M4 trap recorded** in SPEC.md M4: the mask itself is captured, so it will strobe unless
+frames seen while masked are handled.
