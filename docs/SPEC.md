@@ -704,12 +704,11 @@ class SkinGate(private val minRatio: Float = 0.05f) {
 }
 ```
 
-Use the standard YCbCr rule — roughly `Cr ∈ [133, 173]`, `Cb ∈ [77, 127]` — which is far more robust across skin tones than an RGB threshold. On its own, though, the box's lower `Cr` edge is only 5 above neutral gray, so warm-tinted grayscale and dim warm scenes pass. Add two guards (DECISIONS.md D19):
+Use the standard YCbCr rule — roughly `Cr ∈ [133, 173]`, `Cb ∈ [77, 127]` — which is far more robust across skin tones than an RGB threshold. Ignore near-black pixels (`Y < 40`): their chroma is mostly noise (DECISIONS.md D19).
 
-- `Y ≥ 40`: near-black pixels carry mostly noise chroma.
-- `Cr − Cb ≥ 20`: roughly `0.67·(R − B)`, exactly 0 for any gray, so this demands real skin-ward chroma.
+**Do not add a minimum-chroma guard.** The box's lower `Cr` edge sits close to neutral gray, so warm-tinted grayscale does pass. But measured skin pixels on real and rendered images sit at `Cr − Cb` 8–15, which is the same band. A `Cr − Cb ≥ 20` guard gated 9 explicit test-feed images (D19). A colour rule cannot separate warm gray from pale skin, and letting warm gray through only costs a classifier run.
 
-Tune `minRatio`, `MIN_LUMA`, and `MIN_SKIN_CHROMA` in M5 against the UI corpus (§7.3) plus low-light skin images, and report the chosen values.
+Tune `minRatio` and `MIN_LUMA` in M5 against the UI corpus (§7.3) plus low-light skin images, and report the chosen values.
 
 **Known blind spot:** any colour-based gate sees a true black-and-white image as zero skin, so it is gated SAFE without being classified. This is the unrecoverable direction. Measure it in M5 (include B&W images in the eval set) and state it in §8. Do not "fix" it by classifying every achromatic frame: dark-mode UIs are achromatic too, and the gate's hit rate would collapse.
 

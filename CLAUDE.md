@@ -64,15 +64,21 @@ M2 CLOSED:          2026-09-14, confirmed by the human. All V1-V5 passed on both
                     (model swap, the DetectionPipeline hysteresis fix, the V5 Profiler saga,
                     git-hygiene notes) lives in prior commits' CLAUDE.md revisions and
                     DECISIONS.md D9-D13 — not repeated here.
-POST-M3 (D19):      2026-09-15 hardening on feat/capture, uncommitted.
-                    - Fixed the real background crash: ImageReader closed mid-copy (SIGSEGV in
-                      logcat).
-                    - Added interpreter close-on-inference-thread, decide-before-decode and
-                      one-frame-in-flight backpressure, the system-bar crop, and skin-gate
-                      luma/chroma guards.
+POST-M3 (D19):      2026-09-15 hardening on feat/capture.
+                    - Capture fixes committed (0672eb3, d68f96e): ImageReader and interpreter
+                      now close on their owning threads (the real SIGSEGV), plus
+                      decide-before-decode, one-frame-in-flight, and the system-bar crop.
+                    - Skin gate (uncommitted): luma floor Y>=40 only. A Cr-Cb>=20 chroma guard
+                      was tried and REVERTED because it gated 9 explicit test-feed images; real
+                      skin sits at Cr-Cb 8-15.
                     - SPEC.md §4.2/§4.5/§4.6/§6.1/§8 and M4 (mask feedback loop) updated.
-                    - Needs on-device re-run: the M3.V6 soak, screen-off stop/start, and a
-                      check that the logged crop rect is non-zero.
+                    - Verified on Device B: test feed ungated again, crop non-zero, stress runs
+                      with no crash, screen-off mid-inference tears down cleanly, restart
+                      reaches RUNNING.
+                    - M3.V6 soak re-run by the human on Device B (about 11 min of Twitter
+                      scrolling, Profiler): memory flat at about 130 MB with no drift, no lag,
+                      battery -3%. PASS.
+                    - Not yet re-run: rotation, anything on Device A.
 BLOCKED ON:         Nothing — M3 is closed. Human should skim DECISIONS.md D17/D18 and confirm
                     before M4 work lands on top, same as M2's closing pattern.
 NEXT:               M4 — Overlay (MaskView, OverlayController, tap-to-reveal, threshold slider;

@@ -43,11 +43,22 @@ class SkinGate(private val minRatio: Float = 0.05f) {
             return skinCount.toFloat() / pixels.size
         }
 
-        /** Standard YCbCr skin-tone rule: Cr in [133,173], Cb in [77,127]. */
+        // Calibration knob, tuned in M5 against the UI corpus (SPEC.md §6.1, §7.3).
+        private const val MIN_LUMA = 40.0
+
+        /**
+         * YCbCr skin box (Cr in [133,173], Cb in [77,127]), ignoring near-black pixels
+         * (luma < [MIN_LUMA]) whose chroma is mostly noise.
+         *
+         * No minimum-chroma guard against warm-tinted gray: measured on the test feed
+         * (DECISIONS.md D19), real skin sits at Cr-Cb 8-15 — the same band as warm gray — and a
+         * `Cr-Cb >= 20` guard gated 9 explicit images. Warm gray passing only costs a classifier run.
+         */
         internal fun isSkinPixel(r: Int, g: Int, b: Int): Boolean {
+            val y = 0.299 * r + 0.587 * g + 0.114 * b
             val cb = 128 - 0.168736 * r - 0.331264 * g + 0.5 * b
             val cr = 128 + 0.5 * r - 0.418688 * g - 0.081312 * b
-            return cr in 133.0..173.0 && cb in 77.0..127.0
+            return y >= MIN_LUMA && cr in 133.0..173.0 && cb in 77.0..127.0
         }
     }
 }

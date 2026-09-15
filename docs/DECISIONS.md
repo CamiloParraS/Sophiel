@@ -529,10 +529,53 @@ resize. Rationale is in SPEC.md §4.6. The crop rect is logged at session start
 (`capture WxH crop=Rect(...)`) — **not yet verified on-device that the insets are non-zero
 from a Service context.**
 
-**Skin gate.** Added `Y ≥ 40` and `Cr − Cb ≥ 20` to the YCbCr box (SPEC.md §6.1). Both are
-calibration knobs for M5. Tests pin that dark, pale, and dim skin still pass. The known
+**Skin gate.** First added `Y ≥ 40` and `Cr − Cb ≥ 20` to the YCbCr box. The human saw
+explicit test-feed images get gated, so both rules were measured offline with a scratch
+PIL script mirroring `SkinGate` (64×64 bilinear) over all 60 test-feed images. Only
+per-image ratios were computed; no pixels were stored.
+
+- **Chroma guard: wrong, removed.** It gated 9 explicit images (for example 0.27 → 0.01 and
+  0.21 → 0.03). Skin pixels' `Cr − Cb` sat at p10 8–11 and p50 10–15, the same band as the
+  warm gray it targeted. The hand-picked "pale skin" test pixels (spread about 32) weren't
+  representative; the test now uses a spread-16 pale pixel.
+- **Luma guard: kept.** On its own it pushed zero images under `minRatio`. It is unmeasured
+  on low-light explicit images, which the test feed doesn't contain (see D12's low-light
+  note), so M5 must include them.
+
+Net effect: the grayscale/warm-gray false-positive complaint is **not** fixed by colour
+rules. It only costs a classifier run, per SPEC.md §6.1. The known
 blind spot, true B&W imagery being gated SAFE, is recorded in SPEC.md §6.1 and §8 rather
 than worked around.
+
+**On-device verification (Device B only, 2026-09-15; Device A unavailable).**
+
+- **Test feed:** all 9 images wrongly gated by the chroma rule are `gated=false` again. The
+  images still gated were already below `minRatio` under the original rule.
+- **Crop:** logged as `capture 360x780 crop=Rect(0, 30 - 360, 766)` (status bar 30 px, gesture
+  bar 14 px), so the insets are non-zero from a Service context.
+- **Scroll stress** in the test feed: 548 frames, no crash. Every frame was gated, because
+  64 dp thumbnails on white measure a skin ratio of 0.013 as captured. That comes from
+  thumbnail size, not from this change.
+- **Classifier stress:** synthetic skin-block PNGs, cycled full-screen in Samsung Gallery and
+  deleted afterwards. 382 non-gated frames and 167 real inferences, latency p50 43 ms, p95
+  50 ms, no crash, session alive. Inference is under the 80 ms throttle here, so the in-flight
+  drop rarely triggers on Device B; it matters on Device A.
+- **Screen off mid-classification** (the original crash scenario): no crash, session and
+  service gone, process alive. On this API 36 device the OS stopped the projection first
+  (`stopReason=3`), so `MediaProjection.Callback.onStop()` ran teardown before the
+  `ACTION_SCREEN_OFF` receiver fired. Both paths converge. A harmless
+  "Attempted to stop inactive MediaProjection" warning follows.
+- **After unlock:** IDLE → Start → fresh consent → RUNNING, new crop line logged, crash buffer
+  empty.
+- **M3.V6 soak re-run by the human (Device B), about 11 minutes of normal use, mostly
+  scrolling Twitter, with the Android Studio Profiler attached:**
+  - No perceived lag.
+  - After a first-minute startup spike (about 190 MB), total memory held flat around
+    130 MB (native about 37 MB, Java about 29 MB, graphics about 7 MB) with a steady GC
+    sawtooth and no upward drift.
+  - App CPU stayed low.
+  - Device got warm; battery 35% → 32% (whole-device, about 16%/h). **PASS.**
+- **Not re-run:** rotation, and anything on Device A.
 
 **Screen-off is not changed.** D18's teardown stands. Android 15+ ends projection on a
 secure lock anyway, and consent tokens are single-use. Re-initialising needs fresh consent,

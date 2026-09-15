@@ -24,6 +24,21 @@ class SkinGateTest {
     }
 
     @Test
+    fun `isSkinPixel is false for a near-black pixel even with skin-like chroma`() {
+        // Inside the Cr/Cb box, but Y=37 is below the luma floor.
+        assertFalse(SkinGate.isSkinPixel(r = 60, g = 30, b = 15))
+    }
+
+    @Test
+    fun `isSkinPixel still accepts dark, low-chroma pale, and dimly lit skin`() {
+        assertTrue(SkinGate.isSkinPixel(r = 120, g = 80, b = 60)) // dark skin
+        // Pale/rendered skin at Cr-Cb~16: the real test-feed median band (8-15) is this close to
+        // neutral, so any minimum-chroma guard gates explicit images (D19).
+        assertTrue(SkinGate.isSkinPixel(r = 230, g = 215, b = 205))
+        assertTrue(SkinGate.isSkinPixel(r = 80, g = 55, b = 43)) // low light, Y=61
+    }
+
+    @Test
     fun `skinRatio counts the fraction of skin pixels`() {
         val skin = argb(220, 170, 140)
         val notSkin = argb(0, 0, 255)
