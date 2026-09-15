@@ -5,7 +5,10 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.ServiceInfo
 import android.graphics.Bitmap
 import android.hardware.display.DisplayManager
@@ -63,12 +66,28 @@ class ProjectionService : Service() {
     private var detector: Detector? = null
     private val throttle = FrameThrottle(FRAME_INTERVAL_MS)
     private var isTornDown = false
+    private var debugPill: DebugPillOverlay? = null
+
+    // Human-observed on-device (2026-09-14, Device B): the session was left in an unclear
+    // state after the screen turned off mid-capture, and starting again didn't work cleanly.
+    // Rather than depend on exactly when/whether the OS revokes MediaProjection on screen-off
+    // (unconfirmed, varies by device), tear down proactively so the next Start always begins
+    // from a guaranteed-clean IDLE with fresh consent (SPEC.md §4.2's "no remember my choice"
+    // already means a session can't survive this anyway).
+    private val screenOffReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            Log.d(TAG, "screen off; ending capture session")
+            controller.onProjectionStopped()
+            teardown()
+        }
+    }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
+        registerReceiver(screenOffReceiver, IntentFilter(Intent.ACTION_SCREEN_OFF))
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -126,6 +145,7 @@ class ProjectionService : Service() {
             DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
             source.surface, null, null,
         )
+        if (isDebuggable) debugPill = DebugPillOverlay(this).also { it.show() }
     }
 
     /** Rotation must `resize()` + `setSurface()`, never recreate the [VirtualDisplay] (SPEC.md §4.2). */
@@ -151,6 +171,7 @@ class ProjectionService : Service() {
             if (BlackFrameDetector.isAllBlack(pixels)) {
                 Log.d(TAG, "protected content (all-black frame, likely FLAG_SECURE)")
                 updateNotification("Protected content — not analyzable")
+                debugPill?.update("PROTECTED — not analyzable")
                 return@launch
             }
             val verdict = detector.analyze(bitmap)
@@ -159,12 +180,19 @@ class ProjectionService : Service() {
                 "severity=${verdict.severity} score=${verdict.score} gated=${verdict.gated} latencyMs=${verdict.latencyMs}"
             )
             updateNotification(verdict)
+            debugPill?.update(
+                "%s · score=%.2f · gated=%b · %dms".format(
+                    verdict.severity, verdict.score, verdict.gated, verdict.latencyMs,
+                ),
+            )
         }
     }
 
     private fun teardown() {
         if (isTornDown) return
         isTornDown = true
+        debugPill?.hide()
+        unregisterReceiver(screenOffReceiver)
         virtualDisplay?.release()
         frameSource?.close()
         mediaProjection?.stop()

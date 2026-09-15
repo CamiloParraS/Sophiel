@@ -312,6 +312,10 @@ container finally gets built, as a single field (`projectionController`) on a
 
 ## D15 — Debug overlay "pill" deferred past M3 (human request, 2026-09-14)
 
+> **Superseded same day.** Human reviewed the tension below, approved building it anyway once
+> M3's other verification was done, and it turned out to be load-bearing — see D18: it's the
+> tool that found and fixed the real V7 bug. Kept for the history of the tradeoff.
+
 While approving the M3 design, the human asked for a `TYPE_APPLICATION_OVERLAY`
 debug pill showing live verdicts, "focus on the other tasks first and then
 evaluate the idea." Recorded here rather than silently built or silently
@@ -423,3 +427,73 @@ cleanly afterward via the in-app Stop button; `dumpsys media_projection` empty.
 **M3 V1-V6 verified PASS on Device A (Galaxy A71, Android 13) this session; V7 inconclusive**
 — see above for why, and what a clean V7 test needs (a full-window-secure app or capture
 visibility).
+
+---
+
+## D18 — Debug pill built (human-approved D15); it found and fixed the real V7 bug
+
+Human explicitly greenlit the D15 debug pill after the V7 write-up above, and separately
+reported, from their own testing: Device A scored real content successfully in Secure Folder
+and Google/Incognito searches (i.e. those aren't fully protected there); Device B's Chrome
+Incognito "always returns 0"; Device B's real banking app (Bancolombia) "closes the screen
+projection and it stops working"; and on both devices, turning the screen off during a session
+left it unable to restart cleanly. All four leads were chased down this session, on Device B
+(unlocked; Device A's lock PIN wasn't available to fully drive its UI).
+
+**Debug pill (`DebugPillOverlay.kt`)**: a small `TYPE_APPLICATION_OVERLAY` `TextView`, shown
+only while `RUNNING` and only in a debuggable build (`Context.isDebuggable`, checked via
+`ApplicationInfo.FLAG_DEBUGGABLE` — no new manifest permission, reuses the already-granted
+`SYSTEM_ALERT_WINDOW`). Plain View per D4. This is explicitly not the M4 `MaskView` — different
+purpose (always-on diagnostic text, not a masking intervention) and gated out of any
+hypothetical release build. Caught its own bug immediately: `ProjectionService.onFrame`'s
+`serviceScope.launch` runs on `Dispatchers.Default` (a background thread), and the first call to
+`DebugPillOverlay.update()` crashed with `CalledFromWrongThreadException` — Logcat: `FATAL
+EXCEPTION: DefaultDispatcher-worker-1 ... at DebugPillOverlay.update`. Fixed by routing all
+three of `show()`/`update()`/`hide()` through a `Handler(Looper.getMainLooper())` inside the
+class itself, so no caller has to know or care which thread it's on.
+
+**The real V7 bug, found once the pill made the pipeline observable: `BlackFrameDetector`'s
+"every single pixel is exactly 0" check can never fire on a real device.** Pointed a genuine
+FLAG_SECURE screen (Bancolombia, past its splash) at the running capture: the debug pill kept
+showing ordinary `SAFE · score=0.00 · gated=true`, never "protected", even though `adb
+screencap` on the same screen returned 0 bytes (confirming it actually was secured) and our own
+pill (a *second*, unrelated overlay window) was visibly rendering on top of the captured area.
+Two things break a whole-frame-is-pure-black check in practice: the system status bar
+(icons/battery/clock — never black) is part of what a full-display `MediaProjection` capture
+includes, and our own debug pill sits in the same captured frame while testing. Fixed by
+changing `isAllBlack` from "all pixels are exactly 0" to "≥90% of pixels are exactly 0"
+(`BLACK_FRACTION_THRESHOLD`), which tolerates the always-present status-bar strip (and the
+pill) while still rejecting ordinary non-secure content. **Re-tested against the real banking
+app: `Log.d` now shows `protected content (all-black frame, likely FLAG_SECURE)` repeatedly,
+and the pill shows "PROTECTED — not analyzable". V7 is now a genuine PASS, not inconclusive.**
+`BlackFrameDetectorTest` updated: the old "single non-black pixel breaks it" test inverted to
+assert tolerance; added a "mostly non-black is still rejected" case and a "thin status-bar
+strip doesn't break it" case.
+
+This also likely explains the human's "it closes the screen projection and it stops working"
+report: with the old exact-match check, a `FLAG_SECURE` screen never triggered the protected-
+content branch, so the notification just froze at `score=0.00` forever — which reads exactly
+like "stopped working" even though the service and session were both still alive the whole
+time (confirmed: after the fix, on the identical app, the session stays healthy and
+`isForeground=true` throughout — nothing actually terminates it). The human's Incognito
+observation ("Device A classified images successfully", "Device B always returns 0") is
+consistent with D17's standing theory (Chrome only blackens the WebView, not the whole window)
+plus per-device variance in exactly how much of the frame that leaves non-black — not
+re-verified further this session since the real banking app gave a cleaner, spec-literal test.
+
+**Screen-off leaving the session unable to restart cleanly — reproduced and fixed.** Confirmed
+on Device B: turning the screen off (`KEYCODE_POWER`) while `RUNNING`, the *pre-fix* build's
+`MediaProjection.Callback.onStop()` did not reliably fire, and the controller could be left
+believing it was still `RUNNING` with a dead capture pipeline underneath — matching "doesn't
+restart when sharing screen again" (the UI would show "Stop protection" for a session that was
+no longer doing anything, with no obvious way back to a fresh Start). Fixed proactively rather
+than depending on uncertain OS callback timing: `ProjectionService` now registers a
+`BroadcastReceiver` for `Intent.ACTION_SCREEN_OFF` in `onCreate()` and tears down immediately
+on it (same `onProjectionStopped()` + `teardown()` pair as every other stop path), guaranteeing
+a clean `IDLE` — and therefore a fresh, working consent flow — every time the screen turns off
+mid-session. Verified on Device B: screen off → `dumpsys media_projection` empty within
+seconds, service gone; screen back on → app shows `IDLE`; tapping Start protection shows a
+fresh consent dialog and reaches `RUNNING` again.
+
+**M3 V1-V7 now all verified PASS** (V1-V6 on Device A per D17, V7 and the screen-off fix on
+Device B this session). M3 is ready to close.
