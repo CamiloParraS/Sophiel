@@ -40,7 +40,10 @@ class FrameSource(
     val surface: Surface get() = imageReader.surface
 
     fun close() {
-        imageReader.close()
+        // Close on the reader's own thread, after any in-progress listener call. Closing from
+        // another thread mid-copyPixelsFromBuffer frees the buffer under the copy: SIGSEGV on
+        // the FrameSource thread, or "Image is already closed" (Device B crash log, 2026-09-15).
+        handler.post { imageReader.close() }
         thread.quitSafely()
     }
 }

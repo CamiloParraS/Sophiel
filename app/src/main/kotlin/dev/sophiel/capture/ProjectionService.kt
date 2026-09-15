@@ -68,6 +68,11 @@ class ProjectionService : Service() {
     private var isTornDown = false
     private var debugPill: DebugPillOverlay? = null
 
+    // Frame being analysed, if any. New frames are dropped while it runs (SPEC.md §4.5): the
+    // throttle alone let frames queue on the single inference thread whenever analysis took
+    // longer than 80 ms, so latency and held bitmaps grew without bound.
+    @Volatile private var inFlight: Job? = null
+
     // Human-observed on-device (2026-09-14, Device B): the session was left in an unclear
     // state after the screen turned off mid-capture, and starting again didn't work cleanly.
     // Rather than depend on exactly when/whether the OS revokes MediaProjection on screen-off
@@ -198,6 +203,7 @@ class ProjectionService : Service() {
         mediaProjection?.stop()
         detector?.close()
         serviceScope.cancel()
+        detector?.close() // waits out any in-flight inference
         controller.onTeardownComplete()
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()

@@ -8,7 +8,9 @@ import dev.sophiel.core.gate.SkinGate
 import dev.sophiel.core.model.NsfwClassifier
 import dev.sophiel.core.model.Preprocessor
 import dev.sophiel.core.policy.PolicyEngine
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 
 /**
@@ -29,7 +31,10 @@ class DetectionPipeline(
     private val cache: VerdictCache = VerdictCache(),
 ) : Detector {
 
+    @Volatile private var closed = false
+
     override suspend fun analyze(frame: Bitmap): Verdict = withContext(dispatcher) {
+        if (closed) throw CancellationException("Detector closed")
         val start = SystemClock.elapsedRealtime()
         val hash = PerceptualHash.hash(frame)
 
@@ -46,9 +51,17 @@ class DetectionPipeline(
         return Verdict(Severity.SAFE, score, gated = gated, cacheHit = false, latencyMs = 0)
     }
 
-    /** Releases the interpreter and, if [dispatcher] owns an executor thread, shuts it down. */
+    /**
+     * Releases the interpreter and, if [dispatcher] owns an executor thread, shuts it down.
+     * Blocks the caller for at most one in-flight inference.
+     */
     override fun close() {
-        classifier.close()
+        // Runs on the inference thread, behind any in-flight analyze(): Interpreter is not
+        // thread-safe, and close() from another thread mid-run() frees native state under it.
+        runBlocking(dispatcher) {
+            closed = true
+            classifier.close()
+        }
         (dispatcher as? java.io.Closeable)?.close()
     }
 
