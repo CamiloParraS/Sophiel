@@ -45,20 +45,31 @@ class ProjectionController {
 
     fun onNotificationsResult(granted: Boolean) {
         apply(ControllerEvent.NotificationsResult(granted))
-        recheckOverlay()
+        val effects = effects ?: return
+        if (effects.hasOverlayPermission()) {
+            recheckOverlay() // already granted: advance straight through NEED_OVERLAY
+        } else {
+            // Open Settings exactly once. Phase stays NEED_OVERLAY until the user comes back
+            // and Activity.onStart() calls recheckOverlay() again — see its doc for why that
+            // call must NOT re-open Settings on every call (it used to, and looped forever).
+            effects.requestOverlayPermission()
+        }
     }
 
-    /** Call once after the notification step, and again from `onResume()` while blocked or waiting. */
+    /**
+     * Call from `onStart()`/`onResume()` while [ControllerState.phase] is NEED_OVERLAY or
+     * BLOCKED: this is the SPEC.md §4.4 "re-check in onResume()" step. Unlike
+     * [onNotificationsResult]'s first check, this never opens Settings itself — it only reads
+     * the current permission state and transitions: NEED_OVERLAY -> NEED_CONSENT (granted) or
+     * -> BLOCKED (still denied); BLOCKED -> NEED_CONSENT if the user granted it via Settings
+     * directly. Doing the Settings-launch here too was the bug: every resume re-opened
+     * Settings instead of ever reaching BLOCKED.
+     */
     fun recheckOverlay() {
         val phase = _state.value.phase
         if (phase != ControllerPhase.NEED_OVERLAY && phase != ControllerPhase.BLOCKED) return
         val effects = effects ?: return
-        val granted = effects.hasOverlayPermission()
-        if (!granted && phase == ControllerPhase.NEED_OVERLAY) {
-            effects.requestOverlayPermission()
-            return
-        }
-        apply(ControllerEvent.OverlayResult(granted))
+        apply(ControllerEvent.OverlayResult(effects.hasOverlayPermission()))
         if (_state.value.phase == ControllerPhase.NEED_CONSENT) effects.launchConsentRequest()
     }
 

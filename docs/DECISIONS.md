@@ -323,3 +323,103 @@ to add something not in scope"). M3's own notification already surfaces the
 live verdict+score, which covers the "easier to see results" need without
 touching `WindowManager` a milestone early. Not implemented. Revisit explicitly
 with the human once M3 verification is done, rather than folding it in here.
+
+---
+
+## D16 — Android 15+ "sensitive content during screen share" hides other apps' notifications (discovered 2026-09-14, human device testing on Device B)
+
+While testing M3 on-device, the human saw other apps' notifications (X,
+LinkedIn) show up with unreadable/redacted content and unable to be
+swipe-dismissed — only clearable by opening the app directly. Not a Sophiel
+bug: this is a mandatory Android 15+ platform privacy feature ("sensitive
+content protections during screen share"), which activates automatically for
+*any* app actively holding a `MediaProjection` session — exactly what
+`ProjectionService` does once `RUNNING`. It redacts notification content
+system-wide (private messages, OTPs) and restricts dismissal specifically to
+stop screen-recording/casting apps from exfiltrating that content. There is no
+API for the capturing app to opt out; Android only exposes a Developer
+Options toggle ("Disable screen share protections") for the human tester's own
+device, which is a device setting, not something to code around. Our build's
+`targetSdk 37` (D6) puts it in scope on any Android 15+ device. Relevant again
+in M5 (UI-corpus / demo recording) and M6 (`docs/LIMITATIONS.md`) — note there
+that a live demo showing notifications will hit this while Sophiel is running.
+
+Separately, `buildNotification()` (`ProjectionService.kt`) already wraps the
+live verdict text in `NotificationCompat.BigTextStyle` and sets
+`Notification.CATEGORY_SERVICE` (both landed in the original M3 commit) so the
+score/classification is visible in the collapsed notification without the
+human needing to expand it by hand — this was the "app one, had to slide"
+observation, unrelated to D16's OS-level redaction.
+
+Sources: [Behavior changes: all apps | Android Developers](https://developer.android.com/about/versions/15/behavior-changes-all),
+[How Does Android 15 Protect Against Screen Spying? | Guardsquare](https://www.guardsquare.com/blog/android-15-screen-spying-protection).
+
+---
+
+## D17 — M3 on-device verification findings (Device A, Galaxy A71, Android 13, 2026-09-14)
+
+Ran SPEC.md M3's V1-V6 on Device A via adb (screen driven with `input tap`/`uiautomator dump`,
+since no Activity was visually watched live). Two real defects found and fixed; two platform
+behaviors worth recording so nobody "fixes" them again later.
+
+**Bug: `ProjectionController.recheckOverlay()` re-opened Settings on every call, never
+reaching BLOCKED.** The original single method did both "first check after notifications" and
+"re-check on resume" with the same logic: if ungranted, call `requestOverlayPermission()` and
+return — every time, including the resume-check. Reproduced live: denying overlay permission
+sent the app back to the same Settings screen forever instead of reaching BLOCKED (SPEC.md
+M3.V2). Fixed by splitting the two calls: `onNotificationsResult()` now does the one-time
+"open Settings if not already granted" side effect itself; `recheckOverlay()` (called only from
+`MainActivity.onStart()`) now only reads current permission state and transitions — it never
+opens Settings again. Re-tested on-device: V2 (deny -> BLOCKED, with "Retry" recovering once
+granted) and V3 (cancel consent -> IDLE) both pass cleanly now.
+
+**Bug: stopping via the notification's own "Stop" action left the controller stuck at
+RUNNING.** SPEC.md M3.V5 asks for "stopping from the status bar" to tear down cleanly; this
+device/OS (One UI, Android 13) exposes no separate system "stop casting" chip for a
+`MediaProjection` session — dumpsys `statusbar`/quick-settings had nothing — so the *only*
+status-bar-reachable control is our own foreground notification. It had no stop affordance at
+all, so a `NotificationCompat.Builder.addAction("Stop", ...)` (`ProjectionService.kt`,
+`ACTION_STOP` PendingIntent) was added. That alone wasn't enough: `ACTION_STOP`'s handler
+called `teardown()` directly without first telling the controller, so if the Activity wasn't
+alive to have called `stop()` (StopRequested: RUNNING->STOPPING) first, `onTeardownComplete()`
+landed on a reducer with no `STOPPING`-phase to transition out of and silently no-opped,
+leaving `ControllerState.phase` wedged at RUNNING forever even though the service and
+`MediaProjection` session were both genuinely gone. Fixed by having the `ACTION_STOP` handler
+call `controller.onProjectionStopped()` (same call the external-revoke `MediaProjection.Callback`
+path already used) before `teardown()`, so both stop paths converge. Verified: `dumpsys
+media_projection` empty, service gone, controller state IDLE after tapping the notification's
+Stop action with the Activity not in the foreground.
+
+**Platform behavior, not a bug: MediaProjection only delivers a frame when the compositor
+redraws something.** A ~30s stretch on a static home screen produced zero new
+`DetectionPipeline` frames and looked exactly like SPEC.md §4.5's "stalled `ImageReader`" trap
+(missing `image.close()`) — but resumed instantly on the next swipe/scroll. `image.close()` is
+in fact called unconditionally in `FrameSource`'s `finally` block (verified in code); the
+absence of frames was the OS simply not producing new buffers for unchanged content, which is
+correct/efficient, not a leak. Consequence for M3.V6 and any future soak test: a "10 minutes of
+continuous capture" run needs the screen actually changing throughout, or "frame count" isn't a
+meaningful signal — a quiet screen looks identical to a stalled pipeline from the log alone.
+
+**V7 (`FLAG_SECURE` -> "protected content") is inconclusive on this device, not confirmed
+PASS.** Chrome Incognito is `FLAG_SECURE` (confirmed externally: `adb exec-out screencap`
+returns a 0-byte file while it's frontmost, vs. a normal PNG otherwise) but our own capture
+kept logging ordinary `severity=SAFE score=0.0 gated=true` — never the "protected content"
+branch. Working theory: Chrome only blackens the WebView content surface, not the whole
+Activity window (toolbar/tabs stay visible), so the composited frame `BlackFrameDetector` sees
+isn't literally all-black — SPEC.md's assumption ("apps using FLAG_SECURE yield black frames")
+describes a full-window secure Activity (its own example: "a banking app"), which is a
+different case we don't have installed to test cleanly. Samsung Pass and Netflix were tried
+first and didn't expose a secure surface reachable without deeper setup either. Without a real
+banking-style full-window-secure app, or a way to see the actual captured frame (the deferred
+D15 debug pill would help here), V7 stays unresolved — do not mark it PASS on the strength of
+the Incognito test.
+
+**V6 (10-minute soak) — PASS.** Ran 10 minutes with a scripted swipe every ~4s to keep the
+compositor producing frames (per the redraw-driven finding above): 2946 `Sophiel` log lines,
+zero matches for `FATAL|AndroidRuntime.*dev.sophiel|SecurityException|IllegalStateException|
+OutOfMemory` across the whole run, service still `isForeground=true` at the end. Stopped
+cleanly afterward via the in-app Stop button; `dumpsys media_projection` empty.
+
+**M3 V1-V6 verified PASS on Device A (Galaxy A71, Android 13) this session; V7 inconclusive**
+— see above for why, and what a clean V7 test needs (a full-window-secure app or capture
+visibility).

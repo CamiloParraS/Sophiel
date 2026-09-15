@@ -12,9 +12,10 @@ Agent entrypoint for **Sophiel**. Read this fully, then read `./docs/SPEC.md`.
 
 ```
 CURRENT MILESTONE:  M3 — Capture
-STATUS:             code complete on branch feat/capture (created off main, which has M2
-                    merged). NOT yet verified on-device — no device was attached this
-                    session (`adb devices` empty). Human must run V1-V7 on Device A first.
+STATUS:             code complete on branch feat/capture (off main, which has M2 merged).
+                    V1-V6 VERIFIED PASS on Device A (Galaxy A71, Android 13/API 33) this
+                    session, via adb (uiautomator dump + input tap, no visual monitor). V7
+                    INCONCLUSIVE — M3 is NOT closeable yet; see below.
                     Built: ProjectionStateMachine.kt (pure §4.4 reducer) + ProjectionController
                     (stateful wrapper, Effects interface for Android side effects, attached by
                     MainActivity in onStart/cleared in onStop) + FrameThrottle (80ms floor) +
@@ -23,7 +24,8 @@ STATUS:             code complete on branch feat/capture (created off main, whic
                     M0 stub: startForeground(..., FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION)
                     before getMediaProjection(), MediaProjection.Callback.onStop wired to
                     teardown, onConfigurationChanged does resize()+setSurface() not recreate,
-                    notification shows live verdict+score, Log.d(Sophiel, ...) per frame).
+                    notification shows live verdict+score via BigTextStyle, Log.d(Sophiel, ...)
+                    per frame, a "Stop" notification action added this session — see below).
                     Introduced AppContainer.kt + SophielApp.kt (DECISIONS.md D14) — first time
                     M0-M2 didn't need cross-component (Activity+Service) shared state.
                     MainActivity's Protection destination is no longer a stub: Start/Stop button
@@ -33,33 +35,62 @@ STATUS:             code complete on branch feat/capture (created off main, whic
                     ProjectionStateMachineTest (12 cases: granted/denied/cancelled/blocked/retry/
                     happy-path/no-op), FrameThrottleTest, BlackFrameDetectorTest — all written
                     before their implementations, all pass. app had no src/test before this.
-                    VERIFIED THIS SESSION (no device required): `:app:testDebugUnitTest` +
-                    `:safecore:test` all pass; `:app:assembleDebug` succeeds; `aapt dump
-                    permissions` on the new APK — no INTERNET. `:app:installDebug` NOT run (no
-                    device attached).
-                    NOT YET VERIFIED (needs Device A, per SPEC.md M3's V1-V7): full permission
-                    flow from cold install (V1); deny-overlay -> BLOCKED (V2); cancel-consent ->
-                    IDLE (V3); rotation mid-session does not throw SecurityException (V4);
-                    status-bar stop tears down cleanly, dumpsys media_projection shows nothing
-                    (V5); 10 min continuous capture, no stall/IllegalStateException (V6);
-                    FLAG_SECURE app (e.g. a banking app) surfaces "protected content" not 0.0
-                    (V7).
+                    TWO BUGS FOUND AND FIXED ON-DEVICE (DECISIONS.md D17 has full detail):
+                    (1) ProjectionController.recheckOverlay() re-opened the overlay Settings
+                    screen on every call while ungranted, including the post-Settings resume
+                    check — an infinite loop that never reached BLOCKED (SPEC.md M3.V2). Split
+                    into a one-time "open Settings" side effect (onNotificationsResult) and a
+                    pure recheck (recheckOverlay, onStart-only, never opens Settings). (2) The
+                    notification's new "Stop" action (added this session — no other stop-from-
+                    status-bar control exists on this OS/device; see D17) called teardown()
+                    without first telling the controller, leaving ControllerState.phase stuck at
+                    RUNNING forever if the Activity wasn't alive to have called stop() first.
+                    Fixed by calling controller.onProjectionStopped() before teardown() in the
+                    ACTION_STOP handler, same as the external-revoke path already did.
+                    VERIFIED THIS SESSION: `:app:testDebugUnitTest` + `:safecore:test` pass;
+                    `:app:assembleDebug` succeeds; `aapt dump permissions` — no INTERNET.
+                    V1 (cold permission flow) PASS. V2 (deny overlay -> BLOCKED, "Retry" recovers)
+                    PASS after the fix above. V3 (cancel consent -> IDLE) PASS. V4 (rotation, no
+                    SecurityException, frames resume after rotating back) PASS. V5 (stop via the
+                    notification's new Stop action while the Activity wasn't foregrounded ->
+                    dumpsys media_projection empty, service gone, controller reaches IDLE) PASS
+                    after the fix above. V6 (10-minute soak, screen kept changing via scripted
+                    swipes so frames actually flowed — see the redraw-driven finding below): 2946
+                    frames logged, zero exceptions/crashes, service foreground throughout PASS.
+                    V7 (FLAG_SECURE -> "protected content") INCONCLUSIVE: Chrome Incognito is
+                    confirmed FLAG_SECURE externally (adb screencap returns 0 bytes on it) but
+                    our own capture kept logging ordinary SAFE/score=0.0, never "protected
+                    content" — likely because Chrome only blackens the WebView surface, not the
+                    whole window, so BlackFrameDetector's strict all-black check doesn't fire.
+                    No real full-window-secure app (a banking app, per SPEC's own example) was
+                    available to test cleanly; Samsung Pass and Netflix didn't expose one either
+                    without deeper setup. Do not mark V7 PASS on the Incognito result.
+                    PLATFORM FINDING, not a bug: MediaProjection only pushes a frame when the
+                    compositor redraws something — a static screen for ~30s produced zero new
+                    frames and looked exactly like SPEC §4.5's "stalled ImageReader" trap, but
+                    resumed instantly on the next swipe. image.close() is called unconditionally
+                    in FrameSource's finally block either way (verified in code). Matters for any
+                    future soak test: "zero new frames" alone doesn't mean stalled.
                     DEFERRED (DECISIONS.md D15): human asked for a debug overlay "pill" showing
-                    live verdicts, to evaluate after other M3 work. This conflicts with SPEC.md's
-                    explicit M3/M4 separation ("no overlay yet... two hard subsystems debugged at
-                    once is one too many") and CLAUDE.md's out-of-scope stop-and-ask rule. Not
-                    built. Bring back to the human explicitly once M3 verification lands — the
-                    notification already surfaces live verdict+score in the meantime.
+                    live verdicts, to evaluate after other M3 work. Still not built (SPEC.md's
+                    M3/M4 separation); would have made V7 diagnosable by showing what was
+                    actually captured. Revisit with the human now that V7 is the concrete reason
+                    it would help.
 M2 CLOSED:          2026-09-14, confirmed by the human. All V1-V5 passed on both devices
                     (Device A = Galaxy A71, Device B = SM-S721B, per DECISIONS.md D1); model is
                     GantMan MobileNetV2 (D12), score = hentai+porn+0.5*sexy. Full history
                     (model swap, the DetectionPipeline hysteresis fix, the V5 Profiler saga,
                     git-hygiene notes) lives in prior commits' CLAUDE.md revisions and
                     DECISIONS.md D9-D13 — not repeated here.
-BLOCKED ON:         Human with Device A: run SPEC.md M3's V1-V7 on-device (see STATUS above),
-                    then either fix what fails or confirm M3 closed. Also decide whether/how to
-                    build the deferred debug pill (DECISIONS.md D15).
-NEXT:               After M3 verification: M4 — Overlay (MaskView, OverlayController,
+BLOCKED ON:         Human decision on V7: either supply/point at a real full-window-secure app
+                    (a banking app, per SPEC's own example — Chrome Incognito and Samsung Pass
+                    didn't work cleanly, see STATUS) to test against, or greenlight building the
+                    deferred debug pill (DECISIONS.md D15) so the actual captured frame is
+                    visible for diagnosis. Per CLAUDE.md's own hard rule (C4 / milestone
+                    sequencing), M3 should NOT be marked closed until V7 has a real pass, not an
+                    inconclusive result — this is a judgment call for the human, not something to
+                    wave through.
+NEXT:               Resolve V7 with the human, then M4 — Overlay (MaskView, OverlayController,
                     tap-to-reveal, threshold slider; SPEC.md §5 M4). Feature freeze at end of M4.
 ```
 

@@ -3,6 +3,7 @@ package dev.sophiel.capture
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
 import android.content.pm.ServiceInfo
@@ -72,6 +73,11 @@ class ProjectionService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_STOP) {
+            // Only path to stop from the status bar on this device/OS (no separate system
+            // "stop casting" chip was found on Android 13/One UI) — treat it as an external
+            // stop so the controller reaches STOPPING even if no Activity is alive to have
+            // called ProjectionController.stop() first (SPEC.md M3.V5).
+            controller.onProjectionStopped()
             teardown()
             return START_NOT_STICKY
         }
@@ -204,8 +210,12 @@ class ProjectionService : Service() {
         manager.notify(NOTIFICATION_ID, buildNotification(text))
     }
 
-    private fun buildNotification(text: String): Notification =
-        NotificationCompat.Builder(this, CHANNEL_ID)
+    private fun buildNotification(text: String): Notification {
+        val stopIntent = Intent(this, ProjectionService::class.java).setAction(ACTION_STOP)
+        val stopPendingIntent = PendingIntent.getService(
+            this, 0, stopIntent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        return NotificationCompat.Builder(this, CHANNEL_ID)
             .setCategory(Notification.CATEGORY_SERVICE)
             .setContentTitle("Sophiel protection running")
             .setContentText(text)
@@ -213,7 +223,9 @@ class ProjectionService : Service() {
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+            .addAction(0, "Stop", stopPendingIntent)
             .build()
+    }
 
     private fun createNotificationChannel() {
         val channel = NotificationChannel(CHANNEL_ID, "Screen protection", NotificationManager.IMPORTANCE_LOW)
