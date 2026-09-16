@@ -319,7 +319,7 @@ enum class Severity { SAFE, SUGGESTIVE, EXPLICIT }
  * @param severity  bucketed decision after policy + hysteresis
  * @param score     raw unsafe probability in [0,1]
  * @param gated     true if the skin gate short-circuited before the classifier ran
- * @param cacheHit  true if this verdict was reused from a near-identical prior frame
+ * @param cacheHit  true if this verdict was reused from an identical prior frame
  * @param latencyMs wall-clock time inside [Detector.analyze]
  */
 data class Verdict(
