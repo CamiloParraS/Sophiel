@@ -5,6 +5,7 @@ import android.app.Activity
 import android.content.Intent
 import android.media.projection.MediaProjectionManager
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import androidx.activity.ComponentActivity
@@ -112,7 +113,11 @@ class MainActivity : ComponentActivity() {
 
     private fun activityEffects() = object : ProjectionController.Effects {
         override fun requestNotificationPermission() {
-            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            } else {
+                controller.onNotificationsResult(granted = true)
+            }
         }
 
         override fun hasOverlayPermission(): Boolean = Settings.canDrawOverlays(this@MainActivity)
@@ -153,7 +158,9 @@ private fun protectionScreen(controller: ProjectionController, modifier: Modifie
             if (state.degraded) {
                 Text("Notifications denied — status is logcat-only", style = MaterialTheme.typography.bodySmall)
             }
-            state.blockedReason?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+            if (state.phase == ControllerPhase.BLOCKED) {
+                Text("Overlay permission is required.", style = MaterialTheme.typography.bodySmall)
+            }
             Spacer(Modifier.height(16.dp))
             when (state.phase) {
                 ControllerPhase.IDLE -> Button(onClick = controller::start) { Text("Start protection") }

@@ -11,7 +11,7 @@ class BlackFrameDetectorTest {
         val blackOpaque = -0x1000000 // 0xFF000000: alpha 255, RGB 0
         val pixels = IntArray(64) { blackOpaque }
 
-        assertTrue(BlackFrameDetector.isAllBlack(pixels))
+        assertTrue(BlackFrameDetector.isMostlyBlack(pixels))
     }
 
     @Test
@@ -19,7 +19,7 @@ class BlackFrameDetectorTest {
         val pixels = IntArray(64) { -0x1000000 }
         pixels[30] = -0x10000 // opaque red
 
-        assertTrue(BlackFrameDetector.isAllBlack(pixels))
+        assertTrue(BlackFrameDetector.isMostlyBlack(pixels))
     }
 
     @Test
@@ -27,14 +27,14 @@ class BlackFrameDetectorTest {
         // 20 of 64 pixels black (31%) - well under the 90% threshold.
         val pixels = IntArray(64) { i -> if (i < 20) -0x1000000 else -0x10000 }
 
-        assertFalse(BlackFrameDetector.isAllBlack(pixels))
+        assertFalse(BlackFrameDetector.isMostlyBlack(pixels))
     }
 
     @Test
     fun `ordinary UI content is not black`() {
         val pixels = IntArray(64) { i -> -0x1000000 or (i * 4) } // varying blue channel
 
-        assertFalse(BlackFrameDetector.isAllBlack(pixels))
+        assertFalse(BlackFrameDetector.isMostlyBlack(pixels))
     }
 
     @Test
@@ -42,11 +42,11 @@ class BlackFrameDetectorTest {
         // ~95% black content below a status bar strip that's never black.
         val pixels = IntArray(200) { i -> if (i < 10) -0x10000 else -0x1000000 }
 
-        assertTrue(BlackFrameDetector.isAllBlack(pixels))
+        assertTrue(BlackFrameDetector.isMostlyBlack(pixels))
     }
 
     @Test
     fun `an empty pixel array counts as black (vacuously, never occurs in practice)`() {
-        assertTrue(BlackFrameDetector.isAllBlack(IntArray(0)))
+        assertTrue(BlackFrameDetector.isMostlyBlack(IntArray(0)))
     }
 }

@@ -55,12 +55,11 @@ class ProjectionStateMachineTest {
 
     @Test
     fun `retrying overlay permission from BLOCKED after granting in settings proceeds to consent`() {
-        val state = ControllerState(ControllerPhase.BLOCKED, blockedReason = "no overlay")
+        val state = ControllerState(ControllerPhase.BLOCKED)
 
         val next = ProjectionStateMachine.reduce(state, ControllerEvent.OverlayResult(granted = true))
 
         assertEquals(ControllerPhase.NEED_CONSENT, next.phase)
-        assertEquals(null, next.blockedReason)
     }
 
     @Test
@@ -108,12 +107,15 @@ class ProjectionStateMachineTest {
     }
 
     @Test
-    fun `external revocation from the status bar also moves to stopping`() {
-        val running = ControllerState(ControllerPhase.RUNNING)
+    fun `teardown returns to idle from any phase the service can fail or be stopped in`() {
+        // Missing consent / null projection tear down in ACQUIRING_PROJECTION; screen-off and
+        // status-bar revocation tear down without a StopRequested first.
+        listOf(ControllerPhase.STARTING_SERVICE, ControllerPhase.ACQUIRING_PROJECTION, ControllerPhase.RUNNING)
+            .forEach { phase ->
+                val next = ProjectionStateMachine.reduce(ControllerState(phase), ControllerEvent.TeardownComplete)
 
-        val next = ProjectionStateMachine.reduce(running, ControllerEvent.ProjectionStopped)
-
-        assertEquals(ControllerPhase.STOPPING, next.phase)
+                assertEquals("from $phase", ControllerState(), next)
+            }
     }
 
     @Test

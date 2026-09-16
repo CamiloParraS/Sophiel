@@ -584,3 +584,31 @@ human's call.
 
 **M4 trap recorded** in SPEC.md M4: the mask itself is captured, so it will strobe unless
 frames seen while masked are handled.
+
+---
+
+## D20 — Capture code-quality pass (2026-09-15, human request after a strict review)
+
+Behaviour-preserving restructure of the M3 capture code, plus one real bug.
+
+- **Bug: controller stuck in `ACQUIRING_PROJECTION`.** A missing consent result or a null
+  `getMediaProjection()` tore the service down after `ServiceStarted`, but the reducer only
+  accepted `TeardownComplete` from `STOPPING`. The UI sat on "Working…" forever. Now
+  `TeardownComplete` resets to `IDLE` from any phase. `ProjectionStopped` and the service's
+  three "report stopped, then tear down" call pairs are deleted: `teardown()` reports once.
+- **Effects run on phase entry** (`ProjectionController.onEnter`), not by re-reading state
+  after each call. Each effect fires once per transition, so D17's Settings loop can't recur
+  by construction. The API-33 notification check moved into `MainActivity`'s effect.
+- **`CaptureSession`** now owns everything that exists only while capturing: display,
+  `FrameSource`, detector, backpressure, debug pill, capture sizing. `ProjectionService` is
+  lifecycle + notification. `resize()` is a no-op when the size is unchanged (theme/locale
+  changes). The detector closes on a background thread so teardown doesn't block the main
+  thread on an in-flight inference.
+- **Black-frame check** runs on a 64×64 nearest-neighbour probe instead of a full-size
+  `IntArray` per frame; `isAllBlack` renamed `isMostlyBlack`. It stays in `:app`: moving it
+  into `:safecore` needs a "protected" field on SPEC.md §3's `Verdict` contract.
+- `ControllerState.blockedReason` deleted (always equivalent to `phase == BLOCKED`).
+- Notification and debug pill now show the same status string (severity, score, gated, ms).
+
+Verified: `:app:testDebugUnitTest`, `:safecore:test`, `:app:assembleDebug`, no INTERNET.
+**Not re-verified on-device** (no device attached). Re-run M3 V1-V7 before M4 work lands.

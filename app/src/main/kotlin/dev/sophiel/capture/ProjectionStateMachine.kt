@@ -7,14 +7,13 @@ enum class ControllerPhase {
 }
 
 /**
- * @param degraded true if POST_NOTIFICATIONS was denied; the service still runs, but the
- *   live-verdict notification will be suppressed (SPEC.md §4.4 NEED_NOTIFICATIONS).
- * @param blockedReason set only in [ControllerPhase.BLOCKED], to show the user why.
+ * @param degraded true if POST_NOTIFICATIONS was denied; the service still runs, but the OS
+ *   hides its status notification, so the UI warns that status is Logcat-only
+ *   (SPEC.md §4.4 NEED_NOTIFICATIONS).
  */
 data class ControllerState(
     val phase: ControllerPhase = ControllerPhase.IDLE,
     val degraded: Boolean = false,
-    val blockedReason: String? = null,
 )
 
 sealed interface ControllerEvent {
@@ -25,7 +24,6 @@ sealed interface ControllerEvent {
     data object ServiceStarted : ControllerEvent
     data object ProjectionAcquired : ControllerEvent
     data object StopRequested : ControllerEvent
-    data object ProjectionStopped : ControllerEvent
     data object TeardownComplete : ControllerEvent
 }
 
@@ -38,6 +36,11 @@ object ProjectionStateMachine {
     fun reduce(state: ControllerState, event: ControllerEvent): ControllerState {
         val phase = state.phase
         return when {
+            // The service reports this exactly once per session, however it ended: user stop,
+            // status-bar revocation, screen-off, or a failed start. A session is over once it's
+            // torn down, whatever phase it reached.
+            event is ControllerEvent.TeardownComplete -> ControllerState()
+
             phase == ControllerPhase.IDLE && event is ControllerEvent.StartRequested ->
                 ControllerState(ControllerPhase.NEED_NOTIFICATIONS)
 
@@ -45,15 +48,11 @@ object ProjectionStateMachine {
                 state.copy(phase = ControllerPhase.NEED_OVERLAY, degraded = !event.granted)
 
             phase == ControllerPhase.NEED_OVERLAY && event is ControllerEvent.OverlayResult ->
-                if (event.granted) {
-                    state.copy(phase = ControllerPhase.NEED_CONSENT)
-                } else {
-                    state.copy(phase = ControllerPhase.BLOCKED, blockedReason = "Overlay permission is required.")
-                }
+                state.copy(phase = if (event.granted) ControllerPhase.NEED_CONSENT else ControllerPhase.BLOCKED)
 
             // Re-check after the user visits Settings from a BLOCKED overlay explanation.
             phase == ControllerPhase.BLOCKED && event is ControllerEvent.OverlayResult && event.granted ->
-                state.copy(phase = ControllerPhase.NEED_CONSENT, blockedReason = null)
+                state.copy(phase = ControllerPhase.NEED_CONSENT)
 
             phase == ControllerPhase.NEED_CONSENT && event is ControllerEvent.ConsentResult ->
                 if (event.granted) state.copy(phase = ControllerPhase.STARTING_SERVICE)
@@ -65,12 +64,8 @@ object ProjectionStateMachine {
             phase == ControllerPhase.ACQUIRING_PROJECTION && event is ControllerEvent.ProjectionAcquired ->
                 state.copy(phase = ControllerPhase.RUNNING)
 
-            phase == ControllerPhase.RUNNING &&
-                (event is ControllerEvent.StopRequested || event is ControllerEvent.ProjectionStopped) ->
+            phase == ControllerPhase.RUNNING && event is ControllerEvent.StopRequested ->
                 state.copy(phase = ControllerPhase.STOPPING)
-
-            phase == ControllerPhase.STOPPING && event is ControllerEvent.TeardownComplete ->
-                ControllerState()
 
             else -> state // event does not apply to this phase; ignore
         }

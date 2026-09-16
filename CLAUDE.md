@@ -79,8 +79,13 @@ POST-M3 (D19):      2026-09-15 hardening on feat/capture.
                       scrolling, Profiler): memory flat at about 130 MB with no drift, no lag,
                       battery -3%. PASS.
                     - Not yet re-run: rotation, anything on Device A.
-BLOCKED ON:         Nothing — M3 is closed. Human should skim DECISIONS.md D17/D18 and confirm
-                    before M4 work lands on top, same as M2's closing pattern.
+POST-M3 (D20):      2026-09-15 code-quality pass (uncommitted). Fixed controller stuck in
+                    ACQUIRING_PROJECTION on a failed start (TeardownComplete now resets from any
+                    phase). Effects run on phase entry. CaptureSession.kt extracted from
+                    ProjectionService. Black-frame check on a 64x64 probe. Unit tests + build
+                    pass; NOT re-verified on-device.
+BLOCKED ON:         On-device re-run of M3 V1-V7 after D20 (no device was attached). Human should
+                    also skim DECISIONS.md D17/D18/D20 before M4 work lands on top.
 NEXT:               M4 — Overlay (MaskView, OverlayController, tap-to-reveal, threshold slider;
                     SPEC.md §5 M4). Feature freeze at end of M4. Note DebugPillOverlay already
                     exists (debug-only) — M4's MaskView is the real, always-on masking
