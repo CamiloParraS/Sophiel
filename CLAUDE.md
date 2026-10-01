@@ -84,7 +84,12 @@ POST-M3 (D20):      2026-09-15 code-quality pass (uncommitted). Fixed controller
                     phase). Effects run on phase entry. CaptureSession.kt extracted from
                     ProjectionService. Black-frame check on a 64x64 probe. Unit tests + build
                     pass; NOT re-verified on-device.
-BLOCKED ON:         On-device re-run of M3 V1-V7 after D20 (no device was attached). Human should
+POST-M3 (D21):      2026-09-23 (uncommitted). "Paused — tap to resume" notification on screen-off
+                    teardown (one tap back into the fresh-consent flow). SPEC M4 notes that
+                    single-app capture avoids the feedback loop but can't be the fix (Device A is
+                    API 33). Presets and sub-region blur added to Future Work only. Build + unit
+                    tests pass; NOT verified on-device.
+BLOCKED ON:         On-device re-run of M3 V1-V7 after D20 (no device was attached), plus the D21 resume-notification check. Human should
                     also skim DECISIONS.md D17/D18/D20 before M4 work lands on top.
 NEXT:               M4 — Overlay (MaskView, OverlayController, tap-to-reveal, threshold slider;
                     SPEC.md §5 M4). Feature freeze at end of M4. Note DebugPillOverlay already

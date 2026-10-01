@@ -45,6 +45,14 @@ import dev.sophiel.feed.testFeedScreen
 private enum class Destination { Protection, TestFeed, Benchmark }
 
 class MainActivity : ComponentActivity() {
+    companion object {
+        /** From ProjectionService's "paused — tap to resume" notification. */
+        const val ACTION_RESUME = "dev.sophiel.RESUME"
+    }
+
+    // Consumed once effects are attached, so start() can run its phase effects.
+    private var resumeRequested = false
+
     private val controller: ProjectionController
         get() = (application as SophielApp).container.projectionController
 
@@ -58,6 +66,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        resumeRequested = savedInstanceState == null && intent?.action == ACTION_RESUME
 
         notificationPermissionLauncher =
             registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -104,6 +113,20 @@ class MainActivity : ComponentActivity() {
         super.onStart()
         controller.effects = activityEffects()
         controller.recheckOverlay() // re-check after a possible trip to Settings
+        consumeResume()
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        if (intent.action == ACTION_RESUME) resumeRequested = true
+        consumeResume() // already started (e.g. tapped from the shade over this Activity)
+    }
+
+    /** Needs effects attached, so it waits for onStart() if the Activity is stopped. */
+    private fun consumeResume() {
+        if (!resumeRequested || controller.effects == null) return
+        resumeRequested = false
+        if (controller.state.value.phase == ControllerPhase.IDLE) controller.start()
     }
 
     override fun onStop() {

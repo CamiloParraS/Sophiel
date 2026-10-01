@@ -16,9 +16,11 @@ import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
 import android.os.Build
 import android.os.IBinder
+import android.os.PowerManager
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.content.IntentCompat
+import dev.sophiel.MainActivity
 import dev.sophiel.R
 import dev.sophiel.SophielApp
 
@@ -39,6 +41,7 @@ class ProjectionService : Service() {
         private const val TAG = "Sophiel"
         private const val CHANNEL_ID = "capture"
         private const val NOTIFICATION_ID = 1
+        private const val RESUME_NOTIFICATION_ID = 2
 
         const val EXTRA_RESULT_CODE = "resultCode"
         const val EXTRA_RESULT_DATA = "resultData"
@@ -113,6 +116,9 @@ class ProjectionService : Service() {
         session?.close()
         controller.onTeardownComplete()
         stopForeground(STOP_FOREGROUND_REMOVE)
+        // Screen off means the OS or our receiver ended it, not the user: offer a one-tap restart.
+        // Covers both orders D19 observed (projection onStop() first, or the receiver first).
+        if (!getSystemService(PowerManager::class.java).isInteractive) postResumeNotification()
         stopSelf()
     }
 
@@ -121,7 +127,26 @@ class ProjectionService : Service() {
         super.onDestroy()
     }
 
+    /** Tapping it opens MainActivity, which starts the normal flow; consent is still fresh (§4.2). */
+    private fun postResumeNotification() {
+        val intent = Intent(this, MainActivity::class.java)
+            .setAction(MainActivity.ACTION_RESUME)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        val pendingIntent = PendingIntent.getActivity(
+            this, 0, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        val notification = NotificationCompat.Builder(this, CHANNEL_ID)
+            .setContentTitle("Sophiel protection paused")
+            .setContentText("The screen turned off. Tap to resume.")
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setContentIntent(pendingIntent)
+            .setAutoCancel(true)
+            .build()
+        getSystemService(NotificationManager::class.java).notify(RESUME_NOTIFICATION_ID, notification)
+    }
+
     private fun startForegroundWithType() {
+        getSystemService(NotificationManager::class.java).cancel(RESUME_NOTIFICATION_ID)
         val notification = buildNotification("Starting protection…")
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION)
