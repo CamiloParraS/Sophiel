@@ -390,7 +390,7 @@ This is the highest-risk area of the project. Implement it exactly as specified.
 | Apps using `FLAG_SECURE` yield black frames.                                                                                    | Detect all-black frames and surface "protected content — not analyzable" rather than scoring them.                   |
 | The user can revoke the session from the status bar at any time.                                                                | Register `MediaProjection.Callback.onStop()` and tear down cleanly. Untested teardown leaks the `VirtualDisplay`.    |
 | Overlays cannot be drawn over system permission dialogs or parts of system UI.                                                  | Never claim total coverage. State this in `docs/LIMITATIONS.md`.                                                     |
-| Android 15+ stops the projection when a secure keyguard (PIN/fingerprint) locks the device. A session cannot outlive screen-off. | Tear down on `ACTION_SCREEN_OFF` (DECISIONS.md D18). Resuming needs fresh consent; there is no silent re-init.        |
+| Android 15+ stops the projection when a secure keyguard (PIN/fingerprint) locks the device. A session cannot outlive screen-off. | Tear down on `ACTION_SCREEN_OFF` (DECISIONS.md D18). Resuming needs fresh consent; there is no silent re-init. A "paused — tap to resume" notification makes it one tap (D21).        |
 | `MediaProjection` mirrors the composited display, **including our own overlay windows** (observed with the debug pill, D18).    | Anything we draw is in the next frame. See M4's feedback-loop note.                                                   |
 
 ### 4.3 `SYSTEM_ALERT_WINDOW` is not a runtime permission
@@ -618,6 +618,8 @@ Omitting `FLAG_NOT_FOCUSABLE` steals input from every other app and makes the de
 
 **Feedback-loop trap.** The mask is itself captured (§4.2). Once engaged, the next frames show the scrim, not the content. They score SAFE, hysteresis releases after 3 frames, the content reappears, and the mask re-engages: it strobes. Decide how frames are treated while masked before writing `OverlayController` (for example, freeze the verdict while masked and re-evaluate only on tap-to-reveal or a large dHash change), and cover it in V2.
 
+Single-app capture (Android 14 QPR2+: the user picks one app in the consent dialog) doesn't include our overlay, so the loop doesn't happen there. It can't be the fix: Device A is API 33 and has no such option, and single-app capture only covers the chosen app. Handle the loop on full-screen capture; single-app is an optional user choice that also avoids it (DECISIONS.md D21).
+
 **Verification**
 
 - `V1` — Explicit content in a gallery app triggers the overlay within 400 ms.
@@ -670,7 +672,7 @@ The cross-device table is worth more than it looks. A 2×2 of {budget, flagship}
 - `docs/LIMITATIONS.md` — §8, written without hedging.
 - `docs/DECISIONS.md` — finalized.
 - Demo video, recorded via `adb shell screenrecord`, following a written runbook.
-- A "Future Work" section covering CLIP filters, sub-region redaction, and C2PA provenance.
+- A "Future Work" section covering CLIP filters, sub-region redaction (a second, detector model, possibly as a heavier performance level), performance presets (capture rate, input size, and threshold picked per device class), and C2PA provenance.
 
 **Verification**
 
@@ -780,7 +782,7 @@ Copy into `docs/LIMITATIONS.md` and expand with your measured numbers.
 
 1. **Reactive, not preventive.** Analysis happens after the content is drawn. Masking lands in ~200–400 ms; a fast reader may glimpse content. "Before you engage" is a UX goal, not a technical guarantee.
 2. **`FLAG_SECURE` blindness.** Apps that mark their windows secure yield black frames and cannot be analyzed.
-3. **Consent friction.** The system requires fresh consent for every capture session. Protection cannot survive a reboot, or turning the screen off, silently, by design. Android 15+ itself ends the projection on a secure lock.
+3. **Consent friction.** The system requires fresh consent for every capture session. Protection cannot survive a reboot, or turning the screen off, silently, by design. Android 15+ itself ends the projection on a secure lock. The best available fix is a "paused — tap to resume" notification, which re-opens the consent dialog in one tap (D21).
 4. **Whole-frame decisions.** A classifier, not a localizer. The entire screen is masked.
 5. **Threshold is a value judgement.** "Explicit" is contextual and culturally variable. The threshold is user-configurable precisely because no single value is correct.
 6. **Single-model bias.** Inherits the biases of its training data. State what is known about the source dataset.

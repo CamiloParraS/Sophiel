@@ -612,3 +612,38 @@ Behaviour-preserving restructure of the M3 capture code, plus one real bug.
 
 Verified: `:app:testDebugUnitTest`, `:safecore:test`, `:app:assembleDebug`, no INTERNET.
 **Not re-verified on-device** (no device attached). Re-run M3 V1-V7 before M4 work lands.
+
+---
+
+## D21 — Resume notification, single-app capture note, Beta Blocker comparison (2026-09-23, human request)
+
+Context: the human compared Sophiel with Beta Blocker Android (isla2d.itch.io, closed source)
+using a Deep Research report (`investigation.md`, mostly generic). Their teacher said the
+app can't run 24/7, and that it's fine to leave something that checks protection is still
+running.
+
+- **"Paused — tap to resume" notification.** `ProjectionService.teardown()` posts it when the
+  screen is off at teardown (`PowerManager.isInteractive == false`). That covers both
+  screen-off paths D19 saw: the OS `onStop()` running first, and our `ACTION_SCREEN_OFF`
+  receiver running first. A user Stop, or a failed start, always happens with the screen
+  on, so neither posts it. Tapping opens `MainActivity` with `ACTION_RESUME`, which calls
+  `controller.start()` from IDLE: the normal §4.4 flow, with a **fresh consent dialog**.
+  Nothing silent, no consent-token reuse, no new permission, no extra process. A new session
+  cancels the notification. This replaces D19's "not built; human's call".
+- **Single-app capture (Android 14 QPR2+) avoids the M4 feedback loop,** because another
+  app's overlays aren't in the capture. Beta Blocker tells its users to pick it, and requires
+  Android 15. It is not our fix: Device A is API 33, and single-app mode only covers one app.
+  Noted in SPEC.md M4.
+- **Not taken from the report:** detector/NMS/sub-region blur (§1.3), NNAPI (§1.3),
+  its "performance presets" table (no source; looks invented), and file export (conflicts
+  with rule 3).
+- **Future Work, not built:** sub-region blur as a second, detector model, possibly as a
+  heavier performance level. Performance presets: capture rate plus threshold per device
+  class. Beta Blocker's promo material suggests a confidence cutoff plus a lower frame rate;
+  ours are `FrameThrottle` (80 ms) and M4's threshold slider. Added to SPEC.md's Future Work
+  list. Feature freeze at end of M4 still applies.
+
+Verified: `:app:testDebugUnitTest` + `:app:assembleDebug` pass; no INTERNET.
+**Not verified on-device** (no device attached). To check: start protection, turn the screen
+off, unlock, the notification appears, tap it, fresh consent, RUNNING. Stop from the app,
+no notification appears.
