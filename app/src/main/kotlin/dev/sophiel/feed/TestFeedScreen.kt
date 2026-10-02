@@ -33,7 +33,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import dev.sophiel.core.Detector
 import dev.sophiel.core.Preset
-import dev.sophiel.core.FrameVerdict
+import dev.sophiel.core.TileVerdict
 import dev.sophiel.core.DetectorFactory
 
 private const val ASSET_DIR = "testfeed"
@@ -62,7 +62,7 @@ fun testFeedScreen(modifier: Modifier = Modifier) {
     DisposableEffect(detector) { onDispose { detector.close() } }
 
     val tiles = remember { loadTestFeedTiles(context) }
-    val verdicts = remember { mutableStateMapOf<String, FrameVerdict>() }
+    val verdicts = remember { mutableStateMapOf<String, List<TileVerdict>>() }
 
     var preset by remember { mutableStateOf(Preset.LIGHT) }
 
@@ -75,7 +75,8 @@ fun testFeedScreen(modifier: Modifier = Modifier) {
         LazyColumn(modifier = Modifier.fillMaxSize()) {
             items(tiles, key = { it.id }) { tile ->
                 LaunchedEffect(tile.id, preset) {
-                    verdicts[tile.id] = detector.analyze(tile.bitmap, preset)
+                    verdicts[tile.id] = emptyList() // drop the previous preset's tiles
+                    detector.analyze(tile.bitmap, preset).collect { verdicts[tile.id] = verdicts[tile.id].orEmpty() + it }
                 }
                 testFeedTileRow(tile.name, tile.bitmap, verdicts[tile.id])
             }
@@ -84,7 +85,7 @@ fun testFeedScreen(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun testFeedTileRow(name: String, bitmap: Bitmap, verdict: FrameVerdict?) {
+private fun testFeedTileRow(name: String, bitmap: Bitmap, verdict: List<TileVerdict>?) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(8.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -98,9 +99,10 @@ private fun testFeedTileRow(name: String, bitmap: Bitmap, verdict: FrameVerdict?
     }
 }
 
-private fun FrameVerdict?.describe(): String = when (this) {
-    null -> "analyzing…"
-    else -> "${latencyMs}ms\n" + tiles.joinToString("\n") {
+/** Header is the latest tile's latency, which is the frame's once every tile is in. */
+private fun List<TileVerdict>?.describe(): String = when {
+    isNullOrEmpty() -> "analyzing…"
+    else -> "${last().latencyMs}ms\n" + joinToString("\n") {
         "#${it.index} ${it.severity} · score=${"%.2f".format(it.score)} · gated=${it.gated} · cacheHit=${it.cacheHit}"
     }
 }

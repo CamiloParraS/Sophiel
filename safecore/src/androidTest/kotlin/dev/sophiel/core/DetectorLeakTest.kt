@@ -5,6 +5,7 @@ import android.os.Debug
 import android.util.Log
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -33,7 +34,7 @@ class DetectorLeakTest {
 
         repeat(CYCLES) { i ->
             val detector = DetectorFactory.create(context)
-            repeat(FRAMES_PER_CYCLE) { detector.analyze(frame, Preset.LIGHT) }
+            repeat(FRAMES_PER_CYCLE) { detector.analyze(frame, Preset.LIGHT).collect() }
             detector.close()
             settle()
             nativeKb[i] = Debug.getNativeHeapAllocatedSize() / 1024
