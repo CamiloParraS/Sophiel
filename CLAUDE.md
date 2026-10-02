@@ -145,3 +145,19 @@ Additional types are not mandated by the Conventional Commits specification, and
 ## Feature freeze
 
 **End of M6 (week 3) is a hard feature freeze.** M7 is hardening and docs. After the freeze, the only acceptable code changes are bug fixes for failing verification items and instrumentation needed to measure feel (latency, CPU, memory, battery). If you find yourself adding a feature in week 4, stop.
+
+---
+
+## Agent skills
+
+### Issue tracker
+
+Issues and specs are local markdown files under `.scratch/<feature>/`. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default five-role vocabulary (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: one `CONTEXT.md` at the repo root. Decisions live in `docs/DECISIONS.md`. See `docs/agents/domain.md`.
