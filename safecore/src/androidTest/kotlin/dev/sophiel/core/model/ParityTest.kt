@@ -3,6 +3,14 @@ package dev.sophiel.core.model
 import android.graphics.BitmapFactory
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import dev.sophiel.core.DetectionPipeline
+import dev.sophiel.core.Preset
+import dev.sophiel.core.gate.SkinGate
+import dev.sophiel.core.policy.PolicyEngine
+import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.flow.single
+import kotlinx.coroutines.runBlocking
+import java.util.concurrent.Executors
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -43,6 +51,27 @@ class ParityTest {
             }
         } finally {
             classifier.close()
+        }
+    }
+
+    /** Ticket 02: Light's single tile must score what the whole-frame path scored. */
+    @Test
+    fun lightTileMatchesThePythonReferenceWithinTolerance() = runBlocking {
+        val pipeline = DetectionPipeline(
+            classifier = NsfwClassifier.load(context),
+            policy = PolicyEngine(),
+            dispatcher = Executors.newSingleThreadExecutor().asCoroutineDispatcher(),
+            gate = SkinGate(minRatio = 0f), // never gate, so every fixture reaches the classifier
+        )
+        try {
+            for ((fileName, expectedScore) in loadExpectedLogits()) {
+                val bitmap = assets.open("fixtures/$fileName").use { BitmapFactory.decodeStream(it) }
+                val tile = pipeline.analyze(bitmap, Preset.LIGHT).single()
+                bitmap.recycle()
+                assertEquals("Light score for $fileName", expectedScore, tile.score.toDouble(), TOLERANCE)
+            }
+        } finally {
+            pipeline.close()
         }
     }
 
