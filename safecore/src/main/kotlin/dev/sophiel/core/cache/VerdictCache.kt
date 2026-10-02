@@ -4,10 +4,17 @@ import dev.sophiel.core.Verdict
 import dev.sophiel.core.gate.PerceptualHash
 
 /**
- * In-memory LRU cache of [Verdict]s keyed by [PerceptualHash]. A lookup hits
- * on any stored hash within [HIT_DISTANCE] Hamming distance, so near-
- * duplicate frames (e.g. static content re-scrolled into view) reuse a prior
- * verdict instead of re-running the classifier.
+ * In-memory LRU cache of [Verdict]s keyed by [PerceptualHash], so an identical
+ * frame reuses a prior verdict instead of re-running the classifier.
+ *
+ * **Exact hashes only.** This cache used to hit on any stored hash within a
+ * Hamming distance of 5. A 64-bit dHash of a whole phone screen is a 9x8
+ * grid, so one feed thumbnail covers about one cell and swapping its contents
+ * flips at most two bits. A fuzzy lookup therefore returned the previous
+ * SAFE verdict for precisely the frame whose only change was the image that
+ * mattered: the cache's false-hit mode was "miss unsafe content", which is the
+ * unrecoverable direction (SPEC.md §6.1). Exact matching gives up hits on
+ * near-duplicates and keeps the ones that are sound.
  */
 class VerdictCache(private val capacity: Int = 256) {
 
@@ -15,11 +22,8 @@ class VerdictCache(private val capacity: Int = 256) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Long, Verdict>) = size > capacity
     }
 
-    /** Returns the cached [Verdict] for a hash within [HIT_DISTANCE] of [hash], or null on a miss. */
-    fun get(hash: Long): Verdict? {
-        val key = entries.keys.firstOrNull { PerceptualHash.hammingDistance(it, hash) <= HIT_DISTANCE } ?: return null
-        return entries[key] // re-touches the entry, refreshing LRU order
-    }
+    /** Returns the cached [Verdict] stored under exactly [hash], or null on a miss. */
+    fun get(hash: Long): Verdict? = entries[hash] // access-order map: a read refreshes LRU recency
 
     /** Stores [verdict] under [hash], evicting the least-recently-used entry if over [capacity]. */
     fun put(hash: Long, verdict: Verdict) {
@@ -28,8 +32,4 @@ class VerdictCache(private val capacity: Int = 256) {
 
     /** Number of entries currently cached. */
     fun size(): Int = entries.size
-
-    private companion object {
-        const val HIT_DISTANCE = 5
-    }
 }

@@ -27,28 +27,21 @@ class VerdictCacheTest {
     }
 
     @Test
-    fun `get hits when the hash is within the Hamming distance threshold`() {
+    fun `get misses on a near-duplicate hash`() {
         val cache = VerdictCache()
         cache.put(0b0000_0000L, verdict)
 
-        // 4 bits differ; within the <=5 distance threshold.
-        assertEquals(verdict, cache.get(0b0000_1111L))
-    }
-
-    @Test
-    fun `get misses when the hash is beyond the Hamming distance threshold`() {
-        val cache = VerdictCache()
-        cache.put(0b0000_0000L, verdict)
-
-        // 6 bits differ; beyond the <=5 distance threshold.
-        assertNull(cache.get(0b0011_1111L))
+        // One flipped bit: the signature of a single feed thumbnail changing contents.
+        // It must re-run the classifier, not reuse the neighbour's verdict.
+        assertNull(cache.get(0b0000_0001L))
+        assertNull(cache.get(0b0000_1111L))
     }
 
     @Test
     fun `put evicts the least recently used entry once over capacity`() {
         val cache = VerdictCache(capacity = 2)
 
-        cache.put(0xF0F0_0000_0000_0000UL.toLong(), verdict) // far apart hashes so lookups don't fuzzy-match each other
+        cache.put(0xF0F0_0000_0000_0000UL.toLong(), verdict)
         cache.put(0x0F0F_0000_0000_0000UL.toLong(), verdict)
         cache.put(0x00FF_0000_0000_0000UL.toLong(), verdict)
 

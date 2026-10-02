@@ -83,10 +83,14 @@ class CaptureSession(
                     val verdict = detector.analyze(bitmap)
                     Log.d(
                         TAG,
-                        "severity=${verdict.severity} score=${verdict.score} gated=${verdict.gated} latencyMs=${verdict.latencyMs}",
+                        "severity=${verdict.severity} score=${verdict.score} gated=${verdict.gated} " +
+                            "cached=${verdict.cacheHit} latencyMs=${verdict.latencyMs}",
                     )
-                    "%s · score=%.2f · gated=%b · %dms".format(
-                        verdict.severity, verdict.score, verdict.gated, verdict.latencyMs,
+                    // cached= is here to be counted in M5: if the hit rate is ~0 the cache is dead
+                    // weight (MediaProjection delivers no frames at all for an unchanging screen,
+                    // DECISIONS.md D17) and VerdictCache should go.
+                    "%s · score=%.2f · gated=%b · cached=%b · %dms".format(
+                        verdict.severity, verdict.score, verdict.gated, verdict.cacheHit, verdict.latencyMs,
                     )
                 }
                 onStatus(status)
