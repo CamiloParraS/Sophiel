@@ -14,7 +14,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -61,12 +64,21 @@ fun testFeedScreen(modifier: Modifier = Modifier) {
     val tiles = remember { loadTestFeedTiles(context) }
     val verdicts = remember { mutableStateMapOf<String, FrameVerdict>() }
 
-    LazyColumn(modifier = modifier.fillMaxSize()) {
-        items(tiles, key = { it.id }) { tile ->
-            LaunchedEffect(tile.id) {
-                verdicts[tile.id] = detector.analyze(tile.bitmap, Preset.LIGHT)
+    var preset by remember { mutableStateOf(Preset.LIGHT) }
+
+    Column(modifier = modifier.fillMaxSize()) {
+        Row(Modifier.padding(8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Preset.entries.forEach { p ->
+                FilterChip(selected = p == preset, onClick = { preset = p }, label = { Text(p.name) })
             }
-            testFeedTileRow(tile.name, tile.bitmap, verdicts[tile.id])
+        }
+        LazyColumn(modifier = Modifier.fillMaxSize()) {
+            items(tiles, key = { it.id }) { tile ->
+                LaunchedEffect(tile.id, preset) {
+                    verdicts[tile.id] = detector.analyze(tile.bitmap, preset)
+                }
+                testFeedTileRow(tile.name, tile.bitmap, verdicts[tile.id])
+            }
         }
     }
 }
@@ -88,8 +100,8 @@ private fun testFeedTileRow(name: String, bitmap: Bitmap, verdict: FrameVerdict?
 
 private fun FrameVerdict?.describe(): String = when (this) {
     null -> "analyzing…"
-    else -> tiles.single().run {
-        "$severity · score=${"%.2f".format(score)} · gated=$gated · cacheHit=$cacheHit · ${this@describe.latencyMs}ms"
+    else -> "${latencyMs}ms\n" + tiles.joinToString("\n") {
+        "#${it.index} ${it.severity} · score=${"%.2f".format(it.score)} · gated=${it.gated} · cacheHit=${it.cacheHit}"
     }
 }
 
