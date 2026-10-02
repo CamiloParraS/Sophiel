@@ -1,26 +1,30 @@
 package dev.sophiel.core
 
 import dev.sophiel.core.model.NsfwClassifier
-import dev.sophiel.core.policy.PerTilePolicy
 import dev.sophiel.core.policy.PolicyEngine
 import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.flow.Flow
 import java.util.concurrent.Executors
 
 /** Severity ladder. Ordinal order is meaningful; do not reorder. */
 enum class Severity { SAFE, SUGGESTIVE, EXPLICIT }
 
-/** How many tiles a frame is split into (SPEC.md �3.3). Light is the whole frame. */
+/**
+ * How many tiles a frame is split into (SPEC.md §3.3), as portrait cols × rows.
+ * Light is the whole frame. Use [grid] for the actual layout of a given frame.
+ */
 enum class Preset(val cols: Int, val rows: Int) { LIGHT(1, 1), BALANCED(2, 3) }
 
 /**
  * Outcome of analysing one tile.
  *
- * @param index     row * cols + col
- * @param severity  bucketed decision after policy + hysteresis
+ * @param index     row * cols + col, on the frame's [grid]
+ * @param severity  stateless mapping of [score]; all timing lives in the tile tracker
  * @param score     raw unsafe probability in [0,1]
  * @param gated     true if the skin gate short-circuited before the classifier ran
  * @param cacheHit  true if this score was reused from an identical prior tile
  * @param hash      dHash of this tile's pixels
+ * @param latencyMs from [Detector.analyze] start to this tile's result; the last tile's is the frame's
  */
 data class TileVerdict(
     val index: Int,
@@ -29,23 +33,22 @@ data class TileVerdict(
     val gated: Boolean,
     val cacheHit: Boolean,
     val hash: Long,
+    val latencyMs: Long = 0,
 )
 
-/** @param latencyMs wall-clock time inside [Detector.analyze], all tiles */
-data class FrameVerdict(val tiles: List<TileVerdict>, val latencyMs: Long)
-
-/** Analyses screen frames locally and returns a [FrameVerdict] per frame. */
+/** Analyses screen frames locally, emitting one [TileVerdict] per tile. */
 interface Detector {
     /**
-     * Judge the given tiles of [frame] (all if [only] is null).
+     * Judge every tile of [frame] under [preset], emitting each tile as soon as it
+     * is judged, so its mask can go up without waiting for the rest of the sweep.
      *
-     * The caller retains ownership of [frame]; this method must not recycle it
-     * and must not retain a reference past return.
+     * The caller keeps ownership of [frame] and must not recycle it until
+     * collection completes.
      *
-     * Safe to call from any thread; implementations serialise internally onto a
-     * single inference thread. Concurrent callers are queued, not parallelised.
+     * Safe to collect from any thread; implementations serialise internally onto a
+     * single inference thread. Concurrent collectors are queued, not parallelised.
      */
-    suspend fun analyze(frame: android.graphics.Bitmap, preset: Preset, only: Set<Int>? = null): FrameVerdict
+    fun analyze(frame: android.graphics.Bitmap, preset: Preset): Flow<TileVerdict>
 
     /** Releases the interpreter. The instance is unusable afterwards. */
     fun close()
@@ -57,7 +60,7 @@ object DetectorFactory {
     fun create(context: android.content.Context, threshold: Float = 0.70f): Detector =
         DetectionPipeline(
             classifier = NsfwClassifier.load(context),
-            policies = PerTilePolicy { PolicyEngine(explicitThreshold = threshold) },
+            policy = PolicyEngine(explicitThreshold = threshold),
             dispatcher = Executors.newSingleThreadExecutor().asCoroutineDispatcher(),
         )
 }
