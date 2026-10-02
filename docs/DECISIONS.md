@@ -668,3 +668,30 @@ and the proposal disagreed. The graded part is mostly the UI and how well it sol
 (new conversion and parity risk). Remote parent alerts (needs INTERNET and a backend).
 
 **Old SPEC.** Preserved at git tag `spec-v1` and in the diff of the rescope PR.
+
+## D23 — Spec review fixes to the tile design (2026-10-02, human-approved review)
+
+A review of SPEC.md and the M4 tickets before any tile code found design bugs that would
+only have shown up on a device. All fixes are in SPEC.md §3.3-§3.5, §5 and §7.
+
+- **Probe validity.** Removing an overlay window does not reach the capture instantly, so a
+  probe could read our own mask, score it SAFE, release, and flash. A probe frame now counts
+  only once the tile no longer shows the mask (pixel check), capped at ~300 ms.
+- **REVEALED state** (5 s) so a Parent's reveal is not re-masked immediately.
+- **Own screens:** masks hidden and tracker paused while a Sophiel screen is in front, so the
+  PIN prompt can never sit under a mask.
+- **One owner for timing:** `PolicyEngine` becomes stateless; the tracker owns engage counts
+  and release (probe only).
+- **Light probes on the ~2 s timer only** (it has no CLEAR tiles to watch).
+- **Per-tile emission** from `Detector.analyze` (a Flow), so a flagged tile is masked after its
+  own classification, not the slowest tile's. Driven by the human's priority on feel.
+- **Masks pass touches through** (`FLAG_NOT_TOUCHABLE`); Reveal moves to a PIN-gated action on
+  Status and in the notification. Supersedes D22's tap-a-mask reveal. Human decision.
+- **Whole-frame safety net** for content straddling tiles: measure first in M4, enable only
+  if misses are found. Human decision.
+- **Debug-only mask in M4** so the feedback loop is tested in week 1, not week 2.
+- Log counts masking episodes, not frames. PIN lockout after 5 wrong attempts.
+- No Room/KSP/DataStore (none configured): `SharedPreferences` + a plain log file.
+- Mask colour never pure black (`BlackFrameDetector` counts exact-black pixels).
+- Rotation: grid follows orientation; whole content area masked until post-rotation verdicts.
+- Limitations now list every unblockable way a Child can stop protection.

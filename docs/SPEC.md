@@ -50,7 +50,7 @@ A parental-control Android app. A **Parent** sets a PIN, a preset, and a sensiti
 
 1. Captures the screen at a low frame rate via `MediaProjection`.
 2. Cuts each frame into **Tiles** and judges them with a local pipeline (cheap skin gate, then NSFW classifier).
-3. Covers only the flagged tiles with a solid **Mask** (the **Child** can still use the rest of the screen).
+3. Covers only the flagged tiles with a solid **Mask**. Touches pass through masks, so the **Child** can keep using the phone around them.
 4. Keeps a local, 7-day **Log** the Parent can read behind the PIN.
 
 The UI and the experience of it (it should feel quick and light) are the product. The model is a given.
@@ -58,7 +58,7 @@ The UI and the experience of it (it should feel quick and light) are the product
 ### 1.2 In scope
 
 - Two presets: **Light** (whole frame as one tile) and **Balanced** (2 columns × 3 rows).
-- Solid-block masks (lock icon + "Hidden by Sophiel"), PIN-gated Reveal.
+- Solid-block masks (lock icon + "Hidden by Sophiel") that let touches pass through. **Reveal** is a PIN-gated action on the Status screen and in the notification.
 - Parent screens: Status, Setup wizard, PIN unlock, Settings (Strict / Normal / Relaxed, preset), Log.
 - A hidden debug menu (Test Feed, debug pill, raw threshold slider).
 - A permission-free **Test Feed** for development and as the demo fallback.
@@ -72,7 +72,7 @@ Do not build these. If asked mid-project, refuse and cite this section.
 | Precise preset (bounding-box detector model)     | New model, new conversion and parity risk; too risky for one month.             |
 | Remote parent alerts, accounts, sync, backend    | Needs `INTERNET`; breaks C1.                                                    |
 | Tamper resistance (Device Admin, work profile)   | Deep rabbit hole; documented as a limitation instead.                           |
-| Formal evaluation set, ROC, UI corpus as deliverables | Debug-only tooling; the demo and the measured numbers matter more.         |
+| Formal evaluation set, ROC, UI corpus as deliverables | Debug-only tooling. May appear as a stretch measurement (§5), never as a deliverable. |
 | Deepfake detection, CLIP filters, OCR, NPU delegation, Play Store readiness, telemetry | Not required, or does not work. |
 
 ### 1.4 Devices
@@ -125,8 +125,8 @@ app/src/main/kotlin/dev/sophiel/
              CaptureSession, FrameSource, FrameThrottle, BlackFrameDetector   (done, verified)
   overlay/   OverlayController, TileMaskView                                    ← NEW (M5)
   pin/       PinStore, PinPromptActivity                                        ← NEW (M5/M6)
-  log/       LogRepository (Room)                                               ← NEW (M6)
-  settings/  SettingsRepository (DataStore)                                     ← NEW (M6)
+  log/       EventLog (plain file in app storage, pruned on write)              ← NEW (M6)
+  settings/  SettingsRepository (SharedPreferences)                             ← NEW (M6)
   ui/        Status, Setup, Unlock, Settings, Log screens, theme                ← NEW (M5/M6)
   feed/      TestFeedScreen
   debug/     DebugPillOverlay, debug menu
@@ -136,56 +136,68 @@ docs/        SPEC.md, DECISIONS.md, LIMITATIONS.md, wayfinder/
 
 `eval/images/` stays gitignored; image data is never committed.
 
+No Room, KSP or DataStore. None is configured, and a few hundred scalar rows plus a handful of settings don't need them.
+
 ### 3.3 `:safecore` contract (per tile)
 
 This replaces the old single-score `Verdict`. `:app` may use nothing else from `:safecore`. Exact signatures settle in M4, tests first; the shape is fixed.
 
 ```kotlin
 enum class Severity { SAFE, SUGGESTIVE, EXPLICIT }            // ordinal order is meaningful
-enum class Preset(val cols: Int, val rows: Int) { LIGHT(1, 1), BALANCED(2, 3) }
+enum class Preset(val cols: Int, val rows: Int) { LIGHT(1, 1), BALANCED(2, 3) }   // landscape swaps cols and rows
 
 data class TileVerdict(
     val index: Int,            // row * cols + col
-    val severity: Severity,
+    val severity: Severity,    // stateless mapping of score; all timing lives in TileMaskTracker
     val score: Float,          // raw unsafe probability in [0,1]
     val gated: Boolean,        // skin gate short-circuited the classifier
     val cacheHit: Boolean,
     val hash: Long,            // dHash of this tile's pixels
+    val latencyMs: Long,       // from analyze() start to this tile's result
 )
-data class FrameVerdict(val tiles: List<TileVerdict>, val latencyMs: Long)
 
 interface Detector {
-    /** Judge the given tiles of [frame] (all if [only] is null). Caller keeps ownership of [frame].
-     *  Safe from any thread; serialises internally onto one inference thread. */
-    suspend fun analyze(frame: android.graphics.Bitmap, preset: Preset, only: Set<Int>? = null): FrameVerdict
+    /** Judge the given tiles of [frame] (all if [only] is null), emitting each tile as soon as
+     *  it is judged, so its mask can go up without waiting for the rest of the sweep.
+     *  Caller keeps ownership of [frame] and must not recycle it until collection completes.
+     *  Serialises internally onto one inference thread. */
+    fun analyze(frame: android.graphics.Bitmap, preset: Preset, only: Set<Int>? = null): Flow<TileVerdict>
     fun close()
 }
 ```
 
-`DetectorFactory.create(context, threshold)` stays; the threshold comes from the Parent's sensitivity (§3.5).
+Per-tile emission exists for feel: a flagged tile is masked after its own classification, not after the slowest tile in the sweep. `DetectorFactory.create(context, threshold)` stays; the threshold comes from the Parent's sensitivity (§3.5). `PolicyEngine` becomes a stateless score-to-severity mapping; its old engage/release counters move into the tracker.
 
 ### 3.4 Tile state machine (`TileMaskTracker`, pure logic)
 
 The mask is itself captured (§4.2), so a masked tile's own score is meaningless: it would see the mask, score SAFE, release, and strobe. Each tile therefore has three states:
 
 ```
-CLEAR ──score ≥ threshold (hysteresis)──▶ MASKED   (remember lockedHash = hash of the content)
-MASKED ──probe trigger──▶ PROBING                  (unmask for exactly ONE captured frame)
-PROBING ──hash == lockedHash──▶ MASKED             (no classification; re-mask next frame)
+CLEAR ──score ≥ threshold for ENGAGE frames──▶ MASKED     (lockedHash = hash of the content)
+MASKED ──probe trigger──▶ PROBING                          (mask window removed)
+PROBING ──captured tile still shows our mask──▶ keep waiting (cap ~300 ms, then back to MASKED)
+PROBING ──hash == lockedHash──▶ MASKED                     (no classification)
 PROBING ──hash differs──▶ classify ──≥ threshold──▶ MASKED (new lockedHash)
                                    └─< threshold──▶ CLEAR
+MASKED ──Parent reveals (PIN)──▶ REVEALED ──5 s──▶ PROBING
 ```
 
-- While MASKED, ignore the tile's captured score.
-- **Probe trigger:** a frame arrives AND (at least half of the CLEAR tiles' hashes changed, OR ~2 s have passed since the last probe). At most one probe per second per tile.
-- A static screen delivers no new frames (platform finding, D18), so it never probes.
+- **The tracker owns all timing.** The engage count starts at the old `PolicyEngine` value (2 frames). There is no release count: a tile only leaves MASKED through a probe.
+- While MASKED or REVEALED, ignore the tile's captured score.
+- **Probe validity.** Removing an overlay window does not reach the capture instantly; the next captured frame can still show the mask. A probe frame counts only once the captured tile no longer shows our mask (we know its exact look, so a pixel check is enough). If it has not cleared within ~300 ms, re-mask and wait for the next trigger. Without this rule every probe would read the mask as SAFE, release, and flash.
+- **Probe trigger, Balanced:** a frame arrives AND (at least half of the CLEAR tiles' hashes changed since the previous frame, OR ~2 s have passed since the last probe).
+- **Probe trigger, Light:** the only tile is masked, so there are no CLEAR tiles to watch. Probe on the ~2 s timer only, when frames arrive.
+- At most one probe per second per tile. A static screen delivers no new frames (D18), so it never probes.
 - Hash lock is **exact match only**. Near-miss matching was rejected in `c7eff9c`.
-- Engage/release counts and the 2×3 grid cost (estimated ~70 ms/tile on Device A, never measured) are settled by measurement in M4. If a 2×3 sweep exceeds ~400 ms on Device A, drop Balanced to 2×2.
+- **Our own screens.** While a Sophiel activity is in the foreground, hide every mask and pause the tracker (states frozen). Our screens are opaque, so nothing is exposed, and the PIN prompt can never sit under a mask.
+- **Mask colour is never pure black (`0x000000`).** `BlackFrameDetector` counts exact-black pixels; a black full-screen Light mask would read as a secure app.
+- **Rotation.** The grid follows orientation (Balanced is 3×2 in landscape). On rotation, cover the whole content area with one mask until the first post-rotation verdicts arrive, then reset the tracker on the new grid.
+- The 2×3 grid cost (estimated ~70 ms/tile on Device A, never measured) is settled by measurement in M4. If a 2×3 sweep exceeds ~400 ms on Device A, drop Balanced to 2×2.
 - The Light preset is the same machine on a 1×1 grid.
 
 ### 3.5 Sensitivity and presets
 
-Parent-facing: **Strict / Normal / Relaxed**, each mapped to a score threshold in code (values tuned in M4; Normal starts at the old 0.70). `PolicyEngine`'s SUGGESTIVE cutoff already exists (D11) and is reserved for the stretch tier. Preset is a separate **Light / Balanced** toggle with a one-line speed-vs-precision description. The raw threshold slider exists only in the debug menu.
+Parent-facing: **Strict / Normal / Relaxed**, each mapped to a score threshold in code (values tuned in M4; Normal starts at the old 0.70). `PolicyEngine` is a stateless mapping (§3.3); its SUGGESTIVE cutoff already exists (D11) and is reserved for the stretch tier. Preset is a separate **Light / Balanced** toggle with a one-line speed-vs-precision description. The raw threshold slider exists only in the debug menu.
 
 ### 3.6 Skin gate
 
@@ -262,44 +274,52 @@ M0–M3 are **done and reused**: skeleton, model + parity gate, pipeline + Test 
 
 ### M3.5 — Gate (first days of week 1)
 
-- Merge the open branches into `main`.
+- Merge the rescope PR into `main` (`develop`, `feat/pipeline` and `feat/capture` are already fully merged).
 - Re-run M3 V1–V7 on a device, and the D21 resume-notification check (D20 and D21 were never verified on-device).
 - **Tile work does not start until this passes.**
 
 ### M4 — Tile pipeline (week 1)
 
-**Deliverables.** `TileGrid`, `TileMaskTracker` (§3.4), per-tile `Detector.analyze`, exact-hash lock, Light/Balanced presets. Tests first for the state machine. A temporary on-screen readout of per-tile verdicts. Measure real per-tile cost on both devices.
+**Deliverables.** `TileGrid`, `TileMaskTracker` (§3.4), per-tile `Detector.analyze` with per-tile emission, exact-hash lock, Light/Balanced presets. Tests first for the state machine. A temporary on-screen readout of per-tile verdicts. A **crude debug-only mask**: a non-black solid block over each masked tile, touch pass-through. It exists so the probe and hash lock are tested against a mask the capture really sees in week 1, not week 2. Measure real per-tile cost on both devices. Measure whether content straddling a tile boundary is missed. If it is, turn on a **whole-frame safety net**: one extra whole-frame classification, and when the whole frame flags but no tile does, mask the tiles that passed the skin gate.
 
 **Verification**
-- `V1` — JVM tests pass for `TileMaskTracker` (all transitions in §3.4), tiling, and exact-hash lock.
+- `V1` — JVM tests pass for `TileMaskTracker` (every transition in §3.4, including REVEALED, probe validity, Light's timer-only trigger and the own-screen pause), tiling, and exact-hash lock.
 - `V2` — Balanced on the Test Feed judges only the tiles it should; Light behaves as one tile.
-- `V3` — Real per-tile cost and per-frame sweep time are measured on both devices and written to `DECISIONS.md`. 2×2 fallback applied if needed.
-- `V4` — `ParityTest` still passes.
+- `V3` — Real per-tile cost and per-frame sweep time are measured on both devices and written to `DECISIONS.md`. 2×2 fallback applied if needed. Straddling-content result and the safety-net decision recorded.
+- `V4` — With the debug mask on, a static flagged image stays masked for 10 s with no flicker, and probe exposure is logged in milliseconds.
+- `V5` — `ParityTest` still passes.
 
 ### M5 — Overlay (week 2)
 
-**Deliverables.** `OverlayController` + `TileMaskView`: one small `TYPE_APPLICATION_OVERLAY` window **per masked tile**, sized exactly to the tile, so every uncovered pixel passes touches through. Flags `FLAG_NOT_FOCUSABLE | FLAG_NOT_TOUCH_MODAL | FLAG_LAYOUT_IN_SCREEN`. Solid block, lock icon, "Hidden by Sophiel" (validated prototype: `docs/wayfinder/prototypes/03-censor-treatment.prototype.html`). Tapping a mask launches `PinPromptActivity`; a correct PIN reveals that tile for 5 s, then it re-masks. A basic **Status** screen with the on/off switch. Running end-to-end on hard-coded settings.
+**Deliverables.**
+- `OverlayController` + `TileMaskView` replace the debug mask: one small `TYPE_APPLICATION_OVERLAY` window **per masked tile**, sized exactly to the tile.
+- Flags `FLAG_NOT_FOCUSABLE | FLAG_NOT_TOUCHABLE | FLAG_LAYOUT_IN_SCREEN`. Every touch, including one on a mask, passes through to the app beneath, so the Child can scroll past masked content.
+- Solid block (never pure black), lock icon, "Hidden by Sophiel" (validated prototype: `docs/wayfinder/prototypes/03-censor-treatment.prototype.html`).
+- **Coordinate mapping** from capture tiles back to screen pixels: undo the 360 px downscale and add back the system-bar and cutout insets. Recomputed on configuration change. Rotation per §3.4.
+- **Reveal:** a "Reveal" action in the notification and on Status opens an opaque, full-screen `PinPromptActivity`. A correct PIN puts every masked tile into REVEALED for 5 s.
+- Masks hidden and tracker paused while a Sophiel screen is in the foreground (§3.4).
+- A basic **Status** screen with the on/off switch. Running end-to-end on hard-coded settings.
 
 **Verification**
-- `V1` — Flagged tiles are covered; unflagged tiles and the app beneath still receive touches.
+- `V1` — Masks sit exactly over the flagged tiles in portrait and landscape; every touch passes through, including over a mask.
 - `V2` — A static flagged image stays masked for 10 s with no flicker; it releases within a few seconds after the content changes.
-- `V3` — Probe exposure is at most one captured frame, at most one probe per second (measured).
+- `V3` — Probe exposure (mask removed until it is back or the tile is released) is measured in milliseconds, median and worst case, on both devices. At most one probe per second per tile.
 - `V4` — Killing the app from Recents removes every overlay window; none is orphaned.
-- `V5` — Reveal requires the PIN, and the mask returns after 5 s.
+- `V5` — Reveal requires the PIN, masks return after 5 s, and the PIN prompt is never covered by a mask.
 
 ### M6 — Parent app (week 3) — **FEATURE FREEZE AT END OF WEEK**
 
 **Deliverables.**
 - **Setup wizard:** create a 4–6 digit PIN (confirm) → overlay permission → notification permission → preset + sensitivity → start (consent). No PIN recovery; the wizard says so.
 - **Status** (opens with no PIN): on/off, active preset, "Settings (parent)". Starting needs no PIN. Anything that weakens protection needs the PIN: stop, change preset or sensitivity, reveal a mask, view the log. An unlock lasts ~2 minutes.
-- **Settings:** Strict / Normal / Relaxed, Light / Balanced. `SettingsRepository` (DataStore). The PIN is stored as a salted hash, never plaintext.
-- **Log** (Room): kinds masked (time, tiles masked, score band), protection on, protection off (reason: user stop / screen off / system ended), unanalyzable. Scalars only: no frames, no app names. Kept 7 days, rolling prune; "Clear log" behind the PIN; summary "N masks today". A gap from a killed app or reboot is inferred on next start.
-- **Notification:** no Stop action; stopping from the app needs the PIN. "Paused — tap to resume" stays.
+- **Settings:** Strict / Normal / Relaxed, Light / Balanced. `SettingsRepository` (`SharedPreferences`). The PIN is stored as a salted hash, never plaintext. Five wrong attempts lock the prompt for 30 s, doubling on repeats.
+- **Log** (plain file, pruned on write): kinds masked (time, tiles masked, score band), protection on, protection off (reason: user stop / screen off / system ended), unanalyzable. **One masked entry per masking episode** (a tile going CLEAR → MASKED), never per frame or per re-mask after a probe. Scalars only: no frames, no app names. Kept 7 days; "Clear log" behind the PIN; summary "N masks today". A gap from a killed app or reboot is inferred on next start.
+- **Notification:** no Stop action; stopping from the app needs the PIN. A "Reveal" action (PIN) instead. "Paused — tap to resume" stays.
 - **Debug menu:** 7 taps on the version label + PIN. Holds Test Feed, debug pill, raw slider.
 
 **Verification**
-- `V1` — Every weakening action prompts for the PIN; the PIN is not stored in plaintext.
-- `V2` — The log records masks, on/off with a reason, and unanalyzable screens; a unit test with a fake clock proves entries older than 7 days are pruned.
+- `V1` — Every weakening action prompts for the PIN; the PIN is not stored in plaintext; five wrong attempts lock the prompt.
+- `V2` — The log records masks (one per episode), on/off with a reason, and unanalyzable screens; a unit test with a fake clock proves entries older than 7 days are pruned.
 - `V3` — Wizard completes from a cold install on both devices.
 - `V4` — Changing sensitivity or preset takes effect without restarting the service.
 
@@ -332,11 +352,11 @@ M0–M3 are **done and reused**: skeleton, model + parity gate, pipeline + Test 
 Copy into `docs/LIMITATIONS.md` and expand with measured numbers.
 
 1. **Reactive, not preventive.** Analysis happens after content is drawn. A fast reader may glimpse it before the mask lands.
-2. **Probe exposure.** To find out whether masked content has changed, a probe uncovers the tile for one captured frame. Bounded by the one-frame, one-per-second rule and the exact-hash lock, but not zero.
-3. **Tile granularity.** Masks are tile-sized, not object-sized. Content that straddles tiles is judged per tile and can score below the threshold in each; a mask can also cover more than the content.
+2. **Probe exposure.** To find out whether masked content has changed, a probe uncovers the tile until the capture confirms what is underneath. Bounded by the one-per-second rule and the exact-hash lock, and reported in milliseconds, but not zero.
+3. **Tile granularity.** Masks are tile-sized, not object-sized. Content that straddles tiles is judged per tile and can score below the threshold in each (the whole-frame safety net exists only if M4 measured misses); a mask can also cover more than the content.
 4. **`FLAG_SECURE` blindness.** Secure windows (banking apps, incognito) yield black frames and cannot be analysed; the Log records them as unanalyzable.
 5. **Consent friction.** Fresh consent every session. Protection cannot survive a reboot or screen-off silently; Android 15+ ends the projection on a secure lock. "Paused — tap to resume" makes it one tap.
-6. **The Child can end it.** The system screen-share indicator can stop capture and cannot be blocked without root or Device Admin. There is no PIN recovery. No tamper resistance.
+6. **The Child can end it.** None of these can be blocked without root or Device Admin: the system screen-share indicator, Android 13+'s "Active apps" panel in Quick Settings, force-stopping the app, revoking the overlay permission, clearing app data (which also resets the PIN and wipes the log), or uninstalling. There is no PIN recovery. No tamper resistance.
 7. **Log gaps.** If the app is killed or the phone reboots, no "off" entry can be written; the gap is inferred on next start.
 8. **Threshold is a value judgement.** "Explicit" is contextual; sensitivity is Parent-set because no single value is right.
 9. **Single-model bias.** Inherits the biases of its training data (GantMan MobileNetV2, D12).
