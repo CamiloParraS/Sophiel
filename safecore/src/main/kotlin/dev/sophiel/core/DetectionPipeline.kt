@@ -62,9 +62,8 @@ class DetectionPipeline(
 
     private fun crop(frame: Bitmap, preset: Preset, index: Int): Bitmap {
         if (preset.cols * preset.rows == 1) return frame
-        val w = frame.width / preset.cols
-        val h = frame.height / preset.rows
-        return Bitmap.createBitmap(frame, index % preset.cols * w, index / preset.cols * h, w, h)
+        val r = preset.tileRect(index, frame.width, frame.height)
+        return Bitmap.createBitmap(frame, r.left, r.top, r.width, r.height)
     }
 
     /** Gate + classifier only. Index/severity are placeholders, filled in by [judge]. */
