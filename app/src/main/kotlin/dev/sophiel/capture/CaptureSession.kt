@@ -12,6 +12,7 @@ import android.util.Log
 import android.view.WindowInsets
 import android.view.WindowManager
 import dev.sophiel.core.DetectorFactory
+import dev.sophiel.core.Preset
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -80,17 +81,18 @@ class CaptureSession(
                     Log.d(TAG, "protected content (mostly-black frame, likely FLAG_SECURE)")
                     "Protected content — not analyzable"
                 } else {
-                    val verdict = detector.analyze(bitmap)
+                    val frameVerdict = detector.analyze(bitmap, Preset.LIGHT)
+                    val verdict = frameVerdict.tiles.single()
                     Log.d(
                         TAG,
                         "severity=${verdict.severity} score=${verdict.score} gated=${verdict.gated} " +
-                            "cached=${verdict.cacheHit} latencyMs=${verdict.latencyMs}",
+                            "cached=${verdict.cacheHit} latencyMs=${frameVerdict.latencyMs}",
                     )
                     // cached= is here to be counted in M5: if the hit rate is ~0 the cache is dead
                     // weight (MediaProjection delivers no frames at all for an unchanging screen,
                     // DECISIONS.md D17) and VerdictCache should go.
                     "%s · score=%.2f · gated=%b · cached=%b · %dms".format(
-                        verdict.severity, verdict.score, verdict.gated, verdict.cacheHit, verdict.latencyMs,
+                        verdict.severity, verdict.score, verdict.gated, verdict.cacheHit, frameVerdict.latencyMs,
                     )
                 }
                 onStatus(status)

@@ -5,6 +5,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import dev.sophiel.core.gate.SkinGate
 import dev.sophiel.core.model.NsfwClassifier
+import dev.sophiel.core.policy.PerTilePolicy
 import dev.sophiel.core.policy.PolicyEngine
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.runBlocking
@@ -31,13 +32,13 @@ class PipelineHysteresisTest {
         // Thresholds of 0 put every score "above", isolating hysteresis from model output.
         val pipeline = DetectionPipeline(
             classifier = NsfwClassifier.load(context),
-            policy = PolicyEngine(explicitThreshold = 0f, suggestiveThreshold = 0f),
+            policies = PerTilePolicy { PolicyEngine(explicitThreshold = 0f, suggestiveThreshold = 0f) },
             dispatcher = Executors.newSingleThreadExecutor().asCoroutineDispatcher(),
             gate = SkinGate(minRatio = 0f),
         )
         try {
-            assertEquals(Severity.SUGGESTIVE, pipeline.analyze(frame).severity)
-            val second = pipeline.analyze(frame)
+            assertEquals(Severity.SUGGESTIVE, pipeline.analyze(frame, Preset.LIGHT).tiles[0].severity)
+            val second = pipeline.analyze(frame, Preset.LIGHT).tiles[0]
             assertTrue("second frame should be a cache hit", second.cacheHit)
             assertEquals(Severity.EXPLICIT, second.severity)
         } finally {
