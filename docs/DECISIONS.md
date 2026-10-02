@@ -612,3 +612,59 @@ Behaviour-preserving restructure of the M3 capture code, plus one real bug.
 
 Verified: `:app:testDebugUnitTest`, `:safecore:test`, `:app:assembleDebug`, no INTERNET.
 **Not re-verified on-device** (no device attached). Re-run M3 V1-V7 before M4 work lands.
+
+---
+
+## D21 — Resume notification, single-app capture note, Beta Blocker comparison (2026-09-23, human request)
+
+Context: the human compared Sophiel with Beta Blocker Android (isla2d.itch.io, closed source)
+using a Deep Research report (`investigation.md`, mostly generic). Their teacher said the
+app can't run 24/7, and that it's fine to leave something that checks protection is still
+running.
+
+- **"Paused — tap to resume" notification.** `ProjectionService.teardown()` posts it when the
+  screen is off at teardown (`PowerManager.isInteractive == false`). That covers both
+  screen-off paths D19 saw: the OS `onStop()` running first, and our `ACTION_SCREEN_OFF`
+  receiver running first. A user Stop, or a failed start, always happens with the screen
+  on, so neither posts it. Tapping opens `MainActivity` with `ACTION_RESUME`, which calls
+  `controller.start()` from IDLE: the normal §4.4 flow, with a **fresh consent dialog**.
+  Nothing silent, no consent-token reuse, no new permission, no extra process. A new session
+  cancels the notification. This replaces D19's "not built; human's call".
+- **Single-app capture (Android 14 QPR2+) avoids the M4 feedback loop,** because another
+  app's overlays aren't in the capture. Beta Blocker tells its users to pick it, and requires
+  Android 15. It is not our fix: Device A is API 33, and single-app mode only covers one app.
+  Noted in SPEC.md M4.
+- **Not taken from the report:** detector/NMS/sub-region blur (§1.3), NNAPI (§1.3),
+  its "performance presets" table (no source; looks invented), and file export (conflicts
+  with rule 3).
+- **Future Work, not built:** sub-region blur as a second, detector model, possibly as a
+  heavier performance level. Performance presets: capture rate plus threshold per device
+  class. Beta Blocker's promo material suggests a confidence cutoff plus a lower frame rate;
+  ours are `FrameThrottle` (80 ms) and M4's threshold slider. Added to SPEC.md's Future Work
+  list. Feature freeze at end of M4 still applies.
+
+Verified: `:app:testDebugUnitTest` + `:app:assembleDebug` pass; no INTERNET.
+**Not verified on-device** (no device attached). To check: start protection, turn the screen
+off, unlock, the notification appears, tap it, fresh consent, RUNNING. Stop from the app,
+no notification appears.
+
+## D22 — Rescope to a parental-control app with per-tile masking (2026-10-01, human request)
+
+**Why.** The original proposal to the course was a parental-control app that censors suggestive
+areas of the live screen, preferably regions rather than the whole screen. The old SPEC defined a
+single-user whole-frame blur and listed sub-region redaction as out of scope (§1.3), so the SPEC
+and the proposal disagreed. The graded part is mostly the UI and how well it solves the problem.
+
+**Decided** (planning record: `docs/wayfinder/map.md` and its tickets):
+- **Kept:** model and preprocessing (D12), the whole capture stack (M3), no-INTERNET, no-persisted-frames, Kotlin + Compose.
+- **Regional masking** via a tile grid reusing the same classifier: Light = 1x1, Balanced = 2x3 (2x2 fallback if the measured sweep is over ~400 ms on Device A). No detector model (Precise preset ruled out).
+- **Feedback loop** (the mask is captured): per-tile CLEAR/MASKED/PROBING machine, exact-hash lock, probe on frame change. Probe exposure of one captured frame is accepted and must be measured (SPEC §3.4, §7).
+- **Mask look:** solid block with lock and label, PIN-gated Reveal (prototype react: variant C).
+- **Parent flow:** PIN gates anything that weakens protection, no PIN recovery, no Stop action in the notification, Strict/Normal/Relaxed, 7-day local log (masks, on/off, unanalyzable).
+- **Dropped:** formal evaluation set / ROC / UI corpus as deliverables (debug only), hard latency gates (kept as stretch targets), old M4-M6 text, SPEC §6 "lessons" and the whole-frame-only rules.
+- **Plan:** ~4 weeks, risk-first (gate, tiles, overlay, parent app with a freeze at the end of week 3, harden). SPEC §5.
+
+**Alternatives rejected.** Whole-frame only (does not meet the proposal). A box-detector model
+(new conversion and parity risk). Remote parent alerts (needs INTERNET and a backend).
+
+**Old SPEC.** Preserved at git tag `spec-v1` and in the diff of the rescope PR.
