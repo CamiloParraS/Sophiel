@@ -29,8 +29,9 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import dev.sophiel.core.Detector
+import dev.sophiel.core.Preset
+import dev.sophiel.core.FrameVerdict
 import dev.sophiel.core.DetectorFactory
-import dev.sophiel.core.Verdict
 
 private const val ASSET_DIR = "testfeed"
 
@@ -58,12 +59,12 @@ fun testFeedScreen(modifier: Modifier = Modifier) {
     DisposableEffect(detector) { onDispose { detector.close() } }
 
     val tiles = remember { loadTestFeedTiles(context) }
-    val verdicts = remember { mutableStateMapOf<String, Verdict>() }
+    val verdicts = remember { mutableStateMapOf<String, FrameVerdict>() }
 
     LazyColumn(modifier = modifier.fillMaxSize()) {
         items(tiles, key = { it.id }) { tile ->
             LaunchedEffect(tile.id) {
-                verdicts[tile.id] = detector.analyze(tile.bitmap)
+                verdicts[tile.id] = detector.analyze(tile.bitmap, Preset.LIGHT)
             }
             testFeedTileRow(tile.name, tile.bitmap, verdicts[tile.id])
         }
@@ -71,7 +72,7 @@ fun testFeedScreen(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun testFeedTileRow(name: String, bitmap: Bitmap, verdict: Verdict?) {
+private fun testFeedTileRow(name: String, bitmap: Bitmap, verdict: FrameVerdict?) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(8.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -85,9 +86,11 @@ private fun testFeedTileRow(name: String, bitmap: Bitmap, verdict: Verdict?) {
     }
 }
 
-private fun Verdict?.describe(): String = when (this) {
+private fun FrameVerdict?.describe(): String = when (this) {
     null -> "analyzing…"
-    else -> "$severity · score=${"%.2f".format(score)} · gated=$gated · cacheHit=$cacheHit · ${latencyMs}ms"
+    else -> tiles.single().run {
+        "$severity · score=${"%.2f".format(score)} · gated=$gated · cacheHit=$cacheHit · ${this@describe.latencyMs}ms"
+    }
 }
 
 private fun loadTestFeedTiles(context: Context): List<TestFeedTile> {

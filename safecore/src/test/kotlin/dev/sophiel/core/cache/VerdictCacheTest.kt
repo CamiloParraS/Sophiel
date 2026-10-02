@@ -1,14 +1,14 @@
 package dev.sophiel.core.cache
 
 import dev.sophiel.core.Severity
-import dev.sophiel.core.Verdict
+import dev.sophiel.core.TileVerdict
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 
 class VerdictCacheTest {
 
-    private val verdict = Verdict(Severity.SAFE, score = 0.1f, gated = false, cacheHit = false, latencyMs = 5)
+    private val verdict = TileVerdict(0, Severity.SAFE, score = 0.1f, gated = false, cacheHit = false, hash = 0)
 
     @Test
     fun `get on an empty cache is a miss`() {
