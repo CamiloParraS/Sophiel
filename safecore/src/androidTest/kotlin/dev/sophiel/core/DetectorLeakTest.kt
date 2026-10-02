@@ -33,7 +33,7 @@ class DetectorLeakTest {
 
         repeat(CYCLES) { i ->
             val detector = DetectorFactory.create(context)
-            repeat(FRAMES_PER_CYCLE) { detector.analyze(frame) }
+            repeat(FRAMES_PER_CYCLE) { detector.analyze(frame, Preset.LIGHT) }
             detector.close()
             settle()
             nativeKb[i] = Debug.getNativeHeapAllocatedSize() / 1024

@@ -1,10 +1,10 @@
 package dev.sophiel.core.cache
 
-import dev.sophiel.core.Verdict
+import dev.sophiel.core.TileVerdict
 import dev.sophiel.core.gate.PerceptualHash
 
 /**
- * In-memory LRU cache of [Verdict]s keyed by [PerceptualHash], so an identical
+ * In-memory LRU cache of [TileVerdict]s keyed by [PerceptualHash], so an identical
  * frame reuses a prior verdict instead of re-running the classifier.
  *
  * **Exact hashes only.** This cache used to hit on any stored hash within a
@@ -18,15 +18,15 @@ import dev.sophiel.core.gate.PerceptualHash
  */
 class VerdictCache(private val capacity: Int = 256) {
 
-    private val entries = object : LinkedHashMap<Long, Verdict>(capacity, 0.75f, true) {
-        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Long, Verdict>) = size > capacity
+    private val entries = object : LinkedHashMap<Long, TileVerdict>(capacity, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Long, TileVerdict>) = size > capacity
     }
 
-    /** Returns the cached [Verdict] stored under exactly [hash], or null on a miss. */
-    fun get(hash: Long): Verdict? = entries[hash] // access-order map: a read refreshes LRU recency
+    /** Returns the cached [TileVerdict] stored under exactly [hash], or null on a miss. */
+    fun get(hash: Long): TileVerdict? = entries[hash] // access-order map: a read refreshes LRU recency
 
     /** Stores [verdict] under [hash], evicting the least-recently-used entry if over [capacity]. */
-    fun put(hash: Long, verdict: Verdict) {
+    fun put(hash: Long, verdict: TileVerdict) {
         entries[hash] = verdict
     }
 

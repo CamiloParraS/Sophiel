@@ -7,6 +7,7 @@ import dev.sophiel.core.gate.PerceptualHash
 import dev.sophiel.core.gate.SkinGate
 import dev.sophiel.core.model.NsfwClassifier
 import dev.sophiel.core.model.Preprocessor
+import dev.sophiel.core.policy.PerTilePolicy
 import dev.sophiel.core.policy.PolicyEngine
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
@@ -25,30 +26,52 @@ import kotlinx.coroutines.withContext
  */
 class DetectionPipeline(
     private val classifier: NsfwClassifier,
-    private val policy: PolicyEngine,
+    private val policies: PerTilePolicy,
     private val dispatcher: CoroutineDispatcher,
     private val gate: SkinGate = SkinGate(),
     private val cache: VerdictCache = VerdictCache(),
 ) : Detector {
 
     @Volatile private var closed = false
+    private var lastPreset: Preset? = null // touched only on [dispatcher]
 
-    override suspend fun analyze(frame: Bitmap): Verdict = withContext(dispatcher) {
-        if (closed) throw CancellationException("Detector closed")
-        val start = SystemClock.elapsedRealtime()
-        val hash = PerceptualHash.hash(frame)
+    override suspend fun analyze(frame: Bitmap, preset: Preset, only: Set<Int>?): FrameVerdict =
+        withContext(dispatcher) {
+            if (closed) throw CancellationException("Detector closed")
+            val start = SystemClock.elapsedRealtime()
+            if (preset != lastPreset) { // indices mean different tiles under a different grid
+                policies.reset()
+                lastPreset = preset
+            }
+            val tiles = (0 until preset.cols * preset.rows)
+                .filter { only == null || it in only }
+                .map { index -> judge(index, frame, preset) }
+            FrameVerdict(tiles, elapsedSince(start))
+        }
 
-        val scored = cache.get(hash)?.copy(cacheHit = true)
-            ?: score(frame).also { cache.put(hash, it) }
-
-        scored.copy(severity = policy.classify(scored.score), latencyMs = elapsedSince(start))
+    private fun judge(index: Int, frame: Bitmap, preset: Preset): TileVerdict {
+        val tile = crop(frame, preset, index)
+        try {
+            val hash = PerceptualHash.hash(tile)
+            val scored = cache.get(hash)?.copy(cacheHit = true) ?: score(tile, hash).also { cache.put(hash, it) }
+            return scored.copy(index = index, severity = policies.classify(index, scored.score))
+        } finally {
+            if (tile !== frame) tile.recycle() // the caller owns the frame itself
+        }
     }
 
-    /** Gate + classifier only. Severity/latency are placeholders, filled in by [analyze]. */
-    private fun score(frame: Bitmap): Verdict {
-        val gated = !gate.shouldClassify(frame)
-        val score = if (gated) 0f else classifier.classify(Preprocessor.toInputBuffer(frame))
-        return Verdict(Severity.SAFE, score, gated = gated, cacheHit = false, latencyMs = 0)
+    private fun crop(frame: Bitmap, preset: Preset, index: Int): Bitmap {
+        if (preset.cols * preset.rows == 1) return frame
+        val w = frame.width / preset.cols
+        val h = frame.height / preset.rows
+        return Bitmap.createBitmap(frame, index % preset.cols * w, index / preset.cols * h, w, h)
+    }
+
+    /** Gate + classifier only. Index/severity are placeholders, filled in by [judge]. */
+    private fun score(tile: Bitmap, hash: Long): TileVerdict {
+        val gated = !gate.shouldClassify(tile)
+        val score = if (gated) 0f else classifier.classify(Preprocessor.toInputBuffer(tile))
+        return TileVerdict(0, Severity.SAFE, score, gated = gated, cacheHit = false, hash = hash)
     }
 
     /**
