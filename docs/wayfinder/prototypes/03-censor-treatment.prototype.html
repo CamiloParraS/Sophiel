@@ -1,0 +1,55 @@
+<!doctype html>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PROTOTYPE - censor treatment (throwaway)</title>
+<!-- PROTOTYPE, throwaway. Question: what should a masked tile look like, and how does reveal/probe feel?
+     3 variants on a fake 2x3 tile grid. Placeholder shapes only, no real imagery. PIN is 1234. -->
+<style>
+body{margin:0;background:#1b1b1f;color:#eee;font:14px system-ui;display:flex;gap:24px;justify-content:center;padding:16px;flex-wrap:wrap}
+#phone{position:relative;width:360px;height:640px;border:6px solid #444;border-radius:28px;overflow:hidden;background:#fff}
+canvas{position:absolute;left:0;top:0}
+.tile{position:absolute;width:180px;height:200px;box-sizing:border-box;display:flex;align-items:center;justify-content:center;cursor:pointer;margin-top:40px}
+.tile.solid{background:#222;color:#fff;flex-direction:column;gap:4px}
+.tile.blur{backdrop-filter:blur(18px);background:rgba(255,255,255,.15)}
+.chip{position:absolute;top:8px;right:8px;background:#0a7;color:#fff;border-radius:12px;padding:3px 10px;font-size:12px;z-index:5}
+#pin{position:absolute;inset:0;background:rgba(0,0,0,.8);display:none;flex-direction:column;align-items:center;justify-content:center;gap:10px;z-index:9}
+#pin input{font-size:24px;width:120px;text-align:center}
+#panel{width:300px}#panel label{display:block;margin:8px 0}
+button{padding:6px 12px}
+#bar{position:fixed;bottom:12px;left:50%;transform:translateX(-50%);background:#fff;color:#000;border-radius:20px;padding:6px 14px;box-shadow:0 2px 10px #0008;z-index:99}
+</style>
+<div id="phone"><canvas id="c" width="360" height="640"></canvas><div class="chip" id="chip">Protected</div>
+<div id="pin"><div>Parent PIN to reveal</div><input id="pi" type="password" maxlength="4"><button onclick="tryPin()">OK</button><button onclick="pin.style.display='none'">Cancel</button></div></div>
+<div id="panel"><h3>Censor treatment</h3><div id="vname"></div>
+<label><input type="checkbox" id="probe" onchange="setProbe()"> Simulate probe (unmask 1 frame every 3 s)</label>
+<label><input type="checkbox" id="ch" checked onchange="chip.style.display=this.checked?'':'none'"> Show "Protected" chip</label>
+<p>Masked tiles are the two middle ones (placeholder "flagged" blobs). Tap a mask to try the PIN reveal. Reveal lasts 5 s.</p>
+<p><b>Judge:</b> Can you tell something was hidden? Does the probe flash feel acceptable? Is the reveal flow too heavy for a child to bump into?</p></div>
+<div id="bar"><button onclick="go(-1)">&larr;</button> <span id="vl"></span> <button onclick="go(1)">&rarr;</button></div>
+<script>
+const names=['A: Pixelate + chip','B: Frosted blur','C: Solid block + label'];
+let v=+(new URLSearchParams(location.search).get('variant')??0),revealed=new Set(),probing=false,pt;
+const cv=document.getElementById('c'),g=cv.getContext('2d'),ph=document.getElementById('phone'),pin=document.getElementById('pin');
+const flagged=[2,3]; // tile index = row*2+col, 2 cols x 3 rows
+function drawContent(){g.fillStyle='#f4f4f6';g.fillRect(0,0,360,640);g.fillStyle='#ddd';g.fillRect(0,0,360,40);
+ for(let i=0;i<6;i++){g.fillStyle=i%2?'#cfe3ff':'#e8e8ea';g.fillRect(12+(i%2)*170,50+i*85,150,70)} // fake chat/feed
+ flagged.forEach(t=>{const x=(t%2)*180,y=40+Math.floor(t/2)*200;
+  const gr=g.createRadialGradient(x+90,y+100,5,x+90,y+100,110);gr.addColorStop(0,'#ff9a6b');gr.addColorStop(.5,'#e0457b');gr.addColorStop(1,'#5b2a86');
+  g.fillStyle=gr;g.fillRect(x,y,180,200);g.fillStyle='#fff';g.font='bold 14px sans-serif';g.fillText('FLAGGED (placeholder)',x+12,y+105)})}
+function pixel(t){const x=(t%2)*180,y=40+Math.floor(t/2)*200,s=document.createElement('canvas');s.width=9;s.height=10;
+ s.getContext('2d').drawImage(cv,x,y,180,200,0,0,9,10);g.imageSmoothingEnabled=false;g.drawImage(s,0,0,9,10,x,y,180,200)}
+function render(){
+ document.querySelectorAll('.tile').forEach(e=>e.remove());drawContent();
+ vname.textContent=names[v];vl.textContent=names[v];
+ flagged.forEach(t=>{if(revealed.has(t)||probing)return;
+  if(v==0)pixel(t);
+  else{const d=document.createElement('div');d.className='tile '+(v==1?'blur':'solid');
+   d.style.left=(t%2)*180+'px';d.style.top=Math.floor(t/2)*200+'px';
+   if(v==2)d.innerHTML='<div style="font-size:26px">&#128274;</div><div>Hidden by Sophiel</div>';ph.appendChild(d)}
+  const h=document.createElement('div');h.className='tile';h.style.left=(t%2)*180+'px';h.style.top=Math.floor(t/2)*200+'px';
+  h.onclick=()=>{pin.dataset.t=t;pin.style.display='flex';pi.value='';pi.focus()};ph.appendChild(h)})}
+function tryPin(){if(pi.value==='1234'){const t=+pin.dataset.t;revealed.add(t);pin.style.display='none';render();setTimeout(()=>{revealed.delete(t);render()},5000)}else{pi.value='';pi.placeholder='wrong'}}
+function setProbe(){clearInterval(pt);if(probe.checked)pt=setInterval(()=>{probing=true;render();setTimeout(()=>{probing=false;render()},120)},3000)}
+function go(d){v=(v+d+3)%3;history.replaceState(0,'','?variant='+v);render()}
+addEventListener('keydown',e=>{if(e.target.tagName==='INPUT')return;if(e.key==='ArrowLeft')go(-1);if(e.key==='ArrowRight')go(1)});
+render();
+</script>
