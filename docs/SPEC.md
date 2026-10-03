@@ -392,7 +392,7 @@ python tools/reference_infer.py --fixtures safecore/src/androidTest/assets/fixtu
 - [x] **M2** Pipeline + Test Feed — permission-free, end-to-end
 - [x] **M3** Capture — frames flowing, all permission paths handled
 - [ ] **M3.5** Gate — branches merged; M3 V1–V7 and D21 re-verified on device
-- [ ] **M4** Tile pipeline — state machine, hash lock, measured cost
+- [x] **M4** Tile pipeline — state machine, hash lock, measured cost (D25, D26; M3.5 device re-check still open)
 - [ ] **M5** Overlay — per-tile solid masks, PIN reveal, Status screen
 - [ ] **M6** Parent app — wizard, PIN, settings, 7-day log · **FEATURE FREEZE**
 - [ ] **M7** Harden + ship — soak, feel numbers, limitations, demo video
