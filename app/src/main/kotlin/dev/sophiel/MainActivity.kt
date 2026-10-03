@@ -43,10 +43,11 @@ import dev.sophiel.capture.ProjectionService
 import dev.sophiel.core.Preset
 import dev.sophiel.feed.SpikeModel
 import dev.sophiel.feed.benchmarkScreen
+import dev.sophiel.feed.maskLookScreen
 import dev.sophiel.feed.testFeedScreen
 
 /** Top-level app destinations. Benchmark is the heavy-model spike (branch spike/heavy-models). */
-private enum class Destination { Protection, TestFeed, Benchmark }
+private enum class Destination { Protection, TestFeed, Benchmark, Masks }
 
 class MainActivity : ComponentActivity() {
     companion object {
@@ -104,6 +105,7 @@ class MainActivity : ComponentActivity() {
                         Destination.Protection -> protectionScreen(controller, (application as SophielApp).container, Modifier.padding(padding))
                         Destination.TestFeed -> testFeedScreen(modifier = Modifier.padding(padding))
                         Destination.Benchmark -> benchmarkScreen(modifier = Modifier.padding(padding))
+                        Destination.Masks -> maskLookScreen(modifier = Modifier.padding(padding))
                     }
                 }
             }
