@@ -157,11 +157,11 @@ data class TileVerdict(
 )
 
 interface Detector {
-    /** Judge the given tiles of [frame] (all if [only] is null), emitting each tile as soon as
+    /** Judge the given tiles of [frame] in [only]'s order (all, by index, if null), emitting each tile as soon as
      *  it is judged, so its mask can go up without waiting for the rest of the sweep.
      *  Caller keeps ownership of [frame] and must not recycle it until collection completes.
      *  Serialises internally onto one inference thread. */
-    fun analyze(frame: android.graphics.Bitmap, preset: Preset, only: Set<Int>? = null): Flow<TileVerdict>
+    fun analyze(frame: android.graphics.Bitmap, preset: Preset, only: List<Int>? = null): Flow<TileVerdict>
     fun close()
 }
 ```
@@ -185,7 +185,7 @@ MASKED ──Parent reveals (PIN)──▶ REVEALED ──5 s──▶ PROBING
 - **The tracker owns all timing.** The engage count starts at the old `PolicyEngine` value (2 frames). There is no release count: a tile only leaves MASKED through a probe.
 - While MASKED or REVEALED, ignore the tile's captured score.
 - **Probe validity.** Removing an overlay window does not reach the capture instantly; the next captured frame can still show the mask. A probe frame counts only once the captured tile no longer shows our mask (we know its exact look, so a pixel check is enough). If it has not cleared within ~300 ms, re-mask and wait for the next trigger. Without this rule every probe would read the mask as SAFE, release, and flash.
-- **Probe trigger, Balanced:** a frame arrives AND (at least half of the CLEAR tiles' hashes changed since the previous frame, OR ~2 s have passed since the last probe).
+- **Probe trigger, Balanced (D25):** a frame arrives AND at least half of the masked tile's own CLEAR neighbours (4-adjacent) changed hash since the previous frame. Activity elsewhere on screen never uncovers it. A masked tile with no CLEAR neighbour (every neighbour masked) falls back to the ~2 s timer, counted per tile since it was masked or last probed.
 - **Probe trigger, Light:** the only tile is masked, so there are no CLEAR tiles to watch. Probe on the ~2 s timer only, when frames arrive.
 - At most one probe per second per tile. A static screen delivers no new frames (D18), so it never probes.
 - Hash lock is **exact match only**. Near-miss matching was rejected in `c7eff9c`.
@@ -353,7 +353,7 @@ Copy into `docs/LIMITATIONS.md` and expand with measured numbers.
 
 1. **Reactive, not preventive.** Analysis happens after content is drawn. A fast reader may glimpse it before the mask lands.
 2. **Probe exposure.** To find out whether masked content has changed, a probe uncovers the tile until the capture confirms what is underneath. Bounded by the one-per-second rule and the exact-hash lock, and reported in milliseconds, but not zero.
-3. **Tile granularity.** Masks are tile-sized, not object-sized. Content that straddles tiles is judged per tile and can score below the threshold in each (the whole-frame safety net exists only if M4 measured misses); a mask can also cover more than the content.
+3. **Tile granularity.** Masks are tile-sized, not object-sized. Content that straddles tiles is judged per tile and can score below the threshold in each. Measured in M4 (D26): feed-sized content is still caught (6-7 of 8 straddling the centre line), but content about one tile in size that sits on a boundary is mostly missed, and a whole-frame pass does not catch it either, so there is no safety net. A mask can also cover more than the content.
 4. **`FLAG_SECURE` blindness.** Secure windows (banking apps, incognito) yield black frames and cannot be analysed; the Log records them as unanalyzable.
 5. **Consent friction.** Fresh consent every session. Protection cannot survive a reboot or screen-off silently; Android 15+ ends the projection on a secure lock. "Paused — tap to resume" makes it one tap.
 6. **The Child can end it.** None of these can be blocked without root or Device Admin: the system screen-share indicator, Android 13+'s "Active apps" panel in Quick Settings, force-stopping the app, revoking the overlay permission, clearing app data (which also resets the PIN and wipes the log), or uninstalling. There is no PIN recovery. No tamper resistance.

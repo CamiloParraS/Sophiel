@@ -724,3 +724,73 @@ runs each model whole-frame on the 62 Test Feed images (no skin gate, no cache, 
 Scores were identical across devices. NudeNet fires on the explicit images (0.36-0.86 at 320n)
 and scores 0 on swimwear/gym/suggestive images that GantMan puts around 0.5. That cuts both ways:
 fewer false positives, no "suggestive" signal. 640m is too slow for a live loop on Device A.
+
+## D25 — Probe only on neighbouring change (2026-10-02, human decision after ticket 06 device run)
+
+Ticket 06 on both devices: with the SPEC §3.4 trigger (half of *all* CLEAR tiles changed, or a
+2 s timer), any activity on screen probed every masked tile every 1-2 s, showing its flagged
+content for ~70-100 ms each time (~5-8% of the time while scrolling; Device B: 114 re-masks in
+one session, every one a flash). Options were a longer timer or probing only on related change.
+
+**Decision (human):** a masked tile probes only when at least half of its own CLEAR neighbours
+(4-adjacent) changed hash this frame. No timer while it has a CLEAR neighbour. A longer timer
+was rejected: it still flashes during unrelated scrolling.
+
+- **Fallback:** a tile with no CLEAR neighbour (Light; or Balanced with every neighbour masked)
+  keeps the per-tile 2 s timer, since nothing else can tell it the content moved.
+- **Known cost:** content that changes only inside a masked tile (a video exactly under it)
+  stays masked until a neighbour moves. That is over-masking, the safe direction; Reveal covers it.
+- The per-tile 1 s minimum gap, probe validity and exact-hash lock are unchanged.
+
+## D26 — M4 measurements: grid stays 2×3, whole-frame safety net stays off (2026-10-02, ticket 07)
+
+Measured with `app/src/androidTest/.../TileBenchmark.kt` (`adb logcat -s SophielBench`): the 62
+Test Feed images squashed to a 360×744 portrait frame, 3 runs, fresh verdict cache per run,
+Normal threshold (0.70). Device A plugged in, 70→78 %, 29.6 °C; Device B on battery, 77→74 %,
+31.4→32.6 °C. "Gate off" = every tile classified (worst case).
+
+| ms                         | A71: Light | A71: Balanced | S24 FE: Light | S24 FE: Balanced |
+| -------------------------- | ---------- | ------------- | ------------- | ---------------- |
+| sweep p50, gate on         | 51         | 252           | 38            | 192              |
+| sweep p90, gate on         | 53         | 309           | 39            | 327              |
+| sweep p50 / p90 / max, gate off | 51 / 55 / 95 | 304 / 315 / 477 | 38 / 39 / 40 | 284 / 327 / 345 |
+| per classified tile p50    | 51         | 51            | 38            | 43               |
+| per gated tile p50         | 1          | 1             | 0             | 0                |
+| first flagged tile p50     | 51         | 154           | 38            | 151              |
+
+Per-run sweep medians (Balanced, gate on): A 256 / 254 / 252, B 188 / 192 / 264. The skin gate
+skips 34 % of Balanced tiles on this set (19 % of whole frames). Device B's per-tile cost is
+closer to A's than D24's whole-frame numbers suggest, and its third run was slower; it was on
+battery and warming, so treat B's Balanced numbers as an upper bound.
+
+- **Grid: 2×3 stays.** Device A's worst case (all six tiles classified) is p90 315 ms, under the
+  ~400 ms fallback line; one outlier frame took 477 ms.
+- **Per-tile emission pays:** on frames with a flagged tile, the first one is out at ~150 ms
+  against a ~250 ms full sweep (both devices).
+- **Whole-frame safety net: off.** Each image the whole frame flags (8 of 62) placed on white
+  at several positions. The whole frame never caught one that every tile missed:
+
+  | placement (image fitted to box)             | any tile flags | whole frame flags |
+  | ------------------------------------------- | -------------- | ----------------- |
+  | one tile's size, inside a tile              | 3 / 8          | 0 / 8             |
+  | one tile's size, across a vertical edge     | 1 / 8          | 0 / 8             |
+  | one tile's size, on a 4-tile corner         | 0 / 8          | 0 / 8             |
+  | feed-like, full width × 2 rows, row-aligned | 7 / 8          | 3 / 8             |
+  | feed-like, full width × 2 rows, half-row off| 6 / 8          | 3 / 8             |
+
+  Tiles beat the whole frame everywhere. **Known gap:** content about one tile in size that
+  straddles a boundary is mostly missed, and the whole frame (gated at this size) does not
+  rescue it, so the safety net would not fix it either. Recorded in SPEC §7, item 3.
+- **Skin gate on real screens:** a settings screenshot gates 6/6 tiles; a launcher home
+  screen gates 0/6 (wallpaper), scoring ≤ 0.01 everywhere, so it costs a full sweep but never
+  flags. Retuning the ratio and luma floor needs a person to label more real screens.
+- **Probe exposure** (ticket 06 sessions, *old* trigger, before D25): Device A median ~85 ms,
+  worst 201 ms; Device B mostly 70-110 ms, worst 244 ms.
+  **Under D25** (Device B, human scrolling session, ~27 s, 18 probes): median ~197 ms, p90 306 ms,
+  max 307 ms; 12 re-masked, 6 released; 3 of 18 hit the 300 ms cap and re-masked unjudged.
+  Exposure went *up*: with content moving, every CLEAR tile is classified (~38 ms each on B)
+  and the probing tile is judged in index order, so its valid frame lands 100-150 ms into the sweep.
+- **Frame to mask** (`frameToMaskMs`, Device B, 9 episodes): p50 95 ms, max 160 ms, measured from
+  the frame that completes the 2-frame engage, so content-to-mask is about one frame interval more.
+- **Not settled here:** Strict / Relaxed values (still 0.55 / 0.85 placeholders) need labelled
+  score data; the gate retune needs labelled real screens. Both are for a human pass.
