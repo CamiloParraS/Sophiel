@@ -695,3 +695,32 @@ only have shown up on a device. All fixes are in SPEC.md §3.3-§3.5, §5 and §
 - Mask colour never pure black (`BlackFrameDetector` counts exact-black pixels).
 - Rotation: grid follows orientation; whole content area masked until post-rotation verdicts.
 - Limitations now list every unblockable way a Child can stop protection.
+
+## D24 — Spike: NudeNet v3 on device for a future heavy preset (2026-10-02, human request, branch `spike/heavy-models`)
+
+Outside SPEC §1.3 (box detector) on purpose; a measurement, not a feature. The Benchmark tab
+runs each model whole-frame on the 62 Test Feed images (no skin gate, no cache, CPU).
+
+- **Runtime:** `onnxruntime-android` 1.30.0 loading upstream's ONNX files as-is (no conversion,
+  C2 holds). Its AAR declares `INTERNET` and `ACCESS_NETWORK_STATE`; both are stripped with
+  `tools:node="remove"` and the aapt check is empty again (C1). Watch this on every ORT bump.
+- **Models** are gitignored (`app/src/main/assets/*.onnx`; 640m is over GitHub's 100 MB limit).
+  Copy from `temp_download/NudeNet_{320n,640m}.onnx` as `nudenet_{320n,640m}.onnx`.
+- **Live:** model chips on the Protection screen swap the capture judge between frames (whole frame;
+  the debug pill shows score, top 3 classes, ms). GantMan keeps its skin gate + cache; NudeNet runs raw.
+  NudeNet boxes are drawn live as outlines on a full-screen touch-through overlay (window alpha 0.8:
+  Android 12+ drops touches through another app's overlay above 0.8 opacity; M5 masks will hit this too).
+  Human-verified on both devices (2026-10-02): boxes align with content and touches pass through.
+  Boxes are in the captured frame (the M4 feedback loop, D21/D23), but no score change or
+  in-the-way effect was seen, so no mitigation in the spike.
+- **Score** = max over the EXPOSED buttocks/breast/genitalia/anus classes. Per-class max replaces NMS.
+
+| ms per image (mean / p90) | Device A (A71) | Device B (S24 FE) |
+| ------------------------- | -------------- | ----------------- |
+| GantMan 224 (shipped)     | 52 / 55        | 27 / 30           |
+| NudeNet 320n              | 106 / 119      | 22 / 26           |
+| NudeNet 640m              | 1911 / 1974    | 581 / 657         |
+
+Scores were identical across devices. NudeNet fires on the explicit images (0.36-0.86 at 320n)
+and scores 0 on swimwear/gym/suggestive images that GantMan puts around 0.5. That cuts both ways:
+fewer false positives, no "suggestive" signal. 640m is too slow for a live loop on Device A.

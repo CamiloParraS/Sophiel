@@ -1,6 +1,7 @@
 package dev.sophiel
 
 import dev.sophiel.capture.ProjectionController
+import dev.sophiel.feed.SpikeModel
 
 /**
  * Manual DI (SPEC.md §2.4/D2): two modules and a handful of app-scoped singletons don't
@@ -10,4 +11,8 @@ import dev.sophiel.capture.ProjectionController
  */
 class AppContainer {
     val projectionController = ProjectionController()
+
+    /** Spike (D24): model the live capture judges with, picked on the Protection screen. */
+    @Volatile
+    var liveModel = SpikeModel.GANTMAN
 }

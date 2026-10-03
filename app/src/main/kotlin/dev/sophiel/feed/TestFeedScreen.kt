@@ -36,7 +36,7 @@ import dev.sophiel.core.Preset
 import dev.sophiel.core.TileVerdict
 import dev.sophiel.core.DetectorFactory
 
-private const val ASSET_DIR = "testfeed"
+internal const val ASSET_DIR = "testfeed"
 
 /** Repeats of the bundled fixture set, so the list is tall enough that scrolling
  *  back to the top actually disposes and recomposes the first tile (needed to
@@ -118,7 +118,7 @@ private fun loadTestFeedTiles(context: Context): List<TestFeedTile> {
 }
 
 /** Decodes with the largest power-of-two subsample that keeps the short side >= [DECODE_MIN_SIDE]. */
-private fun decodeCaptureSized(context: Context, path: String): Bitmap {
+internal fun decodeCaptureSized(context: Context, path: String): Bitmap {
     val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
     context.assets.open(path).use { BitmapFactory.decodeStream(it, null, bounds) }
     var sample = 1

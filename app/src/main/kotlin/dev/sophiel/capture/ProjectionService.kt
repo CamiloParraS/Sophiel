@@ -100,7 +100,8 @@ class ProjectionService : Service() {
             override fun onStop() = teardown()
         }, null)
 
-        session = CaptureSession(this, projection, captureSize(this), ::updateNotification)
+        val container = (application as SophielApp).container
+        session = CaptureSession(this, projection, captureSize(this), ::updateNotification) { container.liveModel }
         return START_NOT_STICKY
     }
 
