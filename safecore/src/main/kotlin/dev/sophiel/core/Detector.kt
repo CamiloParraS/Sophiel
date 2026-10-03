@@ -16,6 +16,13 @@ enum class Severity { SAFE, SUGGESTIVE, EXPLICIT }
 enum class Preset(val cols: Int, val rows: Int) { LIGHT(1, 1), BALANCED(2, 3) }
 
 /**
+ * Parent-set sensitivity (SPEC.md §3.5): the unsafe-score cutoff for [Severity.EXPLICIT].
+ * Stricter flags at lower scores.
+ */
+// ponytail: placeholder values (Normal = the old 0.70 default); ticket 07 tunes them on devices.
+enum class Sensitivity(val threshold: Float) { STRICT(0.55f), NORMAL(0.70f), RELAXED(0.85f) }
+
+/**
  * Outcome of analysing one tile.
  *
  * @param index     row * cols + col, on the frame's [grid]
@@ -56,8 +63,11 @@ interface Detector {
 
 /** Entry point for [Detector] construction. See SPEC.md §3.4. */
 object DetectorFactory {
-    /** @param threshold unsafe-probability cutoff for [Severity.EXPLICIT], in [0,1] */
-    fun create(context: android.content.Context, threshold: Float = 0.70f): Detector =
+    fun create(context: android.content.Context, sensitivity: Sensitivity = Sensitivity.NORMAL): Detector =
+        create(context, sensitivity.threshold)
+
+    /** Raw cutoff for the debug menu only. @param threshold unsafe-probability cutoff for [Severity.EXPLICIT], in [0,1] */
+    fun create(context: android.content.Context, threshold: Float): Detector =
         DetectionPipeline(
             classifier = NsfwClassifier.load(context),
             policy = PolicyEngine(explicitThreshold = threshold),

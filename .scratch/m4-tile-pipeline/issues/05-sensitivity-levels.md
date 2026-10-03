@@ -6,8 +6,8 @@
 
 **Status:** ready-for-agent
 
-- [ ] A sensitivity type with three levels maps to thresholds, ordered so Strict flags more than Normal, and Normal more than Relaxed (unit test).
-- [ ] The detector is created from a sensitivity level; the raw-threshold path remains for the debug menu.
-- [ ] The mapping's values live in one place, easy to retune.
-- [ ] The reserved SUGGESTIVE cutoff relationship (half of the explicit threshold, D11) is preserved.
-- [ ] JVM tests pass; `:app:assembleDebug` succeeds.
+- [x] A sensitivity type with three levels maps to thresholds, ordered so Strict flags more than Normal, and Normal more than Relaxed (unit test).
+- [x] The detector is created from a sensitivity level; the raw-threshold path remains for the debug menu.
+- [x] The mapping's values live in one place, easy to retune.
+- [x] The reserved SUGGESTIVE cutoff relationship (half of the explicit threshold, D11) is preserved.
+- [x] JVM tests pass; `:app:assembleDebug` succeeds.
