@@ -5,9 +5,8 @@ import dev.sophiel.core.TileVerdict
 import dev.sophiel.core.tile.TileState.CLEAR
 import dev.sophiel.core.tile.TileState.MASKED
 import dev.sophiel.core.tile.TileState.PROBING
-import dev.sophiel.core.tile.TileState.REVEALED
 
-enum class TileState { CLEAR, MASKED, PROBING, REVEALED }
+enum class TileState { CLEAR, MASKED, PROBING }
 
 /**
  * Per-tile mask state machine (SPEC.md §3.4). Pure logic: time is passed in
@@ -66,7 +65,7 @@ class TileMaskTracker(private var cols: Int, rows: Int) {
                 verdict.hash == tile.lockedHash || flagged -> tile.mask(verdict.hash, now)
                 else -> tile.enter(CLEAR, now)
             }
-            MASKED, REVEALED -> Unit // the capture sees our mask (or a revealed tile): its score means nothing
+            MASKED -> Unit // the capture sees our mask: its score means nothing
         }
         return false
     }
@@ -78,7 +77,6 @@ class TileMaskTracker(private var cols: Int, rows: Int) {
             val age = now - tile.enteredAt
             when (tile.state) {
                 MASKED -> if (age >= MIN_PROBE_GAP_MS && neighboursSayProbe(index, age)) tile.enter(PROBING, now)
-                REVEALED -> if (age >= REVEAL_MS) tile.enter(PROBING, now)
                 CLEAR, PROBING -> Unit
             }
         }
@@ -115,12 +113,6 @@ class TileMaskTracker(private var cols: Int, rows: Int) {
     /** How long a probe may wait for a captured frame without our mask before re-masking. */
     val probeTimeoutMs get() = PROBE_VALID_MS
 
-    /** Parent reveal (the caller checks the PIN): every MASKED tile is uncovered for 5 s. */
-    fun reveal(now: Long) {
-        // While paused (the Parent is on our screen) the 5 s start at resume.
-        for (tile in tiles) if (tile.state == MASKED) tile.enter(REVEALED, pausedAt ?: now)
-    }
-
     /** A Sophiel screen is in front: freeze states and timers, ignore frames until [resume]. */
     fun pause(now: Long) {
         if (pausedAt == null) pausedAt = now
@@ -154,6 +146,5 @@ class TileMaskTracker(private var cols: Int, rows: Int) {
         const val MIN_PROBE_GAP_MS = 1_000L
         const val PROBE_TIMER_MS = 2_000L
         const val PROBE_VALID_MS = 300L
-        const val REVEAL_MS = 5_000L
     }
 }

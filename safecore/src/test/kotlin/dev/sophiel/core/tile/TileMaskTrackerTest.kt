@@ -5,7 +5,6 @@ import dev.sophiel.core.TileVerdict
 import dev.sophiel.core.tile.TileState.CLEAR
 import dev.sophiel.core.tile.TileState.MASKED
 import dev.sophiel.core.tile.TileState.PROBING
-import dev.sophiel.core.tile.TileState.REVEALED
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -135,27 +134,14 @@ class TileMaskTrackerTest {
         assertEquals(MASKED, relocked[0])
     }
 
-    @Test fun `reveal uncovers masked tiles for 5 s, then probes`() {
-        val t = maskedLight()
-        t.reveal(200)
-        assertEquals(REVEALED, t[0])
-        t.frame(5199, listOf(unsafe), flagged = setOf(0)) // score ignored while revealed
-        assertEquals(REVEALED, t[0])
-        t.frame(5200, listOf(unsafe), flagged = setOf(0))
-        assertEquals(PROBING, t[0])
-    }
-
-    @Test fun `pause freezes states and timers, and a reveal made while paused lasts 5 s after resume`() {
+    @Test fun `pause freezes states and timers`() {
         val t = maskedLight()
         t.pause(200)
         t.frame(3000, listOf(7L)) // ignored
         assertEquals(MASKED, t[0])
-        t.reveal(9000) // Parent reveals from a Sophiel screen
         t.resume(10_000)
-        t.frame(14_999, listOf(unsafe))
-        assertEquals(REVEALED, t[0])
-        t.frame(15_000, listOf(unsafe))
-        assertEquals(PROBING, t[0])
+        t.frame(10_100, listOf(unsafe)) // the pause did not age the mask into a probe
+        assertEquals(MASKED, t[0])
     }
 
     @Test fun `reset puts every tile of the new grid back to clear`() {
