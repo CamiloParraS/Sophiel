@@ -790,6 +790,17 @@ battery and warming, so treat B's Balanced numbers as an upper bound.
   max 307 ms; 12 re-masked, 6 released; 3 of 18 hit the 300 ms cap and re-masked unjudged.
   Exposure went *up*: with content moving, every CLEAR tile is classified (~38 ms each on B)
   and the probing tile is judged in index order, so its valid frame lands 100-150 ms into the sweep.
+  **Fix: probing tiles judged first** (`e5c8a63`). Device B, ~33 s session, 6 probes: median 121 ms,
+  p90 158 ms, max 168 ms, no 300 ms timeouts; 5 re-masked, 1 released. Most of what remains is
+  waiting for the next captured frame (~80 ms throttle plus decode). Small sample.
+  Device A on that build: median 279 ms, p90 307 ms, 6 of 12 probes hit the 300 ms cap. The first
+  frame after a probe starts usually still shows the mask (correct), but that frame then classified
+  the CLEAR tiles (~165 ms on A), so the valid frame landed after the cap; one re-masked 39 ms
+  before its real verdict.
+  **Fix: a probe frame that still shows the mask skips the CLEAR tiles** (they wait one frame).
+  Device A, ~2.5 min session, 17 probes: median 138 ms, p90 200 ms, max 265 ms, **no timeouts**;
+  12 released, 5 re-masked; 9 probe frames still showed the mask and were cut short as intended.
+  Frame to mask on A: p50 104 ms, max 315 ms (14 episodes).
 - **Frame to mask** (`frameToMaskMs`, Device B, 9 episodes): p50 95 ms, max 160 ms, measured from
   the frame that completes the 2-frame engage, so content-to-mask is about one frame interval more.
 - **Not settled here:** Strict / Relaxed values (still 0.55 / 0.85 placeholders) need labelled
