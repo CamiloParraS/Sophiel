@@ -22,6 +22,7 @@ android {
     // A compressed .tflite cannot be memory-mapped and fails to load at runtime.
     androidResources {
         noCompress += "tflite"
+        noCompress += "onnx" // spike: NudeNet models, copied to filesDir once
     }
 
     buildTypes {
@@ -51,6 +52,7 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.kotlinx.coroutines.core)
+    implementation(libs.onnxruntime.android) // spike: heavy-model benchmark only
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
