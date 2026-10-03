@@ -16,6 +16,7 @@ import dev.sophiel.AppContainer
 import dev.sophiel.core.Detector
 import dev.sophiel.core.DetectorFactory
 import dev.sophiel.core.Preset
+import dev.sophiel.core.TileVerdict
 import dev.sophiel.core.tile.TileMaskTracker
 import dev.sophiel.core.tile.TileState
 import dev.sophiel.core.tile.TileState.CLEAR
@@ -174,29 +175,20 @@ class CaptureSession(
                 publish()
             }
             // Probing tiles first: the mask is off until their verdict lands, so every tile judged
-            // ahead of them is exposure (D26: ~38 ms per tile on Device B).
-            val todo = (0 until tracker.size).filter { tracker[it] == CLEAR || tracker[it] == PROBING }
-                .sortedBy { tracker[it] != PROBING }
-            detector.analyze(frame, preset, todo).collect { v ->
-                var showsMask = false
-                if (tracker[v.index] == PROBING) {
-                    val pixels = DebugMask.sample(frame, preset.tileRect(v.index, frame.width, frame.height))
-                    showsMask = DebugMask.looksMasked(pixels)
-                    Log.d(TAG, "probe frame tile=${v.index} showsMask=$showsMask ${DebugMask.describe(pixels)}")
-                }
-                if (tracker.onTile(now(), v, showsMask)) {
-                    Log.i(TAG, "mask episode tile=${v.index} frameToMaskMs=${now() - frameAvailableAt}")
-                }
-                publish()
-                // cached= is here to be counted in M5: if the hit rate is ~0 the cache is dead
-                // weight (MediaProjection delivers no frames at all for an unchanging screen,
-                // DECISIONS.md D17) and VerdictCache should go.
-                Log.d(
-                    TAG,
-                    "tile ${v.index} severity=${v.severity} score=${v.score} gated=${v.gated} " +
-                        "cached=${v.cacheHit} showsMask=$showsMask latencyMs=${v.latencyMs}",
-                )
+            // ahead of them is exposure (D26: ~38 ms per tile on B, ~55 on A). If a probe frame
+            // still shows the mask, skip the CLEAR tiles: they wait one frame, and the next (valid)
+            // probe frame arrives ~165 ms sooner on Device A instead of after the 300 ms cap.
+            val probes = (0 until tracker.size).filter { tracker[it] == PROBING }
+            val clears = (0 until tracker.size).filter { tracker[it] == CLEAR }
+            var probeStillMasked = false
+            detector.analyze(frame, preset, probes).collect { v ->
+                val pixels = DebugMask.sample(frame, preset.tileRect(v.index, frame.width, frame.height))
+                val showsMask = DebugMask.looksMasked(pixels)
+                probeStillMasked = probeStillMasked || showsMask
+                Log.d(TAG, "probe frame tile=${v.index} showsMask=$showsMask ${DebugMask.describe(pixels)}")
+                apply(v, showsMask)
             }
+            if (!probeStillMasked) detector.analyze(frame, preset, clears).collect { apply(it, showsMask = false) }
             tracker.endFrame(now())
             publish()
             if (PROBING in shown) {
@@ -208,7 +200,23 @@ class CaptureSession(
             }
             // No latency here (it is in Logcat): the pill is captured too, and text that changes
             // every frame redraws it, which makes a static screen deliver frames forever.
-            return "GantMan · $preset · ${shown.joinToString(" ") { it.name.take(1) }} · ${todo.size} analysed"
+            return "GantMan · $preset · ${shown.joinToString(" ") { it.name.take(1) }} · " +
+                "${probes.size + if (probeStillMasked) 0 else clears.size} analysed"
+        }
+
+        private fun apply(v: TileVerdict, showsMask: Boolean) {
+            if (tracker.onTile(now(), v, showsMask)) {
+                Log.i(TAG, "mask episode tile=${v.index} frameToMaskMs=${now() - frameAvailableAt}")
+            }
+            publish()
+            // cached= is here to be counted in M5: if the hit rate is ~0 the cache is dead
+            // weight (MediaProjection delivers no frames at all for an unchanging screen,
+            // DECISIONS.md D17) and VerdictCache should go.
+            Log.d(
+                TAG,
+                "tile ${v.index} severity=${v.severity} score=${v.score} gated=${v.gated} " +
+                    "cached=${v.cacheHit} showsMask=$showsMask latencyMs=${v.latencyMs}",
+            )
         }
 
         fun close() {
