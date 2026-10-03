@@ -21,7 +21,7 @@ enum class TileState { CLEAR, MASKED, PROBING, REVEALED }
  * Per frame: [onTile] for each tile as its verdict arrives, then [endFrame].
  * Not thread-safe: drive it from one frame stream.
  */
-class TileMaskTracker(tileCount: Int) {
+class TileMaskTracker(private var cols: Int, rows: Int) {
 
     private class Tile {
         var state = CLEAR
@@ -32,7 +32,7 @@ class TileMaskTracker(tileCount: Int) {
         var hashChanged = false // since the previous frame
     }
 
-    private var tiles = List(tileCount) { Tile() }
+    private var tiles = List(cols * rows) { Tile() } // row-major on the frame's grid
     private var pausedAt: Long? = null
 
     val size get() = tiles.size
@@ -74,22 +74,32 @@ class TileMaskTracker(tileCount: Int) {
     /** Time-based transitions and probe triggers. Call once per frame, after its tiles. */
     fun endFrame(now: Long) {
         if (pausedAt != null) return
-        val clear = tiles.filter { it.state == CLEAR }
-        val contentMoved = clear.isNotEmpty() && clear.count { it.hashChanged } * 2 >= clear.size
-        for (tile in tiles) {
+        for ((index, tile) in tiles.withIndex()) {
             val age = now - tile.enteredAt
             when (tile.state) {
-                // The timer is per tile (since it was masked or last probed), so a tile is never
-                // probed in the frame right after it engaged. Light has no CLEAR tiles: timer only.
-                MASKED -> if (age >= MIN_PROBE_GAP_MS && (contentMoved || age >= PROBE_TIMER_MS)) {
-                    tile.enter(PROBING, now)
-                }
+                MASKED -> if (age >= MIN_PROBE_GAP_MS && neighboursSayProbe(index, age)) tile.enter(PROBING, now)
                 REVEALED -> if (age >= REVEAL_MS) tile.enter(PROBING, now)
                 CLEAR, PROBING -> Unit
             }
-            tile.hashChanged = false
         }
+        for (tile in tiles) tile.hashChanged = false // after the loop: neighbours read these flags
         expireProbes(now)
+    }
+
+    /**
+     * D25: a masked tile probes only when at least half of its CLEAR neighbours (4-adjacent)
+     * changed this frame, so scrolling elsewhere on screen never uncovers it. With no CLEAR
+     * neighbour (Light, or every neighbour masked) there is nothing to watch: the 2 s timer,
+     * counted per tile since it was masked or last probed.
+     */
+    private fun neighboursSayProbe(index: Int, age: Long): Boolean {
+        val clear = listOfNotNull(
+            (index - cols).takeIf { it >= 0 },
+            (index + cols).takeIf { it < tiles.size },
+            (index - 1).takeIf { index % cols > 0 },
+            (index + 1).takeIf { index % cols < cols - 1 },
+        ).map { tiles[it] }.filter { it.state == CLEAR }
+        return if (clear.isEmpty()) age >= PROBE_TIMER_MS else clear.count { it.hashChanged } * 2 >= clear.size
     }
 
     /**
@@ -123,8 +133,9 @@ class TileMaskTracker(tileCount: Int) {
     }
 
     /** The grid changed (rotation or preset): every tile starts over CLEAR. */
-    fun reset(tileCount: Int) {
-        tiles = List(tileCount) { Tile() }
+    fun reset(cols: Int, rows: Int) {
+        this.cols = cols
+        tiles = List(cols * rows) { Tile() }
     }
 
     private fun Tile.enter(next: TileState, now: Long) {

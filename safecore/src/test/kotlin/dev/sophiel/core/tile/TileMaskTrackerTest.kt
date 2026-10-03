@@ -25,14 +25,14 @@ class TileMaskTrackerTest {
         .also { endFrame(now) }
 
     /** Light tracker with its tile masked at t=100 on [unsafe]. */
-    private fun maskedLight() = TileMaskTracker(1).apply {
+    private fun maskedLight() = TileMaskTracker(1, 1).apply {
         frame(0, listOf(unsafe), flagged = setOf(0))
         frame(100, listOf(unsafe), flagged = setOf(0))
         assertEquals(MASKED, this[0])
     }
 
     @Test fun `engages after two flagged frames and reports one episode`() {
-        val t = TileMaskTracker(1)
+        val t = TileMaskTracker(1, 1)
         assertEquals(listOf(false), t.frame(0, listOf(unsafe), flagged = setOf(0)))
         assertEquals(CLEAR, t[0])
         t.frame(50, listOf(1L)) // a safe frame breaks the streak
@@ -57,21 +57,33 @@ class TileMaskTrackerTest {
         assertEquals(PROBING, t[0])
     }
 
-    private fun maskedBalanced() = TileMaskTracker(6).apply {
+    /** Portrait 2×3, row-major: tile 0 is top-left, its neighbours are 1 (right) and 2 (below). */
+    private fun maskedBalanced() = TileMaskTracker(2, 3).apply {
         val hashes = listOf(unsafe, 1L, 2L, 3L, 4L, 5L)
         frame(0, hashes, flagged = setOf(0))
         frame(100, hashes, flagged = setOf(0))
         assertEquals(MASKED, this[0])
     }
 
-    @Test fun `balanced probes when half the clear tiles change`() {
+    @Test fun `balanced probes a masked tile only when its own neighbours change`() {
         val t = maskedBalanced()
-        t.frame(1100, listOf(mask, 11L, 12L, 3L, 4L, 5L), showsMask = setOf(0)) // 2 of 5 changed
+        t.frame(1100, listOf(mask, 1L, 2L, 13L, 14L, 15L), showsMask = setOf(0)) // unrelated tiles 3-5 moved
+        t.frame(5000, listOf(mask, 1L, 2L, 23L, 24L, 25L), showsMask = setOf(0)) // still unrelated; no timer either
         assertEquals(MASKED, t[0])
-        t.frame(1200, listOf(mask, 11L, 12L, 13L, 4L, 5L), showsMask = setOf(0)) // 1 of 5 since last frame
-        assertEquals(MASKED, t[0])
-        t.frame(1300, listOf(mask, 21L, 22L, 23L, 4L, 5L), showsMask = setOf(0)) // 3 of 5
+        t.frame(5100, listOf(mask, 1L, 12L, 23L, 24L, 25L), showsMask = setOf(0)) // tile 2 below: half its neighbours
         assertEquals(PROBING, t[0])
+    }
+
+    @Test fun `a masked tile with no clear neighbours falls back to the 2 s timer`() {
+        val t = TileMaskTracker(2, 3)
+        val hashes = listOf(unsafe, 101L, 102L, 3L, 4L, 5L)
+        t.frame(0, hashes, flagged = setOf(0, 1, 2))
+        t.frame(100, hashes, flagged = setOf(0, 1, 2)) // 0, 1, 2 masked: tile 0's neighbours are both masked
+        t.frame(2099, listOf(mask, mask, mask, 3L, 4L, 5L), showsMask = setOf(0, 1, 2))
+        assertEquals(MASKED, t[0])
+        t.frame(2100, listOf(mask, mask, mask, 3L, 4L, 5L), showsMask = setOf(0, 1, 2))
+        assertEquals(PROBING, t[0])
+        assertEquals(MASKED, t[1]) // has CLEAR neighbour 3, unchanged: no probe
     }
 
     @Test fun `never probes a tile twice within a second`() {
@@ -148,7 +160,7 @@ class TileMaskTrackerTest {
 
     @Test fun `reset puts every tile of the new grid back to clear`() {
         val t = maskedBalanced()
-        t.reset(6)
+        t.reset(2, 3)
         assertEquals(List(6) { CLEAR }, List(t.size) { t[it] })
         assertFalse(t.frame(200, listOf(unsafe, 1L, 2L, 3L, 4L, 5L), flagged = setOf(0))[0])
         assertTrue(t.frame(300, listOf(unsafe, 1L, 2L, 3L, 4L, 5L), flagged = setOf(0))[0])

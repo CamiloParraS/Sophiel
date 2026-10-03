@@ -46,8 +46,9 @@ data class TileVerdict(
 /** Analyses screen frames locally, emitting one [TileVerdict] per tile. */
 interface Detector {
     /**
-     * Judge the tiles of [frame] under [preset] (all if [only] is null), emitting each tile
-     * as soon as it is judged, so its mask can go up without waiting for the rest of the sweep.
+     * Judge the tiles of [frame] under [preset]: those in [only], in that order, or all of them
+     * in index order if it is null. Each tile is emitted as soon as it is judged, so its mask can
+     * go up (or a probe resolve) without waiting for the rest of the sweep.
      *
      * The caller keeps ownership of [frame] and must not recycle it until
      * collection completes.
@@ -55,7 +56,7 @@ interface Detector {
      * Safe to collect from any thread; implementations serialise internally onto a
      * single inference thread. Concurrent collectors are queued, not parallelised.
      */
-    fun analyze(frame: android.graphics.Bitmap, preset: Preset, only: Set<Int>? = null): Flow<TileVerdict>
+    fun analyze(frame: android.graphics.Bitmap, preset: Preset, only: List<Int>? = null): Flow<TileVerdict>
 
     /** Releases the interpreter. The instance is unusable afterwards. */
     fun close()

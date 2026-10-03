@@ -58,7 +58,8 @@ class DebugPillOverlay(private val context: Context) {
         attached = true
     }
 
-    fun update(text: String) = mainHandler.post { pill.text = text }
+    // Skip identical text: any redraw is a new captured frame (see CaptureSession.TileLoop).
+    fun update(text: String) = mainHandler.post { if (pill.text.toString() != text) pill.text = text }
 
     fun hide() = mainHandler.post {
         if (!attached) return@post

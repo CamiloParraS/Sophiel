@@ -33,10 +33,9 @@ class DetectionPipeline(
 
     @Volatile private var closed = false
 
-    override fun analyze(frame: Bitmap, preset: Preset, only: Set<Int>?): Flow<TileVerdict> = flow {
+    override fun analyze(frame: Bitmap, preset: Preset, only: List<Int>?): Flow<TileVerdict> = flow {
         val start = SystemClock.elapsedRealtime()
-        for (index in 0 until preset.cols * preset.rows) {
-            if (only != null && index !in only) continue
+        for (index in only ?: (0 until preset.cols * preset.rows)) {
             // Per tile, not per frame: close() can slip in whenever emit() suspends.
             if (closed) throw CancellationException("Detector closed")
             emit(judge(index, frame, preset).copy(latencyMs = elapsedSince(start)))
