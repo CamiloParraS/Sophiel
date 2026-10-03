@@ -803,5 +803,9 @@ battery and warming, so treat B's Balanced numbers as an upper bound.
   Frame to mask on A: p50 104 ms, max 315 ms (14 episodes).
 - **Frame to mask** (`frameToMaskMs`, Device B, 9 episodes): p50 95 ms, max 160 ms, measured from
   the frame that completes the 2-frame engage, so content-to-mask is about one frame interval more.
-- **Not settled here:** Strict / Relaxed values (still 0.55 / 0.85 placeholders) need labelled
-  score data; the gate retune needs labelled real screens. Both are for a human pass.
+- **Skin gate: unchanged (human decision, 2026-10-03).** Its code and thresholds are as of
+  `faaeb40` (5 % skin ratio, luma floor). What changed in M4 is only that it runs per tile, so the
+  ratio is measured against a smaller area: it gates 34 % of Balanced tiles vs 19 % of Light frames.
+  Retune only if real use shows misses or wasted sweeps.
+- **Sensitivity values: kept as starting values (human decision, 2026-10-03):** Strict 0.55,
+  Normal 0.70, Relaxed 0.85. Revisit with labelled score data.

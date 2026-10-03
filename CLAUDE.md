@@ -11,20 +11,22 @@ Agent entrypoint for **Sophiel**. Read this fully, then read `./docs/SPEC.md`.
 > **Update this block at the end of every work session. It is the first thing you and I both read.**
 
 ```
-CURRENT MILESTONE:  M3.5 — Gate (rescoped 2026-10-01, D22; plan in SPEC.md §5)
-STATUS:             M0-M3 done and reused. The product is now a PARENTAL-CONTROL app with
-                    per-tile masking (Light = whole frame, Balanced = 2x3 tiles, solid-block
-                    masks, PIN-gated Reveal, 7-day local log). SPEC.md was rewritten to
-                    match; the old whole-frame spec is at git tag `spec-v1`.
-                    Planning record: docs/wayfinder/map.md (map + closed tickets + research).
-                    Unverified on-device since no device was attached: D20 (capture
-                    code-quality pass) and D21 (resume notification).
-BLOCKED ON:         The M3.5 gate: merge open branches into main, then the human re-runs
-                    M3 V1-V7 and the D21 resume-notification check on a device.
-NEXT:               M4 — Tile pipeline (TileGrid, TileMaskTracker, per-tile Detector,
-                    exact-hash lock; tests first; measure real per-tile cost on both
-                    devices). Then M5 Overlay, M6 Parent app (FEATURE FREEZE end of week 3),
-                    M7 Harden + ship.
+CURRENT MILESTONE:  M5 — Overlay (M4 done 2026-10-03 on branch feat/tile-pipeline)
+STATUS:             M4 done: per-tile Flow contract, TileGrid (landscape swaps to 3x2),
+                    TileMaskTracker (D25: probe only on neighbouring change), live capture
+                    behind a debug-only purple mask, Strict/Normal/Relaxed. Measured on both
+                    devices (D26): grid stays 2x3, no whole-frame safety net, probe exposure
+                    median ~130 ms, no timeouts. Tickets: .scratch/m4-tile-pipeline/ (local,
+                    excluded from git). Branch also carries the NudeNet spike (ef56711, D24,
+                    "not for main as-is"): the human chose to build M4 on top of it.
+BLOCKED ON:         M3.5 was skipped, not passed: the human never re-ran M3 V1-V7 and the
+                    D21 resume check on a device. feat/tile-pipeline is not merged or pushed;
+                    it cannot reach main until the spike is backed out or accepted.
+NEXT:               M5 — polished overlay replacing the debug mask. Carry over: ONE
+                    full-screen touch-through window at alpha <= 0.8 (two at 0.8 blocked every
+                    touch, ticket 06); rotation covers the content area until post-rotation
+                    verdicts; masks hidden + tracker paused on Sophiel screens; PIN Reveal.
+                    Then M6 Parent app (FEATURE FREEZE end of week 3), M7 Harden + ship.
 ```
 
 Milestones are **strictly sequential**. Do not start M(n+1) until every verification item in M(n) passes. If you believe a milestone should be skipped or reordered, stop and ask.
