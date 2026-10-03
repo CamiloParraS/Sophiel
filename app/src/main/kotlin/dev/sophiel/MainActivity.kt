@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -39,9 +40,11 @@ import androidx.compose.ui.unit.dp
 import dev.sophiel.capture.ControllerPhase
 import dev.sophiel.capture.ProjectionController
 import dev.sophiel.capture.ProjectionService
+import dev.sophiel.feed.SpikeModel
+import dev.sophiel.feed.benchmarkScreen
 import dev.sophiel.feed.testFeedScreen
 
-/** Top-level app destinations. Benchmark is an M0 stub — it lands in a later milestone. */
+/** Top-level app destinations. Benchmark is the heavy-model spike (branch spike/heavy-models). */
 private enum class Destination { Protection, TestFeed, Benchmark }
 
 class MainActivity : ComponentActivity() {
@@ -97,12 +100,9 @@ class MainActivity : ComponentActivity() {
                     },
                 ) { padding ->
                     when (current) {
-                        Destination.Protection -> protectionScreen(controller, modifier = Modifier.padding(padding))
+                        Destination.Protection -> protectionScreen(controller, (application as SophielApp).container, Modifier.padding(padding))
                         Destination.TestFeed -> testFeedScreen(modifier = Modifier.padding(padding))
-                        Destination.Benchmark -> Box(
-                            modifier = Modifier.fillMaxSize().padding(padding),
-                            contentAlignment = Alignment.Center,
-                        ) { Text("${current.name} — coming soon") }
+                        Destination.Benchmark -> benchmarkScreen(modifier = Modifier.padding(padding))
                     }
                 }
             }
@@ -173,8 +173,9 @@ class MainActivity : ComponentActivity() {
 
 /** M3 scope: no overlay yet — this just drives the permission flow and shows the raw state. */
 @Composable
-private fun protectionScreen(controller: ProjectionController, modifier: Modifier = Modifier) {
+private fun protectionScreen(controller: ProjectionController, container: AppContainer, modifier: Modifier = Modifier) {
     val state by controller.state.collectAsState()
+    var liveModel by remember { mutableStateOf(container.liveModel) }
     Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(state.phase.name, style = MaterialTheme.typography.titleMedium)
@@ -183,6 +184,17 @@ private fun protectionScreen(controller: ProjectionController, modifier: Modifie
             }
             if (state.phase == ControllerPhase.BLOCKED) {
                 Text("Overlay permission is required.", style = MaterialTheme.typography.bodySmall)
+            }
+            Spacer(Modifier.height(16.dp))
+            // Spike (D24): switches the live model between frames, no restart needed.
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                SpikeModel.entries.forEach { m ->
+                    FilterChip(
+                        selected = m == liveModel,
+                        onClick = { liveModel = m; container.liveModel = m },
+                        label = { Text(m.label) },
+                    )
+                }
             }
             Spacer(Modifier.height(16.dp))
             when (state.phase) {

@@ -3,6 +3,7 @@ package dev.sophiel.capture
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Rect
+import android.graphics.RectF
 import android.hardware.display.DisplayManager
 import android.media.projection.MediaProjection
 import android.os.Build
@@ -13,12 +14,16 @@ import android.view.WindowInsets
 import android.view.WindowManager
 import dev.sophiel.core.DetectorFactory
 import dev.sophiel.core.Preset
+import dev.sophiel.feed.NudeNet
+import dev.sophiel.feed.SpikeModel
+import dev.sophiel.feed.unsafeScore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.single
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlin.concurrent.thread
 
 private const val TAG = "Sophiel"
@@ -36,11 +41,18 @@ class CaptureSession(
     private val projection: MediaProjection,
     private var size: CaptureSize,
     private val onStatus: (String) -> Unit,
+    private val liveModel: () -> SpikeModel,
 ) {
-    private val detector = DetectorFactory.create(context.applicationContext)
+    private val appContext = context.applicationContext
+
+    // Spike (D24): swapped between frames when the picked model changes. Only touched from the
+    // single in-flight frame job, then from close() once that job has finished.
+    @Volatile
+    private var judge: Judge? = null
     private val throttle = FrameThrottle(FRAME_INTERVAL_MS)
     private val scope = CoroutineScope(Dispatchers.Default + Job())
     private val debugPill = if (context.isDebuggable) DebugPillOverlay(context).also { it.show() } else null
+    private val debugBoxes = if (context.isDebuggable) DebugBoxOverlay(context).also { it.show() } else null
 
     // Frame being analysed, if any. New frames are dropped while it runs (SPEC.md §4.5): the
     // throttle alone let frames queue on the single inference thread whenever analysis took
@@ -80,20 +92,17 @@ class CaptureSession(
             try {
                 val status = if (isProtected(bitmap)) {
                     Log.d(TAG, "protected content (mostly-black frame, likely FLAG_SECURE)")
+                    debugBoxes?.update(emptyList())
                     "Protected content — not analyzable"
                 } else {
-                    val verdict = detector.analyze(bitmap, Preset.LIGHT).single()
-                    Log.d(
-                        TAG,
-                        "severity=${verdict.severity} score=${verdict.score} gated=${verdict.gated} " +
-                            "cached=${verdict.cacheHit} latencyMs=${verdict.latencyMs}",
-                    )
-                    // cached= is here to be counted in M5: if the hit rate is ~0 the cache is dead
-                    // weight (MediaProjection delivers no frames at all for an unchanging screen,
-                    // DECISIONS.md D17) and VerdictCache should go.
-                    "%s · score=%.2f · gated=%b · cached=%b · %dms".format(
-                        verdict.severity, verdict.score, verdict.gated, verdict.cacheHit, verdict.latencyMs,
-                    )
+                    val want = liveModel()
+                    val current = judge?.takeIf { it.model == want } ?: run {
+                        judge?.close?.invoke()
+                        debugBoxes?.update(emptyList())
+                        debugPill?.update("${want.label}: loading…")
+                        openJudge(want).also { judge = it }
+                    }
+                    current.run(bitmap)
                 }
                 onStatus(status)
                 debugPill?.update(status)
@@ -106,12 +115,59 @@ class CaptureSession(
     fun close() {
         closed = true
         debugPill?.hide()
+        debugBoxes?.hide()
         display.release()
         frameSource.close()
         projection.stop()
         scope.cancel()
-        // DetectionPipeline.close() waits out an in-flight inference; don't block the main thread on it.
-        thread(name = "DetectorClose") { detector.close() }
+        // Cancel doesn't interrupt a blocking inference or model load: wait it out off the main
+        // thread, then close whichever judge it left behind.
+        val last = inFlight
+        thread(name = "DetectorClose") {
+            runBlocking { last?.join() }
+            judge?.close?.invoke()
+        }
+    }
+
+    /** Frame-normalised box → fraction of the whole display (the frame is the capture's [CaptureSize.crop]). */
+    private fun toDisplayFraction(box: RectF): RectF {
+        val (width, height, _, crop) = size
+        return RectF(
+            (crop.left + box.left * crop.width()) / width, (crop.top + box.top * crop.height()) / height,
+            (crop.left + box.right * crop.width()) / width, (crop.top + box.bottom * crop.height()) / height,
+        )
+    }
+
+    private class Judge(val model: SpikeModel, val run: suspend (Bitmap) -> String, val close: () -> Unit)
+
+    private fun openJudge(model: SpikeModel): Judge = when (model.asset) {
+        null -> DetectorFactory.create(appContext).let { detector ->
+            Judge(model, { bitmap ->
+                val verdict = detector.analyze(bitmap, Preset.LIGHT).single()
+                Log.d(
+                    TAG,
+                    "severity=${verdict.severity} score=${verdict.score} gated=${verdict.gated} " +
+                        "cached=${verdict.cacheHit} latencyMs=${verdict.latencyMs}",
+                )
+                // cached= is here to be counted in M5: if the hit rate is ~0 the cache is dead
+                // weight (MediaProjection delivers no frames at all for an unchanging screen,
+                // DECISIONS.md D17) and VerdictCache should go.
+                "%s · %s · score=%.2f · gated=%b · cached=%b · %dms".format(
+                    model.label, verdict.severity, verdict.score, verdict.gated, verdict.cacheHit, verdict.latencyMs,
+                )
+            }, detector::close)
+        }
+        else -> NudeNet.load(appContext, model.asset, model.inputSize).let { nudeNet ->
+            Judge(model, { bitmap ->
+                val start = SystemClock.elapsedRealtime()
+                val detections = nudeNet.detect(bitmap)
+                val ms = SystemClock.elapsedRealtime() - start
+                debugBoxes?.update(detections.map { it.copy(box = toDisplayFraction(it.box)) })
+                Log.d(TAG, "live model=${model.name} score=${detections.unsafeScore()} latencyMs=$ms")
+                "%s · score=%.2f · %dms".format(model.label, detections.unsafeScore(), ms) +
+                    detections.take(3).joinToString("") { "\n%s %.2f".format(it.label.lowercase(), it.score) }
+            }, nudeNet::close)
+        }
     }
 }
 

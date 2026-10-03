@@ -28,3 +28,6 @@ app/src/main/assets/testfeed/zz_*.png
 # On Devide Tests results
 docs/Tests/*
 investigation.md
+
+# Spike models (NudeNet 640m is over GitHub's 100 MB limit); copy from temp_download/
+app/src/main/assets/*.onnx
