@@ -7,6 +7,7 @@ import android.media.Image
 import android.media.ImageReader
 import android.os.Handler
 import android.os.HandlerThread
+import android.os.SystemClock
 import android.view.Surface
 
 /**
@@ -24,7 +25,7 @@ class FrameSource(
     val height: Int,
     private val crop: Rect,
     private val wantsFrame: () -> Boolean,
-    private val onFrame: (Bitmap) -> Unit,
+    private val onFrame: (bitmap: Bitmap, availableAtMs: Long) -> Unit,
 ) {
     private val maxImages = 2
     private val thread = HandlerThread("FrameSource").apply { start() }
@@ -33,10 +34,11 @@ class FrameSource(
     private val imageReader = ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, maxImages).apply {
         setOnImageAvailableListener({ reader ->
             val image = reader.acquireLatestImage() ?: return@setOnImageAvailableListener
+            val availableAt = SystemClock.elapsedRealtime()
             try {
                 // Decide before decoding: the display pushes up to 60-120 frames/s, and copying
                 // each one into a Bitmap only for the throttle to drop it was most of the cost.
-                if (wantsFrame()) onFrame(image.toCroppedBitmap(crop))
+                if (wantsFrame()) onFrame(image.toCroppedBitmap(crop), availableAt)
             } finally {
                 image.close()
             }

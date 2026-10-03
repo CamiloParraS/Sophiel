@@ -21,6 +21,7 @@ import dev.sophiel.core.tile.TileState
 import dev.sophiel.core.tile.TileState.CLEAR
 import dev.sophiel.core.tile.TileState.MASKED
 import dev.sophiel.core.tile.TileState.PROBING
+import dev.sophiel.core.grid
 import dev.sophiel.core.tileRect
 import dev.sophiel.feed.NudeNet
 import dev.sophiel.feed.SpikeModel
@@ -96,7 +97,12 @@ class CaptureSession(
     private fun wantsFrame(): Boolean =
         !closed && inFlight?.isActive != true && throttle.shouldProcess(SystemClock.elapsedRealtime())
 
-    private fun onFrame(bitmap: Bitmap) {
+    // When the in-flight frame left the ImageReader; for ticket 07's frame-to-mask latency.
+    @Volatile
+    private var frameAvailableAt = 0L
+
+    private fun onFrame(bitmap: Bitmap, availableAtMs: Long) {
+        frameAvailableAt = availableAtMs
         inFlight = scope.launch {
             try {
                 val status = if (isProtected(bitmap)) {
@@ -153,7 +159,7 @@ class CaptureSession(
      * Runs only on [scope]'s single lane, which keeps the tracker single-threaded.
      */
     private inner class TileLoop(private val detector: Detector) {
-        private val tracker = TileMaskTracker(0)
+        private val tracker = TileMaskTracker(0, 0)
         private var grid = Triple(Preset.LIGHT, 0, 0) // preset, frame width, frame height
         private var shown: List<TileState> = emptyList()
         private val probedAt = HashMap<Int, Long>()
@@ -163,11 +169,14 @@ class CaptureSession(
             val preset = settings.livePreset
             if (grid != Triple(preset, frame.width, frame.height)) { // rotation or preset change
                 grid = Triple(preset, frame.width, frame.height)
-                tracker.reset(preset.cols * preset.rows)
+                val (cols, rows) = preset.grid(frame.width, frame.height)
+                tracker.reset(cols, rows)
                 publish()
             }
-            val todo = (0 until tracker.size).filter { tracker[it] == CLEAR || tracker[it] == PROBING }.toSet()
-            var latencyMs = 0L
+            // Probing tiles first: the mask is off until their verdict lands, so every tile judged
+            // ahead of them is exposure (D26: ~38 ms per tile on Device B).
+            val todo = (0 until tracker.size).filter { tracker[it] == CLEAR || tracker[it] == PROBING }
+                .sortedBy { tracker[it] != PROBING }
             detector.analyze(frame, preset, todo).collect { v ->
                 var showsMask = false
                 if (tracker[v.index] == PROBING) {
@@ -175,9 +184,10 @@ class CaptureSession(
                     showsMask = DebugMask.looksMasked(pixels)
                     Log.d(TAG, "probe frame tile=${v.index} showsMask=$showsMask ${DebugMask.describe(pixels)}")
                 }
-                if (tracker.onTile(now(), v, showsMask)) Log.i(TAG, "mask episode tile=${v.index}")
+                if (tracker.onTile(now(), v, showsMask)) {
+                    Log.i(TAG, "mask episode tile=${v.index} frameToMaskMs=${now() - frameAvailableAt}")
+                }
                 publish()
-                latencyMs = v.latencyMs
                 // cached= is here to be counted in M5: if the hit rate is ~0 the cache is dead
                 // weight (MediaProjection delivers no frames at all for an unchanging screen,
                 // DECISIONS.md D17) and VerdictCache should go.
@@ -196,8 +206,9 @@ class CaptureSession(
                     publish()
                 }
             }
-            return "GantMan · $preset · ${shown.joinToString(" ") { it.name.take(1) }} · " +
-                "${todo.size} analysed · ${latencyMs}ms"
+            // No latency here (it is in Logcat): the pill is captured too, and text that changes
+            // every frame redraws it, which makes a static screen deliver frames forever.
+            return "GantMan · $preset · ${shown.joinToString(" ") { it.name.take(1) }} · ${todo.size} analysed"
         }
 
         fun close() {
