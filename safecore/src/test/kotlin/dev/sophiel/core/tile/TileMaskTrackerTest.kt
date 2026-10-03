@@ -90,6 +90,17 @@ class TileMaskTrackerTest {
         assertEquals(MASKED, t[0])
     }
 
+    @Test fun `expireProbes re-masks a lifted tile without a frame, and never starts a probe`() {
+        val t = maskedLight()
+        t.frame(2100, listOf(mask))
+        t.expireProbes(2399)
+        assertEquals(PROBING, t[0])
+        t.expireProbes(2400) // the screen went static after the mask was lifted: no frame came
+        assertEquals(MASKED, t[0])
+        t.expireProbes(60_000) // masked for a minute, still no frame: no probe
+        assertEquals(MASKED, t[0])
+    }
+
     @Test fun `valid probe on the locked hash re-masks without a new episode`() {
         val t = maskedLight()
         t.frame(2100, listOf(mask))
