@@ -63,7 +63,7 @@ class CaptureSession(
     // One lane: frame jobs and probe timeouts both touch the tile tracker, which is not thread-safe.
     private val scope = CoroutineScope(Dispatchers.Default.limitedParallelism(1) + Job())
     private val debugPill = if (context.isDebuggable) DebugPillOverlay(context).also { it.show() } else null
-    private val debugBoxes = if (context.isDebuggable) DebugBoxOverlay(context).also { it.show() } else null
+    private val overlay = OverlayController(context).also { it.show() }
 
     // Frame being analysed, if any. New frames are dropped while it runs (SPEC.md §4.5): the
     // throttle alone let frames queue on the single inference thread whenever analysis took
@@ -108,13 +108,13 @@ class CaptureSession(
             try {
                 val status = if (isProtected(bitmap)) {
                     Log.d(TAG, "protected content (mostly-black frame, likely FLAG_SECURE)")
-                    debugBoxes?.update(emptyList())
+                    overlay.updateBoxes(emptyList())
                     "Protected content — not analyzable"
                 } else {
                     val want = settings.liveModel
                     val current = judge?.takeIf { it.model == want } ?: run {
                         judge?.close?.invoke()
-                        debugBoxes?.update(emptyList())
+                        overlay.updateBoxes(emptyList())
                         debugPill?.update("${want.label}: loading…")
                         openJudge(want).also { judge = it }
                     }
@@ -131,7 +131,7 @@ class CaptureSession(
     fun close() {
         closed = true
         debugPill?.hide()
-        debugBoxes?.hide()
+        overlay.hide()
         display.release()
         frameSource.close()
         projection.stop()
@@ -155,7 +155,7 @@ class CaptureSession(
     }
 
     /**
-     * Ticket 06: drives a [TileMaskTracker] from live frames and draws its masks on [debugBoxes].
+     * Ticket 06: drives a [TileMaskTracker] from live frames and draws its masks on [overlay].
      * Masked tiles are not analysed; CLEAR and PROBING ones are, each applied as it arrives.
      * Runs only on [scope]'s single lane, which keeps the tracker single-threaded.
      */
@@ -221,7 +221,7 @@ class CaptureSession(
 
         fun close() {
             open = false
-            debugBoxes?.updateMasks(emptyList())
+            overlay.updateMasks(emptyList())
             detector.close()
         }
 
@@ -242,7 +242,7 @@ class CaptureSession(
             }
             shown = states
             val (preset, w, h) = grid
-            debugBoxes?.updateMasks(
+            overlay.updateMasks(
                 states.indices.filter { states[it] == MASKED }.map { i ->
                     val r = preset.tileRect(i, w, h)
                     toDisplayFraction(RectF(r.left / w.toFloat(), r.top / h.toFloat(), r.right / w.toFloat(), r.bottom / h.toFloat()))
@@ -262,7 +262,7 @@ class CaptureSession(
                 val start = SystemClock.elapsedRealtime()
                 val detections = nudeNet.detect(bitmap)
                 val ms = SystemClock.elapsedRealtime() - start
-                debugBoxes?.update(detections.map { it.copy(box = toDisplayFraction(it.box)) })
+                overlay.updateBoxes(detections.map { it.copy(box = toDisplayFraction(it.box)) })
                 Log.d(TAG, "live model=${model.name} score=${detections.unsafeScore()} latencyMs=$ms")
                 "%s · score=%.2f · %dms".format(model.label, detections.unsafeScore(), ms) +
                     detections.take(3).joinToString("") { "\n%s %.2f".format(it.label.lowercase(), it.score) }
