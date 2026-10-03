@@ -1,6 +1,7 @@
 package dev.sophiel
 
 import dev.sophiel.capture.ProjectionController
+import dev.sophiel.core.Preset
 import dev.sophiel.feed.SpikeModel
 
 /**
@@ -15,4 +16,8 @@ class AppContainer {
     /** Spike (D24): model the live capture judges with, picked on the Protection screen. */
     @Volatile
     var liveModel = SpikeModel.GANTMAN
+
+    /** Tile grid live capture uses, picked on the Protection screen until the Parent setting (M6). */
+    @Volatile
+    var livePreset = Preset.LIGHT
 }

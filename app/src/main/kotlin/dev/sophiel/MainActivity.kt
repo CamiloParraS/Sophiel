@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import dev.sophiel.capture.ControllerPhase
 import dev.sophiel.capture.ProjectionController
 import dev.sophiel.capture.ProjectionService
+import dev.sophiel.core.Preset
 import dev.sophiel.feed.SpikeModel
 import dev.sophiel.feed.benchmarkScreen
 import dev.sophiel.feed.testFeedScreen
@@ -176,6 +177,7 @@ class MainActivity : ComponentActivity() {
 private fun protectionScreen(controller: ProjectionController, container: AppContainer, modifier: Modifier = Modifier) {
     val state by controller.state.collectAsState()
     var liveModel by remember { mutableStateOf(container.liveModel) }
+    var livePreset by remember { mutableStateOf(container.livePreset) }
     Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(state.phase.name, style = MaterialTheme.typography.titleMedium)
@@ -193,6 +195,15 @@ private fun protectionScreen(controller: ProjectionController, container: AppCon
                         selected = m == liveModel,
                         onClick = { liveModel = m; container.liveModel = m },
                         label = { Text(m.label) },
+                    )
+                }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Preset.entries.forEach { p ->
+                    FilterChip(
+                        selected = p == livePreset,
+                        onClick = { livePreset = p; container.livePreset = p },
+                        label = { Text(p.name) },
                     )
                 }
             }

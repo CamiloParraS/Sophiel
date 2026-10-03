@@ -12,8 +12,16 @@ import android.util.DisplayMetrics
 import android.util.Log
 import android.view.WindowInsets
 import android.view.WindowManager
+import dev.sophiel.AppContainer
+import dev.sophiel.core.Detector
 import dev.sophiel.core.DetectorFactory
 import dev.sophiel.core.Preset
+import dev.sophiel.core.tile.TileMaskTracker
+import dev.sophiel.core.tile.TileState
+import dev.sophiel.core.tile.TileState.CLEAR
+import dev.sophiel.core.tile.TileState.MASKED
+import dev.sophiel.core.tile.TileState.PROBING
+import dev.sophiel.core.tileRect
 import dev.sophiel.feed.NudeNet
 import dev.sophiel.feed.SpikeModel
 import dev.sophiel.feed.unsafeScore
@@ -21,7 +29,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.flow.single
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlin.concurrent.thread
@@ -41,7 +49,7 @@ class CaptureSession(
     private val projection: MediaProjection,
     private var size: CaptureSize,
     private val onStatus: (String) -> Unit,
-    private val liveModel: () -> SpikeModel,
+    private val settings: AppContainer,
 ) {
     private val appContext = context.applicationContext
 
@@ -50,7 +58,8 @@ class CaptureSession(
     @Volatile
     private var judge: Judge? = null
     private val throttle = FrameThrottle(FRAME_INTERVAL_MS)
-    private val scope = CoroutineScope(Dispatchers.Default + Job())
+    // One lane: frame jobs and probe timeouts both touch the tile tracker, which is not thread-safe.
+    private val scope = CoroutineScope(Dispatchers.Default.limitedParallelism(1) + Job())
     private val debugPill = if (context.isDebuggable) DebugPillOverlay(context).also { it.show() } else null
     private val debugBoxes = if (context.isDebuggable) DebugBoxOverlay(context).also { it.show() } else null
 
@@ -95,7 +104,7 @@ class CaptureSession(
                     debugBoxes?.update(emptyList())
                     "Protected content — not analyzable"
                 } else {
-                    val want = liveModel()
+                    val want = settings.liveModel
                     val current = judge?.takeIf { it.model == want } ?: run {
                         judge?.close?.invoke()
                         debugBoxes?.update(emptyList())
@@ -138,25 +147,97 @@ class CaptureSession(
         )
     }
 
-    private class Judge(val model: SpikeModel, val run: suspend (Bitmap) -> String, val close: () -> Unit)
+    /**
+     * Ticket 06: drives a [TileMaskTracker] from live frames and draws its masks on [debugBoxes].
+     * Masked tiles are not analysed; CLEAR and PROBING ones are, each applied as it arrives.
+     * Runs only on [scope]'s single lane, which keeps the tracker single-threaded.
+     */
+    private inner class TileLoop(private val detector: Detector) {
+        private val tracker = TileMaskTracker(0)
+        private var grid = Triple(Preset.LIGHT, 0, 0) // preset, frame width, frame height
+        private var shown: List<TileState> = emptyList()
+        private val probedAt = HashMap<Int, Long>()
+        private var open = true // a probe-timeout job can outlive a model switch
 
-    private fun openJudge(model: SpikeModel): Judge = when (model.asset) {
-        null -> DetectorFactory.create(appContext).let { detector ->
-            Judge(model, { bitmap ->
-                val verdict = detector.analyze(bitmap, Preset.LIGHT).single()
-                Log.d(
-                    TAG,
-                    "severity=${verdict.severity} score=${verdict.score} gated=${verdict.gated} " +
-                        "cached=${verdict.cacheHit} latencyMs=${verdict.latencyMs}",
-                )
+        suspend fun run(frame: Bitmap): String {
+            val preset = settings.livePreset
+            if (grid != Triple(preset, frame.width, frame.height)) { // rotation or preset change
+                grid = Triple(preset, frame.width, frame.height)
+                tracker.reset(preset.cols * preset.rows)
+                publish()
+            }
+            val todo = (0 until tracker.size).filter { tracker[it] == CLEAR || tracker[it] == PROBING }.toSet()
+            var latencyMs = 0L
+            detector.analyze(frame, preset, todo).collect { v ->
+                var showsMask = false
+                if (tracker[v.index] == PROBING) {
+                    val pixels = DebugMask.sample(frame, preset.tileRect(v.index, frame.width, frame.height))
+                    showsMask = DebugMask.looksMasked(pixels)
+                    Log.d(TAG, "probe frame tile=${v.index} showsMask=$showsMask ${DebugMask.describe(pixels)}")
+                }
+                if (tracker.onTile(now(), v, showsMask)) Log.i(TAG, "mask episode tile=${v.index}")
+                publish()
+                latencyMs = v.latencyMs
                 // cached= is here to be counted in M5: if the hit rate is ~0 the cache is dead
                 // weight (MediaProjection delivers no frames at all for an unchanging screen,
                 // DECISIONS.md D17) and VerdictCache should go.
-                "%s · %s · score=%.2f · gated=%b · cached=%b · %dms".format(
-                    model.label, verdict.severity, verdict.score, verdict.gated, verdict.cacheHit, verdict.latencyMs,
+                Log.d(
+                    TAG,
+                    "tile ${v.index} severity=${v.severity} score=${v.score} gated=${v.gated} " +
+                        "cached=${v.cacheHit} showsMask=$showsMask latencyMs=${v.latencyMs}",
                 )
-            }, detector::close)
+            }
+            tracker.endFrame(now())
+            publish()
+            if (PROBING in shown) {
+                scope.launch { // a screen that goes static once the mask is lifted sends no frame
+                    delay(tracker.probeTimeoutMs)
+                    tracker.expireProbes(now())
+                    publish()
+                }
+            }
+            return "GantMan · $preset · ${shown.joinToString(" ") { it.name.take(1) }} · " +
+                "${todo.size} analysed · ${latencyMs}ms"
         }
+
+        fun close() {
+            open = false
+            debugBoxes?.updateMasks(emptyList())
+            detector.close()
+        }
+
+        /** Logs state changes and probe exposure, then redraws the masks if anything moved. */
+        private fun publish() {
+            if (!open) return
+            val states = List(tracker.size) { tracker[it] }
+            if (states == shown) return
+            val now = now()
+            states.forEachIndexed { i, state ->
+                val was = shown.getOrNull(i)
+                if (state == was) return@forEachIndexed
+                if (state == PROBING) probedAt[i] = now
+                if (was == PROBING) {
+                    probedAt.remove(i)?.let { Log.i(TAG, "probe tile=$i exposureMs=${now - it} -> $state") }
+                }
+                Log.i(TAG, "tile $i $was -> $state")
+            }
+            shown = states
+            val (preset, w, h) = grid
+            debugBoxes?.updateMasks(
+                states.indices.filter { states[it] == MASKED }.map { i ->
+                    val r = preset.tileRect(i, w, h)
+                    toDisplayFraction(RectF(r.left / w.toFloat(), r.top / h.toFloat(), r.right / w.toFloat(), r.bottom / h.toFloat()))
+                },
+            )
+        }
+
+        private fun now() = SystemClock.elapsedRealtime()
+    }
+
+    private class Judge(val model: SpikeModel, val run: suspend (Bitmap) -> String, val close: () -> Unit)
+
+    private fun openJudge(model: SpikeModel): Judge = when (model.asset) {
+        null -> TileLoop(DetectorFactory.create(appContext)).let { Judge(model, it::run, it::close) }
         else -> NudeNet.load(appContext, model.asset, model.inputSize).let { nudeNet ->
             Judge(model, { bitmap ->
                 val start = SystemClock.elapsedRealtime()

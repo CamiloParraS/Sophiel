@@ -84,13 +84,26 @@ class TileMaskTracker(tileCount: Int) {
                 MASKED -> if (age >= MIN_PROBE_GAP_MS && (contentMoved || age >= PROBE_TIMER_MS)) {
                     tile.enter(PROBING, now)
                 }
-                PROBING -> if (age >= PROBE_VALID_MS) tile.enter(MASKED, now) // no valid frame in time
                 REVEALED -> if (age >= REVEAL_MS) tile.enter(PROBING, now)
-                CLEAR -> Unit
+                CLEAR, PROBING -> Unit
             }
             tile.hashChanged = false
         }
+        expireProbes(now)
     }
+
+    /**
+     * Re-masks every probe with no valid frame within 300 ms. [endFrame] does this too; call it
+     * on a timer while a tile is PROBING, because a screen that goes static after the mask is
+     * lifted delivers no frame. Never starts a probe.
+     */
+    fun expireProbes(now: Long) {
+        if (pausedAt != null) return
+        for (tile in tiles) if (tile.state == PROBING && now - tile.enteredAt >= PROBE_VALID_MS) tile.enter(MASKED, now)
+    }
+
+    /** How long a probe may wait for a captured frame without our mask before re-masking. */
+    val probeTimeoutMs get() = PROBE_VALID_MS
 
     /** Parent reveal (the caller checks the PIN): every MASKED tile is uncovered for 5 s. */
     fun reveal(now: Long) {

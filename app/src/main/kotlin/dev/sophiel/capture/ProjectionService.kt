@@ -101,7 +101,7 @@ class ProjectionService : Service() {
         }, null)
 
         val container = (application as SophielApp).container
-        session = CaptureSession(this, projection, captureSize(this), ::updateNotification) { container.liveModel }
+        session = CaptureSession(this, projection, captureSize(this), ::updateNotification, container)
         return START_NOT_STICKY
     }
 
