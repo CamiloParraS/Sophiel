@@ -44,6 +44,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.sophiel.capture.DebugMask
 
 // Ticket 02 of .scratch/m5-overlay: throwaway comparison of mask looks at overlay-window alpha.
 // Window alpha multiplies the whole window, so Modifier.alpha over the image reproduces the
@@ -77,7 +78,7 @@ fun maskLookScreen(modifier: Modifier = Modifier) {
     val names = remember { context.assets.list(ASSET_DIR)!!.filter { it.endsWith(".png") }.sorted() }
     var image by remember { mutableIntStateOf(0) }
     var look by remember { mutableIntStateOf(0) }
-    var alpha by remember { mutableFloatStateOf(0.8f) }
+    var alpha by remember { mutableFloatStateOf(0.79f) }
     var blocks by remember { mutableIntStateOf(5) } // pixelate: blocks across a tile
     var original by remember { mutableStateOf(false) }
     val masked = remember { mutableStateListOf(*Array(COLS * ROWS) { it in 2..3 }) }
@@ -187,14 +188,11 @@ private fun lockPattern() {
     }
 }
 
+/** The shipped mask look (DebugMask.NOISE, tinted per D29) repeated over [w]x[h]. */
 private fun strongNoise(w: Int, h: Int): Bitmap {
-    val rnd = java.util.Random(11)
-    return Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888).also { b ->
-        for (x in 0 until w) for (y in 0 until h) {
-            val v = rnd.nextInt(256)
-            b.setPixel(x, y, android.graphics.Color.rgb(v, (v + rnd.nextInt(60)).coerceAtMost(255), v))
-        }
-    }
+    val n = 64 // DebugMask.NOISE side
+    val px = IntArray(w * h) { DebugMask.NOISE[(it / w % n) * n + it % w % n] }
+    return Bitmap.createBitmap(px, w, h, Bitmap.Config.ARGB_8888)
 }
 
 /** A real touch-through overlay band (middle third of the screen): strong noise, optionally over blur-behind. */
@@ -223,7 +221,7 @@ private class RealMaskWindow(private val context: android.content.Context) {
             android.graphics.PixelFormat.TRANSLUCENT,
         ).apply {
             gravity = android.view.Gravity.CENTER
-            this.alpha = alpha.coerceAtMost(0.8f) // above 0.8 every touch is blocked (ticket 01)
+            this.alpha = alpha.coerceAtMost(0.79f) // above 0.8 every touch is blocked (ticket 01)
             if (blur && android.os.Build.VERSION.SDK_INT >= 31) {
                 flags = flags or android.view.WindowManager.LayoutParams.FLAG_BLUR_BEHIND
                 blurBehindRadius = 60

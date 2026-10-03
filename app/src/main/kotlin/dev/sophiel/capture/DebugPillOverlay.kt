@@ -1,11 +1,13 @@
 package dev.sophiel.capture
 
 import android.content.Context
+import android.graphics.BitmapShader
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.PixelFormat
 import android.graphics.RectF
+import android.graphics.Shader
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -75,7 +77,7 @@ val Context.isDebuggable: Boolean
 /**
  * Debug-only, touch-transparent drawing over the whole screen: the spike's NudeNet boxes (D24,
  * outlines only, so the next captured frame sees thin lines) and ticket 06's tile masks
- * ([DebugMask], solid blocks the capture really sees).
+ * ([DebugMask] noise the capture really sees).
  *
  * One window for both on purpose: Android 12+ blocks touches through another app's overlays
  * when their *combined* opacity exceeds 0.8, so two full-screen windows at 0.8 (1 - 0.2²)
@@ -89,7 +91,11 @@ class DebugBoxOverlay(private val context: Context) {
 
     private val view = object : View(context) {
         private val stroke = Paint().apply { style = Paint.Style.STROKE; strokeWidth = 4f }
-        private val fill = Paint().apply { color = DebugMask.COLOR }
+        // Shader is in screen space (the canvas is not translated), so the grain stays put while
+        // tiles change: the mask never redraws differently (D18).
+        private val fill = Paint().apply {
+            shader = BitmapShader(DebugMask.noiseBitmap(), Shader.TileMode.REPEAT, Shader.TileMode.REPEAT)
+        }
         private val text = Paint().apply { textSize = 30f; isAntiAlias = true; isFakeBoldText = true }
         private val origin = IntArray(2)
         private val real = DisplayMetrics()
@@ -158,4 +164,5 @@ internal fun touchThroughOverlayParams() = WindowManager.LayoutParams(
     }
 }
 
-internal const val OVERLAY_ALPHA = 0.8f
+// 0.79, not 0.8: margin under the cap, which the research could not pin to a source line.
+internal const val OVERLAY_ALPHA = 0.79f
