@@ -809,3 +809,36 @@ battery and warming, so treat B's Balanced numbers as an upper bound.
   Retune only if real use shows misses or wasted sweeps.
 - **Sensitivity values: kept as starting values (human decision, 2026-10-03):** Strict 0.55,
   Normal 0.70, Relaxed 0.85. Revisit with labelled score data.
+
+## D27 — Drop Reveal (2026-10-03, human decision during M5 planning)
+
+Reveal (PIN-gated uncover of all masks for 5 s) is removed. Touches already pass through masks, so
+the Child can scroll past one; a false positive is handled by stopping protection behind the PIN
+and restarting (one extra consent tap). Dropping it removes the REVEALED tracker state, the
+PinPromptActivity from M5, the notification action and old M5 V5. Overrides SPEC §1.2, D22 and D23.
+SPEC/CONTEXT/tracker cleanup is ticket 05 of `.scratch/m5-overlay/`.
+
+Same session, D24 follow-up: the NudeNet spike stays on `main`, but only behind the debug menu.
+Confirmed from the ORT 1.30.0 AAR's own manifest: it declares `INTERNET`, `ACCESS_NETWORK_STATE`
+and a `TelemetryInitializer` provider; our manifest strips both permissions. Re-run the aapt
+check on every ORT bump.
+
+## D28 — M5 overlay architecture (2026-10-03, human decisions, `.scratch/m5-overlay/` tickets 01-03)
+
+- **One full-screen touch-through window** draws all masks, at window alpha 0.79. Supersedes the SPEC's
+  "one window per masked tile". Reason: it is what M4 proved on both devices, debug boxes can share it,
+  and a probe is one redrawn rectangle with no add/remove churn. Research (ticket 01): Android's
+  untrusted-touch rule is per touch point and per UID, from window alpha not pixels, `>0.8` blocks,
+  so per-tile windows were legal too, but nothing else may overlap a mask window.
+- **Look: strong noise** (~1 px, full brightness range). Beat flat+lock, lock pattern, old noise,
+  pixelate (shape stays readable) and blur of our own copy at alpha 0.8 and 0.7 on both devices.
+  Blur-behind is "NOT enabled" on both devices (A71 `mBlurEnabled=false`): dropped.
+- **Lock chip + label** (small, centred) is a Parent **show-label toggle** (default on, no PIN to change).
+  Human scope addition to SPEC §1.2; lives in M6 Settings, M5 draws both behind a constant.
+- **"Still shows our mask"** = captured-tile mean colour vs the mask's, centre excluded; the capture is
+  downscaled ~3-4x so the grain averages out. Tolerance set from probe-frame logs on both devices.
+- **Masks cover the content area only**; bars stay visible (the capture crops them anyway).
+- **Swiping from Recents does not stop protection** (the foreground service survives). Otherwise a
+  Child could end protection with one swipe and no PIN. V4 now tests force-stop leaves no orphan window.
+- **Own screens:** masks hidden and tracker paused only while a Sophiel activity is resumed and not in
+  multi-window mode; in split-screen masks stay up. Detected with an in-process lifecycle counter.

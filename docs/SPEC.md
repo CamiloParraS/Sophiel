@@ -10,19 +10,19 @@ Rescoped from the original whole-frame design (decision D22; the old spec is tag
 
 ## 0. Agent operating rules
 
-This document is the source of truth. Read this section before writing any code. `CONTEXT.md` defines the vocabulary (Parent, Child, Preset, Tile, Mask, Reveal, Log entry).
+This document is the source of truth. Read this section before writing any code. `CONTEXT.md` defines the vocabulary (Parent, Child, Preset, Tile, Mask, Log entry).
 
 ### 0.1 Non-negotiable constraints
 
-| ID     | Rule                                                                                                                                                     |
-| ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **C1** | The `INTERNET` permission MUST NOT appear in any manifest, including debug and test manifests. This is a verifiable product claim.                       |
-| **C2** | No model training, fine-tuning, or architecture modification. Use pre-trained weights only.                                                              |
+| ID     | Rule                                                                                                                                                                           |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **C1** | The `INTERNET` permission MUST NOT appear in any manifest, including debug and test manifests. This is a verifiable product claim.                                             |
+| **C2** | No model training, fine-tuning, or architecture modification. Use pre-trained weights only.                                                                                    |
 | **C3** | No captured frame is ever written to persistent storage. Frames live in memory and are recycled. Only derived scalars (hashes, scores, timings, log entries) may be persisted. |
-| **C4** | Milestones are strictly sequential. Do not begin milestone N+1 until milestone N's verification block passes.                                            |
-| **C5** | Every milestone ends in a state where `./gradlew :app:installDebug` produces a launchable app.                                                           |
-| **C6** | Kotlin only. No Java sources. No RxJava. Coroutines + Flow for all async work.                                                                           |
-| **C7** | `:safecore` stays UI-free: no `MediaProjection`, `WindowManager`, or Compose symbol.                                                                     |
+| **C4** | Milestones are strictly sequential. Do not begin milestone N+1 until milestone N's verification block passes.                                                                  |
+| **C5** | Every milestone ends in a state where `./gradlew :app:installDebug` produces a launchable app.                                                                                 |
+| **C6** | Kotlin only. No Java sources. No RxJava. Coroutines + Flow for all async work.                                                                                                 |
+| **C7** | `:safecore` stays UI-free: no `MediaProjection`, `WindowManager`, or Compose symbol.                                                                                           |
 
 ### 0.2 When to stop and ask the human
 
@@ -58,8 +58,8 @@ The UI and the experience of it (it should feel quick and light) are the product
 ### 1.2 In scope
 
 - Two presets: **Light** (whole frame as one tile) and **Balanced** (2 columns × 3 rows).
-- Solid-block masks (lock icon + "Hidden by Sophiel") that let touches pass through. **Reveal** is a PIN-gated action on the Status screen and in the notification.
-- Parent screens: Status, Setup wizard, PIN unlock, Settings (Strict / Normal / Relaxed, preset), Log.
+- Noise masks (optional lock chip + "Hidden by Sophiel" label, a Parent setting) that let touches pass through.
+- Parent screens: Status, Setup wizard, PIN unlock, Settings (Strict / Normal / Relaxed, preset, show-label toggle), Log.
 - A hidden debug menu (Test Feed, debug pill, raw threshold slider).
 - A permission-free **Test Feed** for development and as the demo fallback.
 
@@ -67,13 +67,13 @@ The UI and the experience of it (it should feel quick and light) are the product
 
 Do not build these. If asked mid-project, refuse and cite this section.
 
-| Feature                                          | Reason                                                                          |
-| ------------------------------------------------ | ------------------------------------------------------------------------------- |
-| Precise preset (bounding-box detector model)     | New model, new conversion and parity risk; too risky for one month.             |
-| Remote parent alerts, accounts, sync, backend    | Needs `INTERNET`; breaks C1.                                                    |
-| Tamper resistance (Device Admin, work profile)   | Deep rabbit hole; documented as a limitation instead.                           |
-| Formal evaluation set, ROC, UI corpus as deliverables | Debug-only tooling. May appear as a stretch measurement (§5), never as a deliverable. |
-| Deepfake detection, CLIP filters, OCR, NPU delegation, Play Store readiness, telemetry | Not required, or does not work. |
+| Feature                                                                                | Reason                                                                                |
+| -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| Precise preset (bounding-box detector model)                                           | New model, new conversion and parity risk; too risky for one month.                   |
+| Remote parent alerts, accounts, sync, backend                                          | Needs `INTERNET`; breaks C1.                                                          |
+| Tamper resistance (Device Admin, work profile)                                         | Deep rabbit hole; documented as a limitation instead.                                 |
+| Formal evaluation set, ROC, UI corpus as deliverables                                  | Debug-only tooling. May appear as a stretch measurement (§5), never as a deliverable. |
+| Deepfake detection, CLIP filters, OCR, NPU delegation, Play Store readiness, telemetry | Not required, or does not work.                                                       |
 
 ### 1.4 Devices
 
@@ -101,10 +101,10 @@ Roles are fixed in `docs/DECISIONS.md` (D1). Never swap them. Every verification
 
 ### 3.1 Modules
 
-| Module      | Type                      | Purpose                                                                 |
-| ----------- | ------------------------- | ----------------------------------------------------------------------- |
+| Module      | Type                      | Purpose                                                                   |
+| ----------- | ------------------------- | ------------------------------------------------------------------------- |
 | `:safecore` | `com.android.library`     | Detection and tile logic. Pure logic + LiteRT. Declares zero permissions. |
-| `:app`      | `com.android.application` | Capture, overlay, parent UI, PIN, log, debug tools.                     |
+| `:app`      | `com.android.application` | Capture, overlay, parent UI, PIN, log, debug tools.                       |
 
 Resist a third module.
 
@@ -124,7 +124,7 @@ app/src/main/kotlin/dev/sophiel/
   capture/   ProjectionService, ProjectionController, ProjectionStateMachine,
              CaptureSession, FrameSource, FrameThrottle, BlackFrameDetector   (done, verified)
   overlay/   OverlayController, TileMaskView                                    ← NEW (M5)
-  pin/       PinStore, PinPromptActivity                                        ← NEW (M5/M6)
+  pin/       PinStore, PinPromptActivity                                        ← NEW (M6)
   log/       EventLog (plain file in app storage, pruned on write)              ← NEW (M6)
   settings/  SettingsRepository (SharedPreferences)                             ← NEW (M6)
   ui/        Status, Setup, Unlock, Settings, Log screens, theme                ← NEW (M5/M6)
@@ -179,11 +179,10 @@ PROBING ──captured tile still shows our mask──▶ keep waiting (cap ~300
 PROBING ──hash == lockedHash──▶ MASKED                     (no classification)
 PROBING ──hash differs──▶ classify ──≥ threshold──▶ MASKED (new lockedHash)
                                    └─< threshold──▶ CLEAR
-MASKED ──Parent reveals (PIN)──▶ REVEALED ──5 s──▶ PROBING
 ```
 
 - **The tracker owns all timing.** The engage count starts at the old `PolicyEngine` value (2 frames). There is no release count: a tile only leaves MASKED through a probe.
-- While MASKED or REVEALED, ignore the tile's captured score.
+- While MASKED, ignore the tile's captured score.
 - **Probe validity.** Removing an overlay window does not reach the capture instantly; the next captured frame can still show the mask. A probe frame counts only once the captured tile no longer shows our mask (we know its exact look, so a pixel check is enough). If it has not cleared within ~300 ms, re-mask and wait for the next trigger. Without this rule every probe would read the mask as SAFE, release, and flash.
 - **Probe trigger, Balanced (D25):** a frame arrives AND at least half of the masked tile's own CLEAR neighbours (4-adjacent) changed hash since the previous frame. Activity elsewhere on screen never uncovers it. A masked tile with no CLEAR neighbour (every neighbour masked) falls back to the ~2 s timer, counted per tile since it was masked or last probed.
 - **Probe trigger, Light:** the only tile is masked, so there are no CLEAR tiles to watch. Probe on the ~2 s timer only, when frames arrive.
@@ -228,18 +227,19 @@ The highest-risk area. Implement exactly as specified; it is already built and v
 
 ### 4.2 Platform facts the implementation must respect
 
-| Fact                                                                                                                            | Consequence                                                                                                                  |
-| ------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| Consent is required before **each** capture session.                                                                            | No "remember my choice". Design the UX around it.                                                                             |
-| On API 34+, reusing a `createScreenCaptureIntent()` result throws `SecurityException`.                                         | Never cache the consent `Intent`.                                                                                             |
-| On API 34+, calling `createVirtualDisplay()` twice on one `MediaProjection` throws.                                             | On rotation, `VirtualDisplay.resize()` then `setSurface()`. Never recreate.                                                   |
-| The foreground service (type `mediaProjection`) must be running **before** `getMediaProjection()`.                              | Ordering in §4.4 is mandatory.                                                                                                |
-| Apps using `FLAG_SECURE` yield black frames.                                                                                    | Detect them (≥ 90% black pixels, D18) and log **unanalyzable**; never score them.                                              |
-| The user can end the session from the system status bar at any time.                                                            | Register `MediaProjection.Callback.onStop()` and tear down cleanly. Cannot be blocked; documented limitation (§8).             |
-| Overlays cannot cover system permission dialogs or parts of system UI.                                                          | Never claim total coverage.                                                                                                   |
-| Android 15+ stops the projection on a secure keyguard; a session cannot outlive screen-off.                                     | Tear down on `ACTION_SCREEN_OFF` (D18); the "Paused — tap to resume" notification gives one-tap fresh consent (D21).          |
-| Android 15+ hides other apps' notifications while screen sharing (D16).                                                         | Not a bug; mention in the limitations.                                                                                        |
-| `MediaProjection` mirrors the composited display, **including our own overlay windows**.                                        | The tile state machine (§3.4) exists because of this.                                                                         |
+| Fact                                                                                                                                                      | Consequence                                                                                                          |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| Consent is required before **each** capture session.                                                                                                      | No "remember my choice". Design the UX around it.                                                                    |
+| On API 34+, reusing a `createScreenCaptureIntent()` result throws `SecurityException`.                                                                    | Never cache the consent `Intent`.                                                                                    |
+| On API 34+, calling `createVirtualDisplay()` twice on one `MediaProjection` throws.                                                                       | On rotation, `VirtualDisplay.resize()` then `setSurface()`. Never recreate.                                          |
+| The foreground service (type `mediaProjection`) must be running **before** `getMediaProjection()`.                                                        | Ordering in §4.4 is mandatory.                                                                                       |
+| Apps using `FLAG_SECURE` yield black frames.                                                                                                              | Detect them (≥ 90% black pixels, D18) and log **unanalyzable**; never score them.                                    |
+| The user can end the session from the system status bar at any time.                                                                                      | Register `MediaProjection.Callback.onStop()` and tear down cleanly. Cannot be blocked; documented limitation (§8).   |
+| Android 12+ drops touches through an app's overlays when the windows covering the touch point exceed 0.8 combined opacity (per window alpha, not pixels). | One touch-through window at alpha 0.79; never stack another over it (D28).                                           |
+| Overlays cannot cover system permission dialogs or parts of system UI.                                                                                    | Never claim total coverage.                                                                                          |
+| Android 15+ stops the projection on a secure keyguard; a session cannot outlive screen-off.                                                               | Tear down on `ACTION_SCREEN_OFF` (D18); the "Paused — tap to resume" notification gives one-tap fresh consent (D21). |
+| Android 15+ hides other apps' notifications while screen sharing (D16).                                                                                   | Not a bug; mention in the limitations.                                                                               |
+| `MediaProjection` mirrors the composited display, **including our own overlay windows**.                                                                  | The tile state machine (§3.4) exists because of this.                                                                |
 
 ### 4.3 `SYSTEM_ALERT_WINDOW` is not a runtime permission
 
@@ -283,7 +283,8 @@ M0–M3 are **done and reused**: skeleton, model + parity gate, pipeline + Test 
 **Deliverables.** `TileGrid`, `TileMaskTracker` (§3.4), per-tile `Detector.analyze` with per-tile emission, exact-hash lock, Light/Balanced presets. Tests first for the state machine. A temporary on-screen readout of per-tile verdicts. A **crude debug-only mask**: a non-black solid block over each masked tile, touch pass-through. It exists so the probe and hash lock are tested against a mask the capture really sees in week 1, not week 2. Measure real per-tile cost on both devices. Measure whether content straddling a tile boundary is missed. If it is, turn on a **whole-frame safety net**: one extra whole-frame classification, and when the whole frame flags but no tile does, mask the tiles that passed the skin gate.
 
 **Verification**
-- `V1` — JVM tests pass for `TileMaskTracker` (every transition in §3.4, including REVEALED, probe validity, Light's timer-only trigger and the own-screen pause), tiling, and exact-hash lock.
+
+- `V1` — JVM tests pass for `TileMaskTracker` (every transition in §3.4, including probe validity, Light's timer-only trigger and the own-screen pause), tiling, and exact-hash lock.
 - `V2` — Balanced on the Test Feed judges only the tiles it should; Light behaves as one tile.
 - `V3` — Real per-tile cost and per-frame sweep time are measured on both devices and written to `DECISIONS.md`. 2×2 fallback applied if needed. Straddling-content result and the safety-net decision recorded.
 - `V4` — With the debug mask on, a static flagged image stays masked for 10 s with no flicker, and probe exposure is logged in milliseconds.
@@ -292,32 +293,36 @@ M0–M3 are **done and reused**: skeleton, model + parity gate, pipeline + Test 
 ### M5 — Overlay (week 2)
 
 **Deliverables.**
-- `OverlayController` + `TileMaskView` replace the debug mask: one small `TYPE_APPLICATION_OVERLAY` window **per masked tile**, sized exactly to the tile.
+
+- `OverlayController` + `TileMaskView` replace the debug mask: **one full-screen** `TYPE_APPLICATION_OVERLAY` window that draws every mask (D28), at window alpha 0.79. Debug boxes share this window; nothing else touch-through may overlap it.
 - Flags `FLAG_NOT_FOCUSABLE | FLAG_NOT_TOUCHABLE | FLAG_LAYOUT_IN_SCREEN`. Every touch, including one on a mask, passes through to the app beneath, so the Child can scroll past masked content.
-- Solid block (never pure black), lock icon, "Hidden by Sophiel" (validated prototype: `docs/wayfinder/prototypes/03-censor-treatment.prototype.html`).
+- Mask look: strong ~1 px noise over the full brightness range (never pure black), with a small centred chip (lock + "Hidden by Sophiel") that a Parent setting can turn off. Chosen on device (D28); blur-behind is not available on either device.
+- The "still shows our mask" check compares the captured tile's mean colour to the mask's, centre excluded; the tolerance is set from device data.
+- Masks cover the content area only; system bars stay visible (D28).
 - **Coordinate mapping** from capture tiles back to screen pixels: undo the 360 px downscale and add back the system-bar and cutout insets. Recomputed on configuration change. Rotation per §3.4.
-- **Reveal:** a "Reveal" action in the notification and on Status opens an opaque, full-screen `PinPromptActivity`. A correct PIN puts every masked tile into REVEALED for 5 s.
-- Masks hidden and tracker paused while a Sophiel screen is in the foreground (§3.4).
+- Masks hidden and tracker paused while a Sophiel activity is resumed and not in multi-window mode (§3.4, D28).
 - A basic **Status** screen with the on/off switch. Running end-to-end on hard-coded settings.
 
 **Verification**
+
 - `V1` — Masks sit exactly over the flagged tiles in portrait and landscape; every touch passes through, including over a mask.
 - `V2` — A static flagged image stays masked for 10 s with no flicker; it releases within a few seconds after the content changes.
 - `V3` — Probe exposure (mask removed until it is back or the tile is released) is measured in milliseconds, median and worst case, on both devices. At most one probe per second per tile.
-- `V4` — Killing the app from Recents removes every overlay window; none is orphaned.
-- `V5` — Reveal requires the PIN, masks return after 5 s, and the PIN prompt is never covered by a mask.
+- `V4` — Force-stopping the app leaves no overlay window behind. Swiping it out of Recents does **not** stop protection (D28).
 
 ### M6 — Parent app (week 3) — **FEATURE FREEZE AT END OF WEEK**
 
 **Deliverables.**
+
 - **Setup wizard:** create a 4–6 digit PIN (confirm) → overlay permission → notification permission → preset + sensitivity → start (consent). No PIN recovery; the wizard says so.
-- **Status** (opens with no PIN): on/off, active preset, "Settings (parent)". Starting needs no PIN. Anything that weakens protection needs the PIN: stop, change preset or sensitivity, reveal a mask, view the log. An unlock lasts ~2 minutes.
-- **Settings:** Strict / Normal / Relaxed, Light / Balanced. `SettingsRepository` (`SharedPreferences`). The PIN is stored as a salted hash, never plaintext. Five wrong attempts lock the prompt for 30 s, doubling on repeats.
+- **Status** (opens with no PIN): on/off, active preset, "Settings (parent)". Starting needs no PIN. Anything that weakens protection needs the PIN: stop, change preset or sensitivity, view the log. An unlock lasts ~2 minutes.
+- **Settings:** Strict / Normal / Relaxed, Light / Balanced, show-label toggle (no PIN needed). `SettingsRepository` (`SharedPreferences`). The PIN is stored as a salted hash, never plaintext. Five wrong attempts lock the prompt for 30 s, doubling on repeats.
 - **Log** (plain file, pruned on write): kinds masked (time, tiles masked, score band), protection on, protection off (reason: user stop / screen off / system ended), unanalyzable. **One masked entry per masking episode** (a tile going CLEAR → MASKED), never per frame or per re-mask after a probe. Scalars only: no frames, no app names. Kept 7 days; "Clear log" behind the PIN; summary "N masks today". A gap from a killed app or reboot is inferred on next start.
-- **Notification:** no Stop action; stopping from the app needs the PIN. A "Reveal" action (PIN) instead. "Paused — tap to resume" stays.
+- **Notification:** no Stop action; stopping from the app needs the PIN. "Paused — tap to resume" stays.
 - **Debug menu:** 7 taps on the version label + PIN. Holds Test Feed, debug pill, raw slider.
 
 **Verification**
+
 - `V1` — Every weakening action prompts for the PIN; the PIN is not stored in plaintext; five wrong attempts lock the prompt.
 - `V2` — The log records masks (one per episode), on/off with a reason, and unanalyzable screens; a unit test with a fake clock proves entries older than 7 days are pruned.
 - `V3` — Wizard completes from a cold install on both devices.
@@ -330,6 +335,7 @@ M0–M3 are **done and reused**: skeleton, model + parity gate, pipeline + Test 
 **Deliverables.** On-device verification of M4–M6 on both devices; `docs/LIMITATIONS.md` from §8 with measured numbers; `README.md`; a written demo runbook and a recorded demo video (record early in the week). Stretch, only with slack: the softer "suggestive" tier (pixelate or blur at mid scores, needs a second Parent threshold).
 
 **Verification**
+
 - `V1` — 10-minute soak on both devices: no stall or crash.
 - `V2` — `aapt dump permissions` shows no `INTERNET`; ordinary app screens (settings, chat, maps) trigger no masks (spot check).
 - `V3` — **Feel.** End-to-end latency (frame available → mask drawn) and CPU, memory and battery during the soak are measured and reported per preset. These are reported, not pass/fail.
@@ -393,6 +399,6 @@ python tools/reference_infer.py --fixtures safecore/src/androidTest/assets/fixtu
 - [x] **M3** Capture — frames flowing, all permission paths handled
 - [ ] **M3.5** Gate — branches merged; M3 V1–V7 and D21 re-verified on device
 - [x] **M4** Tile pipeline — state machine, hash lock, measured cost (D25, D26; M3.5 device re-check still open)
-- [ ] **M5** Overlay — per-tile solid masks, PIN reveal, Status screen
+- [ ] **M5** Overlay — per-tile solid masks, Status screen
 - [ ] **M6** Parent app — wizard, PIN, settings, 7-day log · **FEATURE FREEZE**
 - [ ] **M7** Harden + ship — soak, feel numbers, limitations, demo video
