@@ -29,7 +29,8 @@ class DebugMaskTest {
     }
 
     @Test fun `bare content does not, grey included`() {
-        for (content in listOf(skin, white, grey, foliage, 0xFF9E9E9E.toInt(), 0xFF606060.toInt())) {
+        // 0xFF6B5E5F: the closest bare tile in the 2026-10-03 device run (d=73)
+        for (content in listOf(skin, white, grey, foliage, 0xFF9E9E9E.toInt(), 0xFF606060.toInt(), 0xFF6B5E5F.toInt())) {
             assertFalse("%08x".format(content), DebugMask.looksMasked(IntArray(48) { content }))
         }
     }

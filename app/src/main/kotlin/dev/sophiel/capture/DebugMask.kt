@@ -31,8 +31,9 @@ object DebugMask {
 
     // A masked tile's captured mean is OVERLAY_ALPHA * MEAN + 0.21 * content, so it lies within
     // 0.21 * 287 ≈ 60 of MEAN (content at the farthest RGB corner). Any grey is ≥ 77 away.
-    // ponytail: starting value from that maths; set from device logs (ticket 06 device run).
-    private const val TOLERANCE = 70.0
+    // Device run (2026-10-03, 60 probes): masked 17-56, bare content 73+ (dark warm greys
+    // lowest). 64 sits mid-gap. Re-check if the other device's capture scales differently.
+    private const val TOLERANCE = 64.0
 
     /**
      * True when the mean colour of [pixels] (sampled from one captured tile) is near the mask's.
