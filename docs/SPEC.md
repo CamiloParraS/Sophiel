@@ -190,7 +190,8 @@ PROBING ──hash differs──▶ classify ──≥ threshold──▶ MASKED
 - Hash lock is **exact match only**. Near-miss matching was rejected in `c7eff9c`.
 - **Our own screens.** While a Sophiel activity is in the foreground, hide every mask and pause the tracker (states frozen). Our screens are opaque, so nothing is exposed, and the PIN prompt can never sit under a mask.
 - **Mask colour is never pure black (`0x000000`).** `BlackFrameDetector` counts exact-black pixels; a black full-screen Light mask would read as a secure app.
-- **Rotation.** The grid follows orientation (Balanced is 3×2 in landscape). On rotation, cover the whole content area with one mask until the first post-rotation verdicts arrive, then reset the tracker on the new grid.
+- **Rotation (D29).** The grid follows orientation (Balanced is 3×2 in landscape). If any tile is masked when the configuration changes, cover the whole content area at once; on the first frame at the new size, every tile of the new grid starts PROBING and the cover comes down. The normal probe rules then apply (one flagged verdict re-masks, 300 ms cap). The cover cannot itself be judged, since the capture sees it, so one whole-screen probe of exposure per rotation is the price. Nothing masked: no cover. A preset change takes the same reset.
+- **Protected probe frame (D29).** If a probe frame is protected (`FLAG_SECURE`, mostly black), every PROBING tile goes CLEAR. Otherwise a mask over a secure app never releases.
 - The 2×3 grid cost (estimated ~70 ms/tile on Device A, never measured) is settled by measurement in M4. If a 2×3 sweep exceeds ~400 ms on Device A, drop Balanced to 2×2.
 - The Light preset is the same machine on a 1×1 grid.
 
@@ -296,8 +297,8 @@ M0–M3 are **done and reused**: skeleton, model + parity gate, pipeline + Test 
 
 - `OverlayController` + `TileMaskView` replace the debug mask: **one full-screen** `TYPE_APPLICATION_OVERLAY` window that draws every mask (D28), at window alpha 0.79. Debug boxes share this window; nothing else touch-through may overlap it.
 - Flags `FLAG_NOT_FOCUSABLE | FLAG_NOT_TOUCHABLE | FLAG_LAYOUT_IN_SCREEN`. Every touch, including one on a mask, passes through to the app beneath, so the Child can scroll past masked content.
-- Mask look: strong ~1 px noise over the full brightness range (never pure black), with a small centred chip (lock + "Hidden by Sophiel") that a Parent setting can turn off. Chosen on device (D28); blur-behind is not available on either device.
-- The "still shows our mask" check compares the captured tile's mean colour to the mask's, centre excluded; the tolerance is set from device data.
+- Mask look: strong ~1 px noise over the full brightness range (never pure black), tinted so its mean is well off grey (D29), generated once and tiled, never redrawn differently. A small centred chip (lock + "Hidden by Sophiel") that a Parent setting can turn off. Chosen on device (D28); blur-behind is not available on either device.
+- The "still shows our mask" check compares the captured tile's mean colour to the mask's, centre excluded; the tolerance is set from device data, including grey content.
 - Masks cover the content area only; system bars stay visible (D28).
 - **Coordinate mapping** from capture tiles back to screen pixels: undo the 360 px downscale and add back the system-bar and cutout insets. Recomputed on configuration change. Rotation per §3.4.
 - Masks hidden and tracker paused while a Sophiel activity is resumed and not in multi-window mode (§3.4, D28).
@@ -307,8 +308,9 @@ M0–M3 are **done and reused**: skeleton, model + parity gate, pipeline + Test 
 
 - `V1` — Masks sit exactly over the flagged tiles in portrait and landscape; every touch passes through, including over a mask.
 - `V2` — A static flagged image stays masked for 10 s with no flicker; it releases within a few seconds after the content changes.
-- `V3` — Probe exposure (mask removed until it is back or the tile is released) is measured in milliseconds, median and worst case, on both devices. At most one probe per second per tile.
-- `V4` — Force-stopping the app leaves no overlay window behind. Swiping it out of Recents does **not** stop protection (D28).
+- `V3` — Probe exposure (mask removed until it is back or the tile is released) is measured in milliseconds, median and worst case, on both devices. At most one probe per second per tile. Rotation exposure is measured the same way.
+- `V4` — Ending protection from outside the app while the process lives (status bar "Stop sharing", Quick Settings "Active apps" Stop) leaves no overlay window behind. Swiping it out of Recents does **not** stop protection (D28).
+- `V5` — With a tile masked, switching to a `FLAG_SECURE` app releases the mask within one probe and it does not flicker (D29).
 
 ### M6 — Parent app (week 3) — **FEATURE FREEZE AT END OF WEEK**
 
@@ -370,6 +372,10 @@ Copy into `docs/LIMITATIONS.md` and expand with measured numbers.
 11. **Grayscale blindness in the skin gate.** True black-and-white imagery has no skin chroma and is gated SAFE. Do not "fix" it by classifying every achromatic tile: dark-mode UIs are achromatic too.
 12. **Energy figures are whole-device estimates**, valid only unplugged.
 13. **Low capture resolution.** Frames are 360 px on the short side; small or distant content may be missed.
+14. **Masks are not opaque.** Android blocks touches through another app's overlay above 0.8 opacity, so masks draw at 0.79 and about 21 % of the masked content shows through under the noise (D28).
+15. **System bars are never masked or judged.** Full-screen apps (video, gallery) draw under the hidden bars, and the capture always crops the bar area (§4.6), so that strip is not covered.
+16. **Change only under a mask stays masked.** A masked tile probes when its CLEAR neighbours change (D25), so content that changes only inside it (a video exactly under the mask) stays masked until something next to it moves. With Reveal gone (D27), the Parent's fix is stop and restart.
+17. **Rotation exposure.** After a rotation with something masked, the whole screen is uncovered for one probe while the new grid is judged (§3.4).
 
 ---
 
@@ -397,8 +403,8 @@ python tools/reference_infer.py --fixtures safecore/src/androidTest/assets/fixtu
 - [x] **M1** Model — converted, parity gate passed
 - [x] **M2** Pipeline + Test Feed — permission-free, end-to-end
 - [x] **M3** Capture — frames flowing, all permission paths handled
-- [ ] **M3.5** Gate — branches merged; M3 V1–V7 and D21 re-verified on device
-- [x] **M4** Tile pipeline — state machine, hash lock, measured cost (D25, D26; M3.5 device re-check still open)
-- [ ] **M5** Overlay — per-tile solid masks, Status screen
+- [x] **M3.5** Gate — branches merged; M3 V1–V7 and D21 re-verified on device (2026-10-03)
+- [x] **M4** Tile pipeline — state machine, hash lock, measured cost (D25, D26)
+- [ ] **M5** Overlay — one full-screen noise-mask window, Status screen (D28, D29)
 - [ ] **M6** Parent app — wizard, PIN, settings, 7-day log · **FEATURE FREEZE**
 - [ ] **M7** Harden + ship — soak, feel numbers, limitations, demo video

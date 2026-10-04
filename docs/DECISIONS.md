@@ -842,3 +842,30 @@ check on every ORT bump.
   Child could end protection with one swipe and no PIN. V4 now tests force-stop leaves no orphan window.
 - **Own screens:** masks hidden and tracker paused only while a Sophiel activity is resumed and not in
   multi-window mode; in split-screen masks stay up. Detected with an in-process lifecycle counter.
+
+## D29 — M5 plan review fixes (2026-10-03, review of tickets 06-11, human-approved)
+
+A review of the M5 tickets against the code, before any overlay code, found design holes.
+SPEC §3.4, M5, §7 and §9 are updated; tickets 06-12 of `.scratch/m5-overlay/` carry the work.
+
+- **Rotation cover redesigned.** "Cover until the first post-rotation verdicts" cannot work: the
+  capture sees the cover, so those verdicts would score it SAFE, and `reset()` to CLEAR with a
+  2-frame engage would show flagged content for ~500 ms on Device A. Now: cover at once only if
+  something is masked; on the first new-size frame every tile starts PROBING and the existing probe
+  rules decide. Cost: one whole-screen probe per rotation, measured in V3. A preset change takes the
+  same path (M6 V4).
+- **Noise mask tinted.** The chosen noise averages to near-neutral grey, and so do ordinary photos;
+  a mean-colour check could not tell them apart, and the tile would never release (no Reveal, D27).
+  The noise keeps its grain and full brightness range but its mean moves well off grey. Generated
+  once and tiled: a mask that changes per draw keeps a static screen sending frames (D18).
+- **Protected probe frame releases the tile (human decision).** On a `FLAG_SECURE` app the probe
+  frame is black, never scored, and the tile re-masked forever (Light: flickered every 2 s). Now
+  every PROBING tile goes CLEAR on a protected frame. Rejected: accepting permanent over-masking.
+- **V4 tests the paths that can fail.** Force-stop kills the process and its windows with it; an
+  orphan window is only possible when protection ends with the process alive (status bar "Stop
+  sharing", Quick Settings "Active apps"). The Recents-swipe claim in D28 was never tested on these
+  Samsung devices; ticket 06's device run checks it first.
+- **Limitations added (§7, 14-17):** ~21 % show-through at alpha 0.79; system bars never masked;
+  change only under a mask stays masked (D25's "Reveal covers it" no longer holds); rotation
+  exposure.
+- M5 verification moves to D30.
