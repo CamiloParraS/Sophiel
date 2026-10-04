@@ -154,6 +154,18 @@ class CaptureSession(
         )
     }
 
+    /** Frame pixel → the screen pixel it was captured from (pixel centres), for the mask check (D30). */
+    private fun frameToScreen(): (Int, Int) -> Pair<Int, Int> {
+        val real = DisplayMetrics()
+        @Suppress("DEPRECATION")
+        appContext.getSystemService(WindowManager::class.java).defaultDisplay.getRealMetrics(real)
+        val (width, height, _, crop) = size
+        return { x, y ->
+            ((crop.left + x + 0.5f) * real.widthPixels / width).toInt() to
+                ((crop.top + y + 0.5f) * real.heightPixels / height).toInt()
+        }
+    }
+
     /**
      * Ticket 06: drives a [TileMaskTracker] from live frames and draws its masks on [overlay].
      * Masked tiles are not analysed; CLEAR and PROBING ones are, each applied as it arrives.
@@ -181,8 +193,9 @@ class CaptureSession(
             val probes = (0 until tracker.size).filter { tracker[it] == PROBING }
             val clears = (0 until tracker.size).filter { tracker[it] == CLEAR }
             var probeStillMasked = false
+            val toScreen = frameToScreen()
             detector.analyze(frame, preset, probes).collect { v ->
-                val pixels = DebugMask.sample(frame, preset.tileRect(v.index, frame.width, frame.height))
+                val pixels = DebugMask.sample(frame, preset.tileRect(v.index, frame.width, frame.height), toScreen)
                 val showsMask = DebugMask.looksMasked(pixels)
                 probeStillMasked = probeStillMasked || showsMask
                 Log.d(TAG, "probe frame tile=${v.index} showsMask=$showsMask ${DebugMask.describe(pixels)}")

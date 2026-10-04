@@ -297,8 +297,8 @@ M0–M3 are **done and reused**: skeleton, model + parity gate, pipeline + Test 
 
 - `OverlayController` + `TileMaskView` replace the debug mask: **one full-screen** `TYPE_APPLICATION_OVERLAY` window that draws every mask (D28), at window alpha 0.79. Debug boxes share this window; nothing else touch-through may overlap it.
 - Flags `FLAG_NOT_FOCUSABLE | FLAG_NOT_TOUCHABLE | FLAG_LAYOUT_IN_SCREEN`. Every touch, including one on a mask, passes through to the app beneath, so the Child can scroll past masked content.
-- Mask look: strong ~1 px noise over the full brightness range (never pure black), tinted so its mean is well off grey (D29), generated once and tiled, never redrawn differently. A small centred chip (lock + "Hidden by Sophiel") that a Parent setting can turn off. Chosen on device (D28); blur-behind is not available on either device.
-- The "still shows our mask" check compares the captured tile's mean colour to the mask's, centre excluded; the tolerance is set from device data, including grey content.
+- Mask look: multi-scale "camo" noise, high-contrast blobs up to 16 px plus ~1 px grain (never pure black), in a muted tint, generated once, tiled and anchored to the screen, never redrawn differently (D30). A small centred chip (lock + "Hidden by Sophiel") that a Parent setting can turn off. Chosen on device (D28); blur-behind is not available on either device.
+- The "still shows our mask" check correlates the captured tile's luminance with the pattern the overlay drew at the same screen pixels, centre excluded; colour-free, so any tint works. The threshold is set from device data (D30).
 - Masks cover the content area only; system bars stay visible (D28).
 - **Coordinate mapping** from capture tiles back to screen pixels: undo the 360 px downscale and add back the system-bar and cutout insets. Recomputed on configuration change. Rotation per §3.4.
 - Masks hidden and tracker paused while a Sophiel activity is resumed and not in multi-window mode (§3.4, D28).

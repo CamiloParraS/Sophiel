@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.BitmapShader
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.PixelFormat
 import android.graphics.RectF
@@ -29,7 +30,7 @@ private const val SHOW_LABEL = true
 
 /**
  * The one full-screen, touch-through overlay window (D28): every tile mask, drawn with
- * [DebugMask]'s noise, plus the spike's NudeNet boxes in debug builds (D24, outlines only).
+ * [DebugMask]'s camo, plus the spike's NudeNet boxes in debug builds (D24, outlines only).
  *
  * One window on purpose: Android 12+ blocks touches through another app's overlays when their
  * *combined* opacity at a point exceeds 0.8, so two full-screen windows at 0.8 (1 - 0.2²)
@@ -74,11 +75,11 @@ private class TileMaskView(context: Context, private val windowManager: WindowMa
     var masks: List<RectF> = emptyList()
     var boxes: List<Detection> = emptyList()
 
-    // Shader is in screen space (the canvas is not translated), so the grain stays put while
-    // tiles change: the mask never redraws differently (D18).
-    private val noise = Paint().apply {
-        shader = BitmapShader(DebugMask.noiseBitmap(), Shader.TileMode.REPEAT, Shader.TileMode.REPEAT)
-    }
+    // Shader anchored to the screen, not the window or the tile: the pattern stays put while tiles
+    // change (D18), and the mask check knows what it drew at every screen pixel (D30).
+    private val shader = BitmapShader(DebugMask.patternBitmap(), Shader.TileMode.REPEAT, Shader.TileMode.REPEAT)
+    private val noise = Paint().apply { shader = this@TileMaskView.shader }
+    private val anchor = Matrix()
     private val chip = Paint().apply { color = 0xCC1B1B1B.toInt(); isAntiAlias = true }
     private val label = Paint().apply {
         color = Color.WHITE
@@ -97,6 +98,8 @@ private class TileMaskView(context: Context, private val windowManager: WindowMa
         @Suppress("DEPRECATION")
         windowManager.defaultDisplay.getRealMetrics(real)
         val (w, h) = real.widthPixels to real.heightPixels
+        anchor.setTranslate(-origin[0].toFloat(), -origin[1].toFloat())
+        shader.setLocalMatrix(anchor)
         for (m in masks) {
             val r = maskBounds(m.left, m.top, m.right, m.bottom, w, h, origin[0], origin[1])
             canvas.drawRect(r.left.toFloat(), r.top.toFloat(), r.right.toFloat(), r.bottom.toFloat(), noise)

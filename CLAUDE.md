@@ -18,11 +18,11 @@ STATUS:             M3.5 re-check passed on both devices (human). M5 designed: D
                     Plan review fixes recorded as D29 (rotation resets into PROBING, tinted noise,
                     protected probe frame releases the tile, V4/V5, §7 items 14-17).
                     Build tickets 06-12: .scratch/m5-overlay/issues/ (local, not committed).
+                    D30: camo mask + pattern-correlation check replace strong noise + mean colour.
                     Debug "Masks" tab compares mask looks on a phone.
 BLOCKED ON:         Nothing.
-NEXT:               Ticket 06 .scratch/m5-overlay/issues/01 (tinted strong-noise mask + mean-colour check, tolerance from device
-                    logs, Recents-swipe check), then 07 OverlayController, 08 rotation, 09 own-screen
-                    pause, 10 Status, 12 protected probe frame, 11 verify + D30.
+NEXT:               08 rotation, 09 own-screen
+                    pause, 10 Status, 12 protected probe frame, 11 verify + D31.
                     Then M6 Parent app (FEATURE FREEZE end of week 3), M7.
 ```
 

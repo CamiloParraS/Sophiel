@@ -2,67 +2,124 @@ package dev.sophiel.capture
 
 import android.graphics.Bitmap
 import dev.sophiel.core.TileRect
+import kotlin.math.pow
 import kotlin.math.sqrt
 
-/** The tile mask look (SPEC.md §3.4, D28/D29) and how to spot it in a captured frame. */
+/** The tile mask look (SPEC.md §3.4, D28-D30) and how to spot it in a captured frame. */
 object DebugMask {
-    private const val NOISE_SIZE = 64
+    /** Pattern side, px. Every blob period divides it, so it tiles seamlessly. */
+    const val SIDE = 256
+    const val PERIOD = 16
+    const val BRIGHTNESS = 100
+
+    /** Muted colours for the camo, multiplied into its brightness. Any works: the check is colour-free (D30). */
+    val TINTS = linkedMapOf(
+        "Graphite" to 0xE1E1E1, "Slate" to 0xC8D6EB, "Sand" to 0xEBDEC8, "Sage" to 0xC8DECD, "Purple" to 0xFF40FF,
+    )
+
+    // Human pick on Device A (ticket 13): 16 px blobs, brightness 100 (luma ~82), Slate.
+    const val TINT_NAME = "Slate"
+    private val TINT = TINTS.getValue(TINT_NAME)
+
+    /** The shipped camo, ARGB, [SIDE]². Seeded and tiled, never regenerated (D18). */
+    val PATTERN = camo(PERIOD, BRIGHTNESS, TINT)
+
+    /** [PATTERN]'s luminance, box-blurred over 3x3 like the capture's ~3x downscale. Indexed by screen pixel mod [SIDE]. */
+    private val EXPECTED = FloatArray(SIDE * SIDE) { k ->
+        var sum = 0f
+        for (dy in -1..1) for (dx in -1..1) {
+            sum += luma(PATTERN[Math.floorMod(k / SIDE + dy, SIDE) * SIDE + Math.floorMod(k % SIDE + dx, SIDE)])
+        }
+        sum / 9
+    }
+
+    fun patternBitmap(pattern: IntArray = PATTERN): Bitmap = Bitmap.createBitmap(pattern, SIDE, SIDE, Bitmap.Config.ARGB_8888)
 
     /**
-     * Strong ~1 px grain over the full brightness range, tinted purple so its mean sits well off
-     * the grey axis that ordinary photos average to (D29). Seeded and tiled, never regenerated:
-     * a mask that changes per draw makes a static screen send frames forever (D18).
-     * Never pure black: BlackFrameDetector would read a full-screen Light mask as FLAG_SECURE.
+     * High-contrast blobs at [period], period/2 and period/4 px plus 1 px grain, [SIDE]² and seamless
+     * when tiled. 1 px grain alone is finer than the eye resolves on these screens, so it reads as
+     * flat colour and the content's large shapes show through at 21%; the blobs put the mask's
+     * contrast at the sizes those shapes have. Histogram-equalised, then skewed so the brightness
+     * mean is [brightness], then multiplied by [tint] (RGB). No channel below 2: never pure black,
+     * even at window alpha (BlackFrameDetector would read a full-screen Light mask as FLAG_SECURE).
      */
-    val NOISE = java.util.Random(11).let { rnd ->
-        IntArray(NOISE_SIZE * NOISE_SIZE) {
-            val v = 1 + rnd.nextInt(255)
-            (0xFF shl 24) or (v shl 16) or (v / 4 shl 8) or v
+    fun camo(period: Int, brightness: Int, tint: Int, seed: Long = 11): IntArray {
+        val rnd = java.util.Random(seed)
+        val n = DoubleArray(SIDE * SIDE)
+        fun smooth(t: Double) = t * t * (3 - 2 * t)
+        for (octave in 0 until 3) {
+            val p = period shr octave
+            val cells = SIDE / p
+            val lattice = DoubleArray(cells * cells) { rnd.nextDouble() }
+            fun at(i: Int, j: Int) = lattice[j % cells * cells + i % cells]
+            for (y in 0 until SIDE) for (x in 0 until SIDE) {
+                val i = x / p
+                val j = y / p
+                val fx = smooth(x % p / p.toDouble())
+                val top = at(i, j) + (at(i + 1, j) - at(i, j)) * fx
+                val bottom = at(i, j + 1) + (at(i + 1, j + 1) - at(i, j + 1)) * fx
+                n[y * SIDE + x] += (top + (bottom - top) * smooth(y % p / p.toDouble())) / (1 shl octave)
+            }
+        }
+        for (k in n.indices) n[k] += 0.6 * rnd.nextDouble() // the grain
+        // Rank -> u uniform in [0,1); v = 1 + 254 u^gamma has mean 1 + 254 / (gamma + 1) = brightness.
+        val sorted = n.sortedArray()
+        val gamma = 254.0 / (brightness - 1) - 1
+        return IntArray(n.size) {
+            val v = 1 + 254 * (sorted.binarySearch(n[it]) / n.size.toDouble()).pow(gamma)
+            fun ch(shift: Int) = (v * (tint shr shift and 0xFF) / 255).toInt().coerceAtLeast(2)
+            (0xFF shl 24) or (ch(16) shl 16) or (ch(8) shl 8) or ch(0)
         }
     }
 
-    /** Mean (r, g, b) of [NOISE], about (128, 32, 128). */
-    val MEAN = Triple(mean(NOISE, 16), mean(NOISE, 8), mean(NOISE, 0))
+    private fun luma(c: Int) = 0.299f * (c shr 16 and 0xFF) + 0.587f * (c shr 8 and 0xFF) + 0.114f * (c and 0xFF)
 
-    /** [NOISE] as a bitmap, for a REPEAT `BitmapShader`. */
-    fun noiseBitmap(): Bitmap = Bitmap.createBitmap(NOISE, NOISE_SIZE, NOISE_SIZE, Bitmap.Config.ARGB_8888)
+    /** What the mask alone puts at screen pixel ([x], [y]): the overlay's shader is anchored to the screen. */
+    fun expectedAt(x: Int, y: Int) = EXPECTED[Math.floorMod(y, SIDE) * SIDE + Math.floorMod(x, SIDE)]
 
-    private const val SAMPLES = 8 // per side, centre 4x4 skipped: room for the lock chip (D28)
+    private const val SAMPLES = 12 // per side, centre 6x6 (middle half) skipped: room for the lock chip (D28)
 
-    // A masked tile's captured mean is OVERLAY_ALPHA * MEAN + 0.21 * content, so it lies within
-    // 0.21 * 287 ≈ 60 of MEAN (content at the farthest RGB corner). Any grey is ≥ 77 away.
-    // Device run (2026-10-03, 60 probes): masked 17-56, bare content 73+ (dark warm greys
-    // lowest). 64 sits mid-gap. Re-check if the other device's capture scales differently.
-    private const val TOLERANCE = 64.0
+    // A masked tile is 0.79 * pattern + 0.21 * content, so its luminance tracks the pattern's blobs;
+    // bare content is unrelated to our seeded blobs. Device run (2026-10-03, ticket 13, 215 probe
+    // frames, portrait + landscape): masked 0.67-0.89, bare -0.29-0.26. Mid-gap, leaning to "masked".
+    private const val THRESHOLD = 0.45
+
+    /** One tile's captured samples and, for each, what the mask alone would put there. */
+    class Samples(val pixels: IntArray, val expected: FloatArray)
+
+    /** Samples [rect] of [frame]; [toScreen] maps a frame pixel to the screen pixel the overlay drew it from. */
+    fun sample(frame: Bitmap, rect: TileRect, toScreen: (Int, Int) -> Pair<Int, Int>): Samples {
+        val points = samplePoints(rect.width, rect.height).map { (x, y) -> rect.left + x to rect.top + y }
+        return Samples(
+            points.map { (x, y) -> frame.getPixel(x, y) }.toIntArray(),
+            points.map { (x, y) -> toScreen(x, y).let { (sx, sy) -> expectedAt(sx, sy) } }.toFloatArray(),
+        )
+    }
+
+    /** Pearson correlation of captured luminance with the pattern's; 0 when either is flat. */
+    fun correlation(s: Samples): Double {
+        val a = s.pixels.map { luma(it).toDouble() }
+        val b = s.expected.map { it.toDouble() }
+        val (ma, mb) = a.average() to b.average()
+        val cov = a.indices.sumOf { (a[it] - ma) * (b[it] - mb) }
+        val va = a.sumOf { (it - ma) * (it - ma) }
+        val vb = b.sumOf { (it - mb) * (it - mb) }
+        return if (va < 1e-6 || vb < 1e-6) 0.0 else cov / sqrt(va * vb)
+    }
 
     /**
-     * True when the mean colour of [pixels] (sampled from one captured tile) is near the mask's.
+     * True when the tile's captured pixels follow the mask pattern. Colour-free, so the tint is free.
      * Errs towards "masked": a false yes only delays the probe until it re-masks, while a false
      * no would score the mask itself as SAFE and release the tile.
      */
-    fun looksMasked(pixels: IntArray): Boolean = distance(pixels) <= TOLERANCE
+    fun looksMasked(s: Samples): Boolean = correlation(s) >= THRESHOLD
 
-    private fun distance(pixels: IntArray): Double {
-        val (r, g, b) = MEAN
-        fun sq(x: Double) = x * x
-        return sqrt(sq(mean(pixels, 16) - r) + sq(mean(pixels, 8) - g) + sq(mean(pixels, 0) - b))
-    }
+    /** Diagnostic for a probe frame. */
+    fun describe(s: Samples): String = "r=%.2f".format(correlation(s))
 
-    private fun mean(pixels: IntArray, shift: Int) = pixels.sumOf { it shr shift and 0xFF } / pixels.size.toDouble()
-
-    /** Diagnostic for a probe frame: mean colour of the samples and its distance from the mask's. */
-    fun describe(pixels: IntArray): String =
-        "mean=#%02x%02x%02x mask=#%02x%02x%02x d=%.0f".format(
-            mean(pixels, 16).toInt(), mean(pixels, 8).toInt(), mean(pixels, 0).toInt(),
-            MEAN.first.toInt(), MEAN.second.toInt(), MEAN.third.toInt(), distance(pixels),
-        )
-
-    /** Cell centres of an 8×8 grid over a [width]×[height] tile, centre 4×4 skipped. */
+    /** Cell centres of a 12×12 grid over a [width]×[height] tile, centre 6×6 skipped. */
     fun samplePoints(width: Int, height: Int): List<Pair<Int, Int>> =
-        (0 until SAMPLES * SAMPLES).filterNot { k -> k % SAMPLES in 2..5 && k / SAMPLES in 2..5 }.map { k ->
+        (0 until SAMPLES * SAMPLES).filterNot { k -> k % SAMPLES in 3..8 && k / SAMPLES in 3..8 }.map { k ->
             (2 * (k % SAMPLES) + 1) * width / (2 * SAMPLES) to (2 * (k / SAMPLES) + 1) * height / (2 * SAMPLES)
         }
-
-    fun sample(frame: Bitmap, rect: TileRect): IntArray =
-        samplePoints(rect.width, rect.height).map { (x, y) -> frame.getPixel(rect.left + x, rect.top + y) }.toIntArray()
 }

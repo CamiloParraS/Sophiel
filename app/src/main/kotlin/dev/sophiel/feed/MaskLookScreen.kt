@@ -54,7 +54,8 @@ private const val COLS = 2
 private const val ROWS = 3
 private const val FRAME_W = 360
 private const val FRAME_H = 744
-private val LOOKS = listOf("Flat + lock", "Lock pattern", "Noise", "Pixelate", "Blur", "Strong noise")
+private val LOOKS = listOf("Flat + lock", "Lock pattern", "Noise", "Pixelate", "Blur", "Camo")
+private const val CAMO_LOOK = 5
 private val MASK_COLOR = Color(0xFF9C27B0) // never pure black (BlackFrameDetector)
 
 /** The fixture centre-cropped to the 360x744 capture shape, so tile maths is plain bitmap maths. */
@@ -81,6 +82,11 @@ fun maskLookScreen(modifier: Modifier = Modifier) {
     var alpha by remember { mutableFloatStateOf(0.79f) }
     var blocks by remember { mutableIntStateOf(5) } // pixelate: blocks across a tile
     var original by remember { mutableStateOf(false) }
+    var period by remember { mutableIntStateOf(DebugMask.PERIOD) } // camo: largest blob period, px
+    var brightness by remember { mutableIntStateOf(DebugMask.BRIGHTNESS) } // camo: mean brightness before the tint
+    var tint by remember { mutableStateOf(DebugMask.TINT_NAME) }
+    // Drawn 1:1 in device pixels, like the shipped OverlayController shader.
+    val camo = remember(period, brightness, tint) { DebugMask.camo(period, brightness, DebugMask.TINTS.getValue(tint)) }
     val masked = remember { mutableStateListOf(*Array(COLS * ROWS) { it in 2..3 }) }
     val bitmap = remember(image) { frame(context, names[image]) }
 
@@ -91,11 +97,10 @@ fun maskLookScreen(modifier: Modifier = Modifier) {
             Text("${names[image]}  (${image + 1}/${names.size})", fontSize = 13.sp)
             TextButton({ image = (image + 1) % names.size }) { Text(">") }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            LOOKS.take(3).forEachIndexed { i, n -> FilterChip(look == i, { look = i }, { Text(n, fontSize = 12.sp) }) }
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            LOOKS.drop(3).forEachIndexed { i, n -> FilterChip(look == i + 3, { look = i + 3 }, { Text(n, fontSize = 12.sp) }) }
+        LOOKS.indices.chunked(3).forEach { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                row.forEach { i -> FilterChip(look == i, { look = i }, { Text(LOOKS[i], fontSize = 12.sp) }) }
+            }
         }
         Text("Window alpha %.2f (0.80 = the touch-through cap)".format(alpha), fontSize = 13.sp)
         Slider(alpha, { alpha = it }, valueRange = 0.5f..1f)
@@ -103,12 +108,21 @@ fun maskLookScreen(modifier: Modifier = Modifier) {
             Text("Pixelate: $blocks blocks across a tile", fontSize = 13.sp)
             Slider(blocks.toFloat(), { blocks = it.toInt() }, valueRange = 2f..16f)
         }
+        if (look == CAMO_LOOK) {
+            Text("Camo: blobs up to $period px", fontSize = 13.sp)
+            Slider(Integer.numberOfTrailingZeros(period).toFloat(), { period = 1 shl it.toInt() }, valueRange = 3f..6f, steps = 2)
+            Text("Camo: brightness $brightness, ${describeMean(camo)} (shipped: ${describeMean(DebugMask.PATTERN)})", fontSize = 13.sp)
+            Slider(brightness.toFloat(), { brightness = it.toInt() }, valueRange = 100f..230f, steps = 12)
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                DebugMask.TINTS.keys.forEach { t -> FilterChip(tint == t, { tint = t }, { Text(t, fontSize = 12.sp) }) }
+            }
+        }
         Row(verticalAlignment = Alignment.CenterVertically) {
             Switch(original, { original = it })
             Text("  Show original", fontSize = 13.sp)
         }
 
-        realWindowControls(alpha)
+        realWindowControls(alpha, camo)
 
         Box(Modifier.align(Alignment.CenterHorizontally).height(480.dp).aspectRatio(FRAME_W / FRAME_H.toFloat())) {
             Image(bitmap.asImageBitmap(), null, Modifier.fillMaxSize(), contentScale = ContentScale.FillBounds)
@@ -119,7 +133,7 @@ fun maskLookScreen(modifier: Modifier = Modifier) {
                             val i = r * COLS + c
                             Box(Modifier.weight(1f).fillMaxSize().clickable { masked[i] = !masked[i] }) {
                                 if (masked[i]) Box(Modifier.fillMaxSize().alpha(alpha)) {
-                                    tileMask(look, tileCrop(bitmap, c, r), blocks)
+                                    tileMask(look, tileCrop(bitmap, c, r), blocks, camo)
                                 }
                             }
                         }
@@ -134,7 +148,7 @@ private fun tileCrop(frame: Bitmap, c: Int, r: Int): Bitmap =
     Bitmap.createBitmap(frame, c * FRAME_W / COLS, r * FRAME_H / ROWS, FRAME_W / COLS, FRAME_H / ROWS)
 
 @Composable
-private fun tileMask(look: Int, crop: Bitmap, blocks: Int) {
+private fun tileMask(look: Int, crop: Bitmap, blocks: Int, camo: IntArray) {
     when (look) {
         3 -> { // from our own captured tile, scaled down then up without smoothing
             val small = remember(crop, blocks) {
@@ -143,9 +157,9 @@ private fun tileMask(look: Int, crop: Bitmap, blocks: Int) {
             Image(small.asImageBitmap(), null, Modifier.fillMaxSize(), contentScale = ContentScale.FillBounds, filterQuality = FilterQuality.None)
         }
         4 -> Image(crop.asImageBitmap(), null, Modifier.fillMaxSize().clipToBounds().blur(24.dp), contentScale = ContentScale.FillBounds)
-        5 -> { // ~1 px grain over the full brightness range: the leaked 20% is small next to it
-            val bmp = remember { strongNoise(180, 248).asImageBitmap() }
-            Image(bmp, null, Modifier.fillMaxSize(), contentScale = ContentScale.FillBounds, filterQuality = FilterQuality.None)
+        CAMO_LOOK -> { // 1:1 in device pixels: stretching it would preview coarser grain than ships
+            val paint = remember(camo) { tiledPaint(camo) }
+            Canvas(Modifier.fillMaxSize()) { drawIntoCanvas { it.nativeCanvas.drawRect(0f, 0f, size.width, size.height, paint) } }
         }
         else -> Box(Modifier.fillMaxSize().background(MASK_COLOR), contentAlignment = Alignment.Center) {
             if (look == 2) noise()
@@ -188,14 +202,19 @@ private fun lockPattern() {
     }
 }
 
-/** The shipped mask look (DebugMask.NOISE, tinted per D29) repeated over [w]x[h]. */
-private fun strongNoise(w: Int, h: Int): Bitmap {
-    val n = 64 // DebugMask.NOISE side
-    val px = IntArray(w * h) { DebugMask.NOISE[(it / w % n) * n + it % w % n] }
-    return Bitmap.createBitmap(px, w, h, Bitmap.Config.ARGB_8888)
+private fun tiledPaint(pattern: IntArray) = android.graphics.Paint().apply {
+    shader = android.graphics.BitmapShader(
+        DebugMask.patternBitmap(pattern), android.graphics.Shader.TileMode.REPEAT, android.graphics.Shader.TileMode.REPEAT,
+    )
 }
 
-/** A real touch-through overlay band (middle third of the screen): strong noise, optionally over blur-behind. */
+private fun describeMean(px: IntArray): String {
+    fun m(shift: Int) = px.sumOf { it shr shift and 0xFF } / px.size
+    val (r, g, b) = Triple(m(16), m(8), m(0))
+    return "mean #%02x%02x%02x luma %d".format(r, g, b, (0.299 * r + 0.587 * g + 0.114 * b).toInt())
+}
+
+/** A real touch-through overlay band (middle third of the screen): the pattern 1:1, optionally over blur-behind. */
 private class RealMaskWindow(private val context: android.content.Context) {
     private val wm = context.getSystemService(android.view.WindowManager::class.java)
     private var view: android.view.View? = null
@@ -204,12 +223,14 @@ private class RealMaskWindow(private val context: android.content.Context) {
 
     val blurSupported get() = android.os.Build.VERSION.SDK_INT >= 31 && wm.isCrossWindowBlurEnabled
 
-    fun show(alpha: Float, blur: Boolean) {
+    fun show(alpha: Float, blur: Boolean, pattern: IntArray) {
         hide()
         val metrics = context.resources.displayMetrics
         val v = android.view.View(context).apply {
-            background = android.graphics.drawable.BitmapDrawable(context.resources, strongNoise(metrics.widthPixels / 2, metrics.heightPixels / 6))
-                .apply { isFilterBitmap = false }
+            background = android.graphics.drawable.BitmapDrawable(context.resources, DebugMask.patternBitmap(pattern)).apply {
+                isFilterBitmap = false
+                setTileModeXY(android.graphics.Shader.TileMode.REPEAT, android.graphics.Shader.TileMode.REPEAT)
+            }
         }
         val lp = android.view.WindowManager.LayoutParams(
             android.view.WindowManager.LayoutParams.MATCH_PARENT,
@@ -240,22 +261,23 @@ private class RealMaskWindow(private val context: android.content.Context) {
 }
 
 @Composable
-private fun realWindowControls(alpha: Float) {
+private fun realWindowControls(alpha: Float, pattern: IntArray) {
     val context = LocalContext.current
     val window = remember { RealMaskWindow(context.applicationContext) }
     var on by remember { mutableStateOf(false) }
     var blur by remember { mutableStateOf(true) }
     androidx.compose.runtime.DisposableEffect(Unit) { onDispose { window.hide() } }
+    androidx.compose.runtime.LaunchedEffect(pattern) { if (on) window.show(alpha, blur, pattern) }
     if (!android.provider.Settings.canDrawOverlays(context)) {
         Text("Real window needs the overlay permission (Protection tab).", fontSize = 13.sp)
         return
     }
-    Text("Real overlay window: middle third of the screen, strong noise, touch-through. " +
+    Text("Real overlay window: middle third of the screen, the camo as set above, 1:1 pixels, touch-through. " +
         "Switch on, then open a gallery to see it over real content. Auto-hides after 60 s.", fontSize = 13.sp)
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Switch(on, { on = it; if (it) window.show(alpha, blur) else window.hide() })
+        Switch(on, { on = it; if (it) window.show(alpha, blur, pattern) else window.hide() })
         Text("  Real window   ", fontSize = 13.sp)
-        Switch(blur, { blur = it; if (on) window.show(alpha, it) })
+        Switch(blur, { blur = it; if (on) window.show(alpha, it, pattern) })
         Text("  Blur behind (${if (window.blurSupported) "supported" else "NOT enabled here"})", fontSize = 13.sp)
     }
 }

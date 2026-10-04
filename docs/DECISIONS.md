@@ -869,3 +869,24 @@ SPEC §3.4, M5, §7 and §9 are updated; tickets 06-12 of `.scratch/m5-overlay/`
   change only under a mask stays masked (D25's "Reveal covers it" no longer holds); rotation
   exposure.
 - M5 verification moves to D30.
+
+## D30 — Camo mask and pattern-correlation mask check (2026-10-03, human decisions, ticket 13)
+
+Supersedes D28's strong-noise look and D28/D29's mean-colour check. M5 verification moves to D31.
+
+- **Why the strong noise showed through.** At about 393 ppi and 30 cm, a 1 px dot is under 1 arcminute,
+  so the eye averages the grain to flat colour and the content's large shapes (silhouettes, skin on
+  dark) show through at 21 %. Ticket 02 never saw true 1 px grain: the Masks tab stretched it ~5x
+  in-app and 2x in the real window. The tab now draws at 1:1 device pixels.
+- **Look: camo** (human pick in the Masks tab): blobs at 16/8/4 px plus 1 px grain, histogram-
+  equalised (full contrast), 256 px, seeded, tiled. The shader is anchored to screen pixels.
+- **Check: correlation, not mean colour.** A masked tile is 0.79 x pattern + 0.21 x content, so its
+  luminance at 108 sample points follows the blobs we drew there; bare content is unrelated to our
+  seeded blobs. Frame pixels map back to screen pixels through the capture crop and scale.
+  Colour-free: the purple tint (D29) is no longer needed, and purple content no longer reads as
+  masked. JVM simulation (raw grain, 3x capture): masked r >= 0.71, bare r <= 0.31.
+- **Shipped settings (human pick, Masks tab):** blobs 16/8/4 px, brightness 100 (luma ~82), Slate.
+  Purple was found too flashy.
+- **Device run (2026-10-03):** B 141 probe frames (portrait), A 74 (portrait + landscape). Masked
+  r 0.67-0.89, bare r -0.29-0.26, nothing in between on either device or orientation.
+  THRESHOLD = 0.45, mid-gap leaning to "masked".
