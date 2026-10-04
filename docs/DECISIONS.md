@@ -929,3 +929,23 @@ Scope addition to SPEC §1.2 (human). Amends D28's alpha 0.79.
   takes effect on the next protection start. An accessibility overlay sits above system UI panels,
   so the rotate-suggestion button (auto-rotate off, gesture navigation) can hide under a mask; a tap
   there still reaches it. Leaving holes in the bottom corners was rejected: it would expose content.
+
+## D33 — Rotation cover held until the capture shows it (2026-10-04, ticket 08 device runs)
+
+Refines D29's rotation design. M5 verification moves to D34.
+
+- **Cover down too early.** D29 took the cover down on the first new-size frame. On Device B that
+  frame (and the next ~4) is the system rotation animation, a snapshot of the old screen: not the
+  content, not our cover (r 0.00-0.44). Judged as probe frames they released most tiles, and the
+  flagged ones re-masked ~400 ms later, barely better than the 440 ms baseline.
+- **Now:** after a grid change with anything masked, the tracker pauses, the cover stays, and frames
+  are ignored until one shows the cover on every tile (D30 check). Then every tile starts PROBING
+  and the cover comes down. If no frame shows it within 1 s (static screen, secure app), it goes
+  ahead anyway. A preset change draws the same cover.
+- **Blank tiles re-masked after a reset.** A reset tile's lock was hash 0, and a blank tile's dHash
+  is 0, so empty content matched and stayed masked (Device A). The lock is now null until a tile
+  is masked.
+- **Device runs (opaque masks, D32):** cover seen after 373-393 ms on B, 526-730 ms on A; then
+  tiles uncovered 73-161 ms on B, 94-218 ms on A, flagged tiles re-masked on the first probe frame.
+  Baseline without the cover: ~440 ms on B, 740-900 ms on A.
+

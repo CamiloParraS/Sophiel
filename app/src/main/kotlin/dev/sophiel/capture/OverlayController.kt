@@ -75,6 +75,23 @@ class OverlayController(private val context: Context) {
         view.masks = rects
         view.invalidate()
     }
+
+    /**
+     * Ticket 08: one mask over [rect] (display fractions) in place of the tile masks until
+     * [uncover]. Kept apart from [updateMasks] so a publish from a pre-rotation frame still in
+     * flight cannot take it down; both run on the main thread, so their order holds.
+     */
+    fun cover(rect: RectF) = mainHandler.post {
+        view.cover = rect
+        view.invalidate()
+    }
+
+    fun uncover() = mainHandler.post {
+        if (view.cover == null) return@post
+        view.cover = null
+        view.invalidate()
+    }
+
     /** Debug builds only. [detections] boxes must already be fractions of the whole display. */
     fun updateBoxes(detections: List<Detection>) = mainHandler.post {
         if (!context.isDebuggable) return@post
@@ -92,6 +109,7 @@ class OverlayController(private val context: Context) {
 /** Draws [masks] and [boxes]; converts display fractions to pixels at draw time, so rotation needs no recompute. */
 private class TileMaskView(context: Context, private val windowManager: WindowManager) : View(context) {
     var masks: List<RectF> = emptyList()
+    var cover: RectF? = null // drawn instead of [masks] while set
     var boxes: List<Detection> = emptyList()
 
     // Shader anchored to the screen, not the window or the tile: the pattern stays put while tiles
@@ -119,7 +137,7 @@ private class TileMaskView(context: Context, private val windowManager: WindowMa
         val (w, h) = real.widthPixels to real.heightPixels
         anchor.setTranslate(-origin[0].toFloat(), -origin[1].toFloat())
         shader.setLocalMatrix(anchor)
-        for (m in masks) {
+        for (m in cover?.let(::listOf) ?: masks) {
             val r = maskBounds(m.left, m.top, m.right, m.bottom, w, h, origin[0], origin[1])
             canvas.drawRect(r.left.toFloat(), r.top.toFloat(), r.right.toFloat(), r.bottom.toFloat(), noise)
             if (SHOW_LABEL) drawChip(canvas, r)

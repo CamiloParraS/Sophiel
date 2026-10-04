@@ -26,7 +26,9 @@ class TileMaskTracker(private var cols: Int, rows: Int) {
         var state = CLEAR
         var enteredAt = 0L // when [state] began; shifted on resume so pauses don't count
         var flaggedStreak = 0
-        var lockedHash = 0L
+        // null: nothing locked yet (a tile reset into PROBING). Never 0L: a blank tile's dHash is 0
+        // and would match it, re-masking empty content after a rotation (Device A, 2026-10-04).
+        var lockedHash: Long? = null
         var lastHash: Long? = null
         var hashChanged = false // since the previous frame
         var wastedProbes = 0 // probes in a row that ended re-masked; backs off the next one (ticket 14)
@@ -151,10 +153,20 @@ class TileMaskTracker(private var cols: Int, rows: Int) {
         pausedAt = null
     }
 
-    /** The grid changed (rotation or preset): every tile starts over CLEAR. */
+    /** The grid changed (rotation or preset) with nothing masked: every tile starts over CLEAR. */
     fun reset(cols: Int, rows: Int) {
         this.cols = cols
         tiles = List(cols * rows) { Tile() }
+    }
+
+    /**
+     * The grid changed while something was masked (D29, ticket 08): every tile of the new grid
+     * starts PROBING, and the usual probe rules decide. Masks on the old grid cannot be mapped
+     * onto the new one, and starting CLEAR would show flagged content for the 2 frames engaging takes.
+     */
+    fun resetProbing(cols: Int, rows: Int, now: Long) {
+        reset(cols, rows)
+        for (tile in tiles) tile.enter(PROBING, now)
     }
 
     private fun Tile.enter(next: TileState, now: Long) {
@@ -164,13 +176,13 @@ class TileMaskTracker(private var cols: Int, rows: Int) {
         probeDue = false
     }
 
-    private fun Tile.mask(hash: Long, now: Long) {
+    private fun Tile.mask(hash: Long?, now: Long) {
         enter(MASKED, now)
         lockedHash = hash
     }
 
     /** A probe that bought nothing: the tile is flagged again, or no frame could judge it. */
-    private fun Tile.remask(hash: Long, now: Long) {
+    private fun Tile.remask(hash: Long?, now: Long) {
         mask(hash, now)
         wastedProbes++
     }

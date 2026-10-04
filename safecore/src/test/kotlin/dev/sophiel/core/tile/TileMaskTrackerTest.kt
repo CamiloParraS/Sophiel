@@ -235,6 +235,30 @@ class TileMaskTrackerTest {
         assertEquals(MASKED, t[0])
     }
 
+    @Test fun `a reset while masked probes every tile of the new grid, and the probe rules decide`() {
+        val t = maskedBalanced()
+        t.resetProbing(3, 2, now = 1000) // rotated to landscape
+        assertEquals(List(6) { PROBING }, List(t.size) { t[it] })
+        // First new-size frame still shows the rotation cover: not a probe frame.
+        t.frame(1050, List(6) { mask }, showsMask = (0 until 6).toSet())
+        assertEquals(List(6) { PROBING }, List(t.size) { t[it] })
+        // Next frame: tile 4 flagged re-masks at once (no 2-frame engage), tile 5 is not judged
+        // in time, the rest are safe and released.
+        listOf(0, 1, 2, 3).forEach { t.onTile(1100, v(it, 10L + it), showsMask = false) }
+        t.onTile(1100, v(4, unsafe, flagged = true), showsMask = false)
+        t.endFrame(1100)
+        assertEquals(listOf(CLEAR, CLEAR, CLEAR, CLEAR, MASKED, PROBING), List(t.size) { t[it] })
+        t.expireProbes(1300) // the 300 ms cap
+        assertEquals(MASKED, t[5])
+    }
+
+    @Test fun `a blank tile after a reset is released, not matched to a lock it never had`() {
+        val t = maskedBalanced()
+        t.resetProbing(3, 2, now = 1000)
+        t.onTile(1100, v(0, 0L), showsMask = false) // a blank tile's dHash is 0
+        assertEquals(CLEAR, t[0])
+    }
+
     @Test fun `reset puts every tile of the new grid back to clear`() {
         val t = maskedBalanced()
         t.reset(2, 3)

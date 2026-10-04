@@ -21,10 +21,12 @@ STATUS:             M3.5 re-check passed on both devices (human). M5 designed: D
                     D30: camo mask + pattern-correlation check replace strong noise + mean colour.
                     D31: probe backoff 1-2-4-8 s + owed probes on a static screen. 15 (video
                     release flips) needs-info: needs a repeatable test clip.
+                    D32: optional accessibility window draws masks opaque (scope addition).
+                    D33: rotation cover held until seen; ticket 08 done on A and B.
                     Debug "Masks" tab compares mask looks on a phone.
 BLOCKED ON:         Nothing.
-NEXT:               08 rotation, 09 own-screen
-                    pause, 10 Status, 12 protected probe frame, 11 verify + D32.
+NEXT:               09 own-screen
+                    pause, 10 Status, 12 protected probe frame, 11 verify + D34.
                     Then M6 Parent app (FEATURE FREEZE end of week 3), M7.
 ```
 

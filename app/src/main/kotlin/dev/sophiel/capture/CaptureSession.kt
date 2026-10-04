@@ -40,6 +40,7 @@ private const val TAG = "Sophiel"
 private const val FRAME_INTERVAL_MS = 80L
 private const val MIN_CAPTURE_SHORT_SIDE = 360f
 private const val BLACK_PROBE_SIZE = 64
+private const val COVER_WAIT_MS = 1_000L // ticket 08: longest a rotation cover waits to be seen
 
 /**
  * Everything that exists only while capturing (SPEC.md §4.4 RUNNING): the [VirtualDisplay][android.hardware.display.VirtualDisplay],
@@ -83,6 +84,10 @@ class CaptureSession(
         ),
     ) { "createVirtualDisplay() returned null" }
 
+    // Written by TileLoop's publish (scope lane), read by resize (main thread).
+    @Volatile
+    private var masking = false
+
     /** Rotation must `resize()` + `setSurface()`, never recreate the display (SPEC.md §4.2). */
     fun resize(newSize: CaptureSize) {
         if (newSize == size) return // theme/locale/font changes also land here; nothing to do
@@ -92,6 +97,9 @@ class CaptureSession(
         frameSource.close()
         frameSource = newSource
         size = newSize
+        // Ticket 08: the old grid's masks no longer sit on the content they hid. Cover the whole
+        // content area until TileLoop resets onto the new grid (its first new-size frame).
+        if (masking) overlay.cover(toDisplayFraction(RectF(0f, 0f, 1f, 1f)))
     }
 
     /** Called on the FrameSource thread before an Image is decoded; false drops it undecoded. */
@@ -178,14 +186,36 @@ class CaptureSession(
         private val probedAt = HashMap<Int, Long>()
         private var dueProbe: Job? = null
         private var open = true // a probe-timeout job can outlive a model switch
+        private var coverSince: Long? = null // ticket 08: rotation cover up, not yet seen in a frame
 
         suspend fun run(frame: Bitmap): String {
             val preset = settings.livePreset
             if (grid != Triple(preset, frame.width, frame.height)) { // rotation or preset change
                 grid = Triple(preset, frame.width, frame.height)
-                val (cols, rows) = preset.grid(frame.width, frame.height)
-                tracker.reset(cols, rows)
-                publish()
+                if (shown.any { it != CLEAR }) {
+                    // Anything masked: every new tile will probe (D29), but not yet. The first frames
+                    // after a rotation can be the system's rotation animation (a snapshot of the old
+                    // screen and its masks), neither content nor our cover: judged as probe frames
+                    // they released most tiles, re-masked ~400 ms later (Device B, 2026-10-04).
+                    // Hold the cover and ignore frames until one shows it on every tile.
+                    overlay.cover(toDisplayFraction(RectF(0f, 0f, 1f, 1f))) // a preset change has none yet
+                    tracker.pause(now())
+                    dueProbe?.cancel()
+                    val since = now().also { coverSince = it }
+                    scope.launch { // a static screen may never send the frame that shows it
+                        delay(COVER_WAIT_MS)
+                        if (coverSince == since) endCover()
+                    }
+                } else {
+                    val (cols, rows) = preset.grid(frame.width, frame.height)
+                    tracker.reset(cols, rows)
+                    publish()
+                }
+            }
+            if (coverSince != null) {
+                if (!coverOnEveryTile(frame, preset)) return "GantMan · $preset · waiting for the rotation cover"
+                endCover() // this frame shows the cover, so it is not a probe frame
+                return "GantMan · $preset · rotation cover seen"
             }
             // Probing tiles first: the mask is off until their verdict lands, so every tile judged
             // ahead of them is exposure (D26: ~38 ms per tile on B, ~55 on A). If a probe frame
@@ -219,6 +249,32 @@ class CaptureSession(
                 "${probes.size + if (probeStillMasked) 0 else clears.size} analysed"
         }
 
+        /** Ticket 08: the cover is on screen in the new layout (or we gave up): probe every tile. */
+        private fun endCover() {
+            coverSince = null
+            val (preset, w, h) = grid
+            val (cols, rows) = preset.grid(w, h)
+            tracker.resume(now())
+            tracker.resetProbing(cols, rows, now())
+            overlay.uncover()
+            publish()
+            // Exposure starts now: a tile already PROBING under the cover kept its older timestamp.
+            shown.indices.filter { shown[it] == PROBING }.forEach { probedAt[it] = now() }
+            scope.launch { // as in run(): the lifted cover may bring no valid frame
+                delay(tracker.probeTimeoutMs)
+                tracker.expireProbes(now())
+                publish()
+            }
+        }
+
+        private fun coverOnEveryTile(frame: Bitmap, preset: Preset): Boolean {
+            val toScreen = frameToScreen()
+            val (cols, rows) = preset.grid(frame.width, frame.height)
+            val samples = (0 until cols * rows).map { DebugMask.sample(frame, preset.tileRect(it, frame.width, frame.height), toScreen) }
+            Log.d(TAG, "rotation cover check ${samples.joinToString(" ") { DebugMask.describe(it) }}")
+            return samples.all(DebugMask::looksMasked)
+        }
+
         /** Ticket 14: an owed probe starts on time even when the screen has gone static (no frame comes). */
         private fun scheduleDueProbe() {
             dueProbe?.cancel()
@@ -250,6 +306,8 @@ class CaptureSession(
 
         fun close() {
             open = false
+            masking = false
+            overlay.uncover()
             dueProbe?.cancel()
             overlay.updateMasks(emptyList())
             detector.close()
@@ -271,6 +329,7 @@ class CaptureSession(
                 Log.i(TAG, "tile $i $was -> $state")
             }
             shown = states
+            masking = states.any { it != CLEAR }
             val (preset, w, h) = grid
             overlay.updateMasks(
                 states.indices.filter { states[it] == MASKED }.map { i ->
