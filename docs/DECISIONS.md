@@ -890,3 +890,22 @@ Supersedes D28's strong-noise look and D28/D29's mean-colour check. M5 verificat
 - **Device run (2026-10-03):** B 141 probe frames (portrait), A 74 (portrait + landscape). Masked
   r 0.67-0.89, bare r -0.29-0.26, nothing in between on either device or orientation.
   THRESHOLD = 0.45, mid-gap leaning to "masked".
+
+## D31 — Probe backoff on re-masking tiles (2026-10-03, human decision, ticket 14)
+
+Amends D25's timing; the neighbour rule itself stays. M5 verification moves to D32.
+
+- **Found on Device B:** a video playing next to a masked tile changes its neighbours on every
+  frame, so the tile probed at the 1 s floor (tile 3: 43 probes in ~3 min, 32 re-masked) and the
+  mask blinked about once a second for nothing.
+- **Rule:** each probe that ends re-masked (locked hash, flagged, or the 300 ms timeout) doubles
+  the tile's minimum probe gap: 1, 2, 4, 8 s. A releasing probe resets it; a new episode starts at
+  1 s. The no-neighbour timer (Light) is max(2 s, gap).
+- **Owed probes start on a timer.** First device check: a tile stuck masked. Its neighbours changed
+  inside the 8 s gap, then the screen went static, so no frame came to start the probe (D18). A
+  neighbour change inside the gap now marks the probe as owed; it starts when the gap ends, on the
+  next frame or on a timer if none comes. Lifting the mask changes the screen, so the probe frame
+  arrives. The Light/no-neighbour timer is never owed: it still needs a frame, as in D25.
+- **Cost:** a backed-off tile can stay masked up to 8 s after its content leaves. Over-masking,
+  the safe direction. Rejected for now: requiring 2 SAFE probe frames to release (would also stop
+  the rarer release-then-re-mask cycle on video, but lengthens every probe).

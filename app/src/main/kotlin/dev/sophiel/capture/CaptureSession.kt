@@ -176,6 +176,7 @@ class CaptureSession(
         private var grid = Triple(Preset.LIGHT, 0, 0) // preset, frame width, frame height
         private var shown: List<TileState> = emptyList()
         private val probedAt = HashMap<Int, Long>()
+        private var dueProbe: Job? = null
         private var open = true // a probe-timeout job can outlive a model switch
 
         suspend fun run(frame: Bitmap): String {
@@ -211,10 +212,25 @@ class CaptureSession(
                     publish()
                 }
             }
+            scheduleDueProbe()
             // No latency here (it is in Logcat): the pill is captured too, and text that changes
             // every frame redraws it, which makes a static screen deliver frames forever.
             return "GantMan · $preset · ${shown.joinToString(" ") { it.name.take(1) }} · " +
                 "${probes.size + if (probeStillMasked) 0 else clears.size} analysed"
+        }
+
+        /** Ticket 14: an owed probe starts on time even when the screen has gone static (no frame comes). */
+        private fun scheduleDueProbe() {
+            dueProbe?.cancel()
+            val at = tracker.nextDueProbeAt() ?: return
+            dueProbe = scope.launch {
+                delay(at - now())
+                tracker.startDueProbes(now())
+                publish()
+                delay(tracker.probeTimeoutMs) // as in run(): the lifted mask may bring no valid frame
+                tracker.expireProbes(now())
+                publish()
+            }
         }
 
         private fun apply(v: TileVerdict, showsMask: Boolean) {
@@ -234,6 +250,7 @@ class CaptureSession(
 
         fun close() {
             open = false
+            dueProbe?.cancel()
             overlay.updateMasks(emptyList())
             detector.close()
         }

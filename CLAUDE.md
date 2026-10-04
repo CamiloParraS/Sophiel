@@ -19,10 +19,12 @@ STATUS:             M3.5 re-check passed on both devices (human). M5 designed: D
                     protected probe frame releases the tile, V4/V5, §7 items 14-17).
                     Build tickets 06-12: .scratch/m5-overlay/issues/ (local, not committed).
                     D30: camo mask + pattern-correlation check replace strong noise + mean colour.
+                    D31: probe backoff 1-2-4-8 s + owed probes on a static screen. 15 (video
+                    release flips) needs-info: needs a repeatable test clip.
                     Debug "Masks" tab compares mask looks on a phone.
 BLOCKED ON:         Nothing.
 NEXT:               08 rotation, 09 own-screen
-                    pause, 10 Status, 12 protected probe frame, 11 verify + D31.
+                    pause, 10 Status, 12 protected probe frame, 11 verify + D32.
                     Then M6 Parent app (FEATURE FREEZE end of week 3), M7.
 ```
 

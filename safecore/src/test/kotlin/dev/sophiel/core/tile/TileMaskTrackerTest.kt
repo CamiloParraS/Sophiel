@@ -134,6 +134,97 @@ class TileMaskTrackerTest {
         assertEquals(MASKED, relocked[0])
     }
 
+    /** Balanced, tile 0 masked at t=100; every later frame moves all its neighbours (a video). */
+    private fun TileMaskTracker.video(now: Long, tile0: Long = mask, showsMask: Boolean = true) =
+        frame(now, listOf(tile0, now, now + 1, 3L, 4L, 5L), showsMask = if (showsMask) setOf(0) else emptySet())
+
+    /** Probes tile 0 at [at] (asserts it), then re-masks it on the locked hash. Returns the re-mask time. */
+    private fun TileMaskTracker.wastedProbeAt(at: Long): Long {
+        video(at - 1)
+        assertEquals("no probe before $at", MASKED, this[0])
+        video(at)
+        assertEquals("probe at $at", PROBING, this[0])
+        video(at + 50, tile0 = unsafe, showsMask = false)
+        assertEquals(MASKED, this[0])
+        return at + 50
+    }
+
+    @Test fun `each wasted probe doubles the gap, up to 8 s`() {
+        val t = maskedBalanced()
+        var at = t.wastedProbeAt(1100)
+        for (gap in listOf(2000L, 4000L, 8000L, 8000L)) at = t.wastedProbeAt(at + gap)
+    }
+
+    @Test fun `a timed-out probe counts as wasted too`() {
+        val t = maskedBalanced()
+        t.video(1100)
+        t.expireProbes(1400)
+        assertEquals(MASKED, t[0])
+        t.wastedProbeAt(1400 + 2000)
+    }
+
+    @Test fun `a release resets the backoff`() {
+        val t = maskedBalanced()
+        var at = t.wastedProbeAt(1100)
+        at = t.wastedProbeAt(at + 2000) // the gap is now 4 s
+        t.video(at + 4000)
+        t.video(at + 4050, tile0 = 7L, showsMask = false) // new, safe content: released
+        assertEquals(CLEAR, t[0])
+        t.video(at + 4100, tile0 = unsafe) // flagged again: a new episode
+        t.frame(at + 4150, listOf(unsafe, 1L, 2L, 3L, 4L, 5L), flagged = setOf(0))
+        t.frame(at + 4200, listOf(unsafe, 1L, 2L, 3L, 4L, 5L), flagged = setOf(0))
+        assertEquals(MASKED, t[0])
+        t.wastedProbeAt(at + 4200 + 1000) // back to 1 s
+    }
+
+    @Test fun `light's 2 s timer backs off too`() {
+        val t = maskedLight()
+        fun probeAndRemask(at: Long): Long {
+            t.frame(at - 1, listOf(mask))
+            assertEquals("no probe before $at", MASKED, t[0])
+            t.frame(at, listOf(mask))
+            assertEquals("probe at $at", PROBING, t[0])
+            t.frame(at + 50, listOf(unsafe))
+            return at + 50
+        }
+        var at = probeAndRemask(2100) // 2 s timer
+        at = probeAndRemask(at + 2000) // gap 2 s: timer still 2 s
+        at = probeAndRemask(at + 4000)
+        probeAndRemask(at + 8000)
+    }
+
+    @Test fun `a neighbour change inside the gap is owed a probe, even with no frame after it`() {
+        val t = maskedBalanced()
+        val at = t.wastedProbeAt(1100) // gap now 2 s: next probe allowed from 3150
+        t.video(at + 500) // neighbours move inside the gap, then the screen goes static (no frames)
+        assertEquals(MASKED, t[0])
+        assertEquals(at + 2000, t.nextDueProbeAt())
+        t.startDueProbes(at + 1999)
+        assertEquals(MASKED, t[0])
+        t.startDueProbes(at + 2000) // the caller's timer: lifting the mask brings the probe frame
+        assertEquals(PROBING, t[0])
+        assertEquals(null, t.nextDueProbeAt())
+    }
+
+    @Test fun `an owed probe also starts on the next frame, even if the neighbours went still`() {
+        val t = maskedBalanced()
+        val at = t.wastedProbeAt(1100)
+        t.video(at + 500)
+        t.frame(at + 2000, listOf(mask, 1L, 2L, 3L, 4L, 5L), showsMask = setOf(0)) // nothing moved
+        assertEquals(PROBING, t[0])
+    }
+
+    @Test fun `nothing is owed without a neighbour change, and the light timer never is`() {
+        val t = maskedBalanced()
+        t.frame(500, listOf(mask, 1L, 2L, 3L, 4L, 5L), showsMask = setOf(0))
+        assertEquals(null, t.nextDueProbeAt())
+        val light = maskedLight()
+        light.frame(1500, listOf(mask))
+        assertEquals(null, light.nextDueProbeAt())
+        light.startDueProbes(60_000)
+        assertEquals(MASKED, light[0])
+    }
+
     @Test fun `pause freezes states and timers`() {
         val t = maskedLight()
         t.pause(200)

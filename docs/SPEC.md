@@ -186,7 +186,7 @@ PROBING ──hash differs──▶ classify ──≥ threshold──▶ MASKED
 - **Probe validity.** Removing an overlay window does not reach the capture instantly; the next captured frame can still show the mask. A probe frame counts only once the captured tile no longer shows our mask (we know its exact look, so a pixel check is enough). If it has not cleared within ~300 ms, re-mask and wait for the next trigger. Without this rule every probe would read the mask as SAFE, release, and flash.
 - **Probe trigger, Balanced (D25):** a frame arrives AND at least half of the masked tile's own CLEAR neighbours (4-adjacent) changed hash since the previous frame. Activity elsewhere on screen never uncovers it. A masked tile with no CLEAR neighbour (every neighbour masked) falls back to the ~2 s timer, counted per tile since it was masked or last probed.
 - **Probe trigger, Light:** the only tile is masked, so there are no CLEAR tiles to watch. Probe on the ~2 s timer only, when frames arrive.
-- At most one probe per second per tile. A static screen delivers no new frames (D18), so it never probes.
+- At most one probe per second per tile. Each probe that ends re-masked (or times out) doubles that tile's minimum gap, up to 8 s; a probe that releases the tile resets it (D31). A neighbour change inside the gap is owed a probe when the gap ends, started on a timer if no frame comes (D31). The ~2 s timer is never shorter than the gap. A static screen delivers no new frames (D18), so it never probes.
 - Hash lock is **exact match only**. Near-miss matching was rejected in `c7eff9c`.
 - **Our own screens.** While a Sophiel activity is in the foreground, hide every mask and pause the tracker (states frozen). Our screens are opaque, so nothing is exposed, and the PIN prompt can never sit under a mask.
 - **Mask colour is never pure black (`0x000000`).** `BlackFrameDetector` counts exact-black pixels; a black full-screen Light mask would read as a secure app.
@@ -308,7 +308,7 @@ M0–M3 are **done and reused**: skeleton, model + parity gate, pipeline + Test 
 
 - `V1` — Masks sit exactly over the flagged tiles in portrait and landscape; every touch passes through, including over a mask.
 - `V2` — A static flagged image stays masked for 10 s with no flicker; it releases within a few seconds after the content changes.
-- `V3` — Probe exposure (mask removed until it is back or the tile is released) is measured in milliseconds, median and worst case, on both devices. At most one probe per second per tile. Rotation exposure is measured the same way.
+- `V3` — Probe exposure (mask removed until it is back or the tile is released) is measured in milliseconds, median and worst case, on both devices. At most one probe per second per tile, backing off to one per 8 s while probes keep re-masking (D31). Rotation exposure is measured the same way.
 - `V4` — Ending protection from outside the app while the process lives (status bar "Stop sharing", Quick Settings "Active apps" Stop) leaves no overlay window behind. Swiping it out of Recents does **not** stop protection (D28).
 - `V5` — With a tile masked, switching to a `FLAG_SECURE` app releases the mask within one probe and it does not flicker (D29).
 
