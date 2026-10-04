@@ -14,6 +14,7 @@ import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
 import android.util.DisplayMetrics
+import android.util.Log
 import android.util.TypedValue
 import android.view.View
 import android.view.WindowManager
@@ -42,12 +43,31 @@ class OverlayController(private val context: Context) {
     private val mainHandler = Handler(Looper.getMainLooper())
     private val windowManager = context.getSystemService(WindowManager::class.java)
     private val view = TileMaskView(context, windowManager)
-    private var attached = false
+    private var host: WindowManager? = null
 
     fun show() = mainHandler.post {
-        if (attached || !Settings.canDrawOverlays(context)) return@post
-        windowManager.addView(view, touchThroughOverlayParams())
-        attached = true
+        MaskWindowService.onUnbound = { mainHandler.post(::fallBackToAppOverlay) }
+        attach()
+    }
+
+    // D32: with MaskWindowService enabled, its trusted window draws the masks opaque.
+    private fun attach() {
+        if (host != null) return
+        val a11y = MaskWindowService.instance
+        if (a11y == null && !Settings.canDrawOverlays(context)) return
+        val wm = a11y?.getSystemService(WindowManager::class.java) ?: windowManager
+        wm.addView(view, touchThroughOverlayParams(trusted = a11y != null))
+        host = wm
+        Log.i("Sophiel", "mask window: ${if (a11y != null) "accessibility, alpha 1.0" else "app overlay, alpha $OVERLAY_ALPHA"}")
+    }
+
+    /** The service was turned off mid-session: its window goes with it, so the masks move to a plain overlay. */
+    private fun fallBackToAppOverlay() {
+        if (host == null || host === windowManager) return
+        // The system may already have removed the window along with the service's token.
+        runCatching { host?.removeViewImmediate(view) }
+        host = null
+        attach()
     }
 
     /** [rects] are fractions of the whole display, not of the frame. */
@@ -55,7 +75,6 @@ class OverlayController(private val context: Context) {
         view.masks = rects
         view.invalidate()
     }
-
     /** Debug builds only. [detections] boxes must already be fractions of the whole display. */
     fun updateBoxes(detections: List<Detection>) = mainHandler.post {
         if (!context.isDebuggable) return@post
@@ -64,9 +83,9 @@ class OverlayController(private val context: Context) {
     }
 
     fun hide() = mainHandler.post {
-        if (!attached) return@post
-        windowManager.removeView(view)
-        attached = false
+        MaskWindowService.onUnbound = null
+        if (view.isAttachedToWindow) host?.removeView(view)
+        host = null
     }
 }
 
@@ -141,10 +160,10 @@ internal fun maskBounds(left: Float, top: Float, right: Float, bottom: Float, w:
     )
 
 /** Full-screen, touch-through overlay window. Keep to one per app: see [OverlayController]. */
-internal fun touchThroughOverlayParams() = WindowManager.LayoutParams(
+internal fun touchThroughOverlayParams(trusted: Boolean = false) = WindowManager.LayoutParams(
     WindowManager.LayoutParams.MATCH_PARENT,
     WindowManager.LayoutParams.MATCH_PARENT,
-    WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+    if (trusted) WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY else WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
     WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
         WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
         WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
@@ -152,8 +171,8 @@ internal fun touchThroughOverlayParams() = WindowManager.LayoutParams(
     PixelFormat.TRANSLUCENT,
 ).apply {
     // Android 12+ drops touches passing through another app's overlay above 0.8 opacity
-    // (untrusted touch occlusion), even with FLAG_NOT_TOUCHABLE.
-    alpha = OVERLAY_ALPHA
+    // (untrusted touch occlusion), even with FLAG_NOT_TOUCHABLE. Accessibility overlays are trusted.
+    alpha = if (trusted) 1f else OVERLAY_ALPHA
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
         layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
     }

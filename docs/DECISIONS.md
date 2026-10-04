@@ -909,3 +909,23 @@ Amends D25's timing; the neighbour rule itself stays. M5 verification moves to D
 - **Cost:** a backed-off tile can stay masked up to 8 s after its content leaves. Over-masking,
   the safe direction. Rejected for now: requiring 2 SAFE probe frames to release (would also stop
   the rarer release-then-re-mask cycle on video, but lengthens every probe).
+
+## D32 — Opaque masks through an optional accessibility window (2026-10-03, human decision and build)
+
+Scope addition to SPEC §1.2 (human). Amends D28's alpha 0.79.
+
+- **Why.** At alpha 0.79 about 21 % of the masked content shows through (D28, §7 item 14), and the
+  camo (D30) only reduces how readable it is. Android 12+ exempts trusted windows, including
+  accessibility overlays, from the untrusted-touch opacity rule, so a `TYPE_ACCESSIBILITY_OVERLAY`
+  window can be fully opaque and still pass every touch through.
+- **How.** `MaskWindowService` is an `AccessibilityService` that does nothing but lend
+  `OverlayController` its window token: no event types, `canRetrieveWindowContent="false"`. Enabled:
+  the one mask window is an accessibility overlay at alpha 1.0. Off: the app overlay at 0.79, as
+  before. Turned off mid-session: the masks move to the app overlay.
+- **Device runs (2026-10-04):** A and B log `mask window: accessibility, alpha 1.0`; masking,
+  probing and the D30 mask check work unchanged (masked tiles read r 0.70-0.90).
+- **Costs and limits.** The Parent enables it in Accessibility settings; on Android 13+ a sideloaded
+  APK first needs App info > "Allow restricted settings" (Parent setup, M6). Enabling it mid-session
+  takes effect on the next protection start. An accessibility overlay sits above system UI panels,
+  so the rotate-suggestion button (auto-rotate off, gesture navigation) can hide under a mask; a tap
+  there still reaches it. Leaving holes in the bottom corners was rejected: it would expose content.

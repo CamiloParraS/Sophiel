@@ -59,6 +59,7 @@ The UI and the experience of it (it should feel quick and light) are the product
 
 - Two presets: **Light** (whole frame as one tile) and **Balanced** (2 columns × 3 rows).
 - Noise masks (optional lock chip + "Hidden by Sophiel" label, a Parent setting) that let touches pass through.
+- An optional accessibility service that only hosts the mask window, so masks draw opaque (D32). No events, no window content.
 - Parent screens: Status, Setup wizard, PIN unlock, Settings (Strict / Normal / Relaxed, preset, show-label toggle), Log.
 - A hidden debug menu (Test Feed, debug pill, raw threshold slider).
 - A permission-free **Test Feed** for development and as the demo fallback.
@@ -372,10 +373,11 @@ Copy into `docs/LIMITATIONS.md` and expand with measured numbers.
 11. **Grayscale blindness in the skin gate.** True black-and-white imagery has no skin chroma and is gated SAFE. Do not "fix" it by classifying every achromatic tile: dark-mode UIs are achromatic too.
 12. **Energy figures are whole-device estimates**, valid only unplugged.
 13. **Low capture resolution.** Frames are 360 px on the short side; small or distant content may be missed.
-14. **Masks are not opaque.** Android blocks touches through another app's overlay above 0.8 opacity, so masks draw at 0.79 and about 21 % of the masked content shows through under the noise (D28).
+14. **Masks are not opaque unless the accessibility service is on.** Android blocks touches through another app's overlay above 0.8 opacity, so without the optional service (D32) masks draw at 0.79 and about 21 % of the masked content shows through under the noise (D28).
 15. **System bars are never masked or judged.** Full-screen apps (video, gallery) draw under the hidden bars, and the capture always crops the bar area (§4.6), so that strip is not covered.
 16. **Change only under a mask stays masked.** A masked tile probes when its CLEAR neighbours change (D25), so content that changes only inside it (a video exactly under the mask) stays masked until something next to it moves. With Reveal gone (D27), the Parent's fix is stop and restart.
 17. **Rotation exposure.** After a rotation with something masked, the whole screen is uncovered for one probe while the new grid is judged (§3.4).
+18. **Opaque masks can hide a system button.** The accessibility window sits above system UI panels, so the rotate-suggestion button (auto-rotate off, gesture navigation) can be hidden under a mask; tapping there still works (D32).
 
 ---
 
