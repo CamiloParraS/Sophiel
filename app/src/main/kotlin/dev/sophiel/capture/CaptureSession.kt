@@ -114,7 +114,18 @@ class CaptureSession(
 
     /** Called on the FrameSource thread before an Image is decoded; false drops it undecoded. */
     private fun wantsFrame(): Boolean =
-        !closed && inFlight?.isActive != true && throttle.shouldProcess(SystemClock.elapsedRealtime())
+        !closed && !settings.ownScreens.showing.value && inFlight?.isActive != true &&
+            throttle.shouldProcess(SystemClock.elapsedRealtime())
+
+    // Ticket 09: on the lane, so the tracker is only touched there. Frames are dropped meanwhile (wantsFrame).
+    init {
+        scope.launch {
+            settings.ownScreens.showing.collect { own ->
+                overlay.setHidden(own)
+                judge?.ownScreen?.invoke(own)
+            }
+        }
+    }
 
     // When the in-flight frame left the ImageReader; for ticket 07's frame-to-mask latency.
     @Volatile
@@ -224,6 +235,7 @@ class CaptureSession(
         private var dueProbe: Job? = null
         private var open = true // a probe-timeout job can outlive a model switch
         private var coverSince: Long? = null // ticket 08: rotation cover up, not yet seen in a frame
+        private var ownInFront = false // ticket 09
         private var peeking = false // ticket 16: a window shot or its verdicts in flight
         private var lastShotAt = 0L
 
@@ -274,13 +286,7 @@ class CaptureSession(
             if (!probeStillMasked) detector.analyze(frame, preset, clears).collect { apply(it, showsMask = false) }
             tracker.endFrame(now())
             publish()
-            if (PROBING in shown) {
-                scope.launch { // a screen that goes static once the mask is lifted sends no frame
-                    delay(tracker.probeTimeoutMs)
-                    tracker.expireProbes(now())
-                    publish()
-                }
-            }
+            if (PROBING in shown) expireLater() // a screen that goes static once the mask is lifted sends no frame
             scheduleDueProbe()
             // No latency here (it is in Logcat): the pill is captured too, and text that changes
             // every frame redraws it, which makes a static screen deliver frames forever.
@@ -288,22 +294,43 @@ class CaptureSession(
                 "${probes.size + if (probeStillMasked) 0 else clears.size} analysed"
         }
 
+        private fun expireLater() = scope.launch {
+            delay(tracker.probeTimeoutMs)
+            tracker.expireProbes(now())
+            publish()
+        }
+
+        /**
+         * Ticket 09: a Sophiel screen fills the display. Pauses the tracker, sharing it with the rotation
+         * cover: whichever of the two ends last resumes it.
+         */
+        fun ownScreen(own: Boolean) {
+            ownInFront = own
+            if (coverSince != null) return // endCover resumes, or leaves it to us
+            if (own) {
+                tracker.pause(now())
+                dueProbe?.cancel()
+                return
+            }
+            tracker.resume(now())
+            publish()
+            scheduleDueProbe()
+            if (PROBING in shown) expireLater() // as in run(): leaving may bring no valid frame
+            if (PEEKING in shown) peek() // publish() only peeks on a change
+        }
+
         /** Ticket 08: the cover is on screen in the new layout (or we gave up): probe every tile. */
         private fun endCover() {
             coverSince = null
             val (preset, w, h) = grid
             val (cols, rows) = preset.grid(w, h)
-            tracker.resume(now())
+            if (!ownInFront) tracker.resume(now())
             tracker.resetProbing(cols, rows, now())
             overlay.uncover()
             publish()
             // Exposure starts now: a tile already PROBING under the cover kept its older timestamp.
             shown.indices.filter { shown[it] == PROBING }.forEach { probedAt[it] = now() }
-            scope.launch { // as in run(): the lifted cover may bring no valid frame
-                delay(tracker.probeTimeoutMs)
-                tracker.expireProbes(now())
-                publish()
-            }
+            expireLater() // as in run(): the lifted cover may bring no valid frame
         }
 
         private fun coverOnEveryTile(frame: Bitmap, preset: Preset): Boolean {
@@ -344,14 +371,14 @@ class CaptureSession(
                 }
                 // Tiles in another window, or that started peeking meanwhile. Each round either takes
                 // a shot (so the next waits out the rate limit) or resolves every PEEKING tile.
-                if (open && coverSince == null && (0 until tracker.size).any { tracker[it] == PEEKING }) peek()
+                if (open && coverSince == null && !ownInFront && (0 until tracker.size).any { tracker[it] == PEEKING }) peek()
             }
         }
 
         private suspend fun peekOnce() {
             delay(lastShotAt + SHOT_INTERVAL_MS - now())
             val waiting = (0 until tracker.size).filter { tracker[it] == PEEKING }
-            if (waiting.isEmpty() || coverSince != null) return // a rotation resets every tile anyway
+            if (waiting.isEmpty() || coverSince != null || ownInFront) return // a rotation resets every tile; leaving our screen peeks again
             val service = MaskWindowService.instance
             if (!peekMode() || service == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return lift(waiting, "peeking off")
             val at = grid
@@ -382,11 +409,7 @@ class CaptureSession(
             Log.d(TAG, "peek: lifting $tiles ($why)")
             tiles.forEach { tracker.liftPeek(it, now()) }
             publish()
-            scope.launch { // as in run(): the lifted mask may bring no valid frame
-                delay(tracker.probeTimeoutMs)
-                tracker.expireProbes(now())
-                publish()
-            }
+            expireLater() // as in run(): the lifted mask may bring no valid frame
         }
 
         private fun apply(v: TileVerdict, showsMask: Boolean) {
@@ -445,10 +468,10 @@ class CaptureSession(
         private fun now() = SystemClock.elapsedRealtime()
     }
 
-    private class Judge(val model: SpikeModel, val run: suspend (Bitmap) -> String, val close: () -> Unit)
+    private class Judge(val model: SpikeModel, val run: suspend (Bitmap) -> String, val close: () -> Unit, val ownScreen: (Boolean) -> Unit = {})
 
     private fun openJudge(model: SpikeModel): Judge = when (model.asset) {
-        null -> TileLoop(DetectorFactory.create(appContext)).let { Judge(model, it::run, it::close) }
+        null -> TileLoop(DetectorFactory.create(appContext)).let { Judge(model, it::run, it::close, it::ownScreen) }
         else -> BoxLoop(NudeNet.load(appContext, model.asset, model.inputSize), model).let { Judge(model, it::run, it::close) }
     }
 
@@ -467,7 +490,8 @@ class CaptureSession(
         private val shots = scope.launch { // same lane as frames, so NudeNet never runs twice at once
             while (true) {
                 delay(SHOT_INTERVAL_MS)
-                if (canShoot() && drawn.isNotEmpty()) shoot() // nothing masked: frames see everything
+                // Nothing masked: frames see everything. Our screen in front: a shot of it would drop every mask.
+                if (canShoot() && drawn.isNotEmpty() && !settings.ownScreens.showing.value) shoot()
             }
         }
 

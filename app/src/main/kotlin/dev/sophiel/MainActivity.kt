@@ -3,6 +3,7 @@ package dev.sophiel
 import android.Manifest
 import android.app.Activity
 import android.content.Intent
+import android.content.res.Configuration
 import android.media.projection.MediaProjectionManager
 import android.net.Uri
 import android.os.Build
@@ -37,6 +38,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
 import dev.sophiel.capture.ControllerPhase
 import dev.sophiel.capture.ProjectionController
 import dev.sophiel.capture.ProjectionService
@@ -130,6 +132,12 @@ class MainActivity : ComponentActivity() {
         if (!resumeRequested || controller.effects == null) return
         resumeRequested = false
         if (controller.state.value.phase == ControllerPhase.IDLE) controller.start()
+    }
+
+    override fun onMultiWindowModeChanged(isInMultiWindowMode: Boolean, newConfig: Configuration) {
+        super.onMultiWindowModeChanged(isInMultiWindowMode, newConfig)
+        (application as SophielApp).container.ownScreens
+            .update(this, lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) && !isInMultiWindowMode)
     }
 
     override fun onStop() {

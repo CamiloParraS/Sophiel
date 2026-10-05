@@ -99,6 +99,11 @@ class OverlayController(private val context: Context) {
         view.invalidate()
     }
 
+    /** Ticket 09: our own screen is in front. Masks are kept, just not drawn. */
+    fun setHidden(hidden: Boolean) = mainHandler.post {
+        view.visibility = if (hidden) View.INVISIBLE else View.VISIBLE
+    }
+
     /** Debug builds only. [detections] boxes must already be fractions of the whole display. */
     fun updateBoxes(detections: List<Detection>) = mainHandler.post {
         if (!context.isDebuggable) return@post

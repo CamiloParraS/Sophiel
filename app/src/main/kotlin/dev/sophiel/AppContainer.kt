@@ -1,5 +1,6 @@
 package dev.sophiel
 
+import dev.sophiel.capture.OwnScreens
 import dev.sophiel.capture.ProjectionController
 import dev.sophiel.core.Preset
 import dev.sophiel.feed.SpikeModel
@@ -12,6 +13,9 @@ import dev.sophiel.feed.SpikeModel
  */
 class AppContainer {
     val projectionController = ProjectionController()
+
+    /** Ticket 09: a Sophiel screen fills the display; capture hides the masks and pauses. */
+    val ownScreens = OwnScreens()
 
     /** Spike (D24): model the live capture judges with, picked on the Protection screen. */
     @Volatile
