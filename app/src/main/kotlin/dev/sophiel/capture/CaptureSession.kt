@@ -46,7 +46,7 @@ private const val TAG = "Sophiel"
 private const val FRAME_INTERVAL_MS = 80L
 private const val MIN_CAPTURE_SHORT_SIDE = 360f
 private const val BLACK_PROBE_SIZE = 64
-private const val COVER_WAIT_MS = 1_000L // ticket 08: longest a rotation cover waits to be seen
+private const val COVER_WAIT_MS = 1_000L // ticket 08: longest a cover waits to be seen
 private const val SHOT_INTERVAL_MS = 400L // ticket 16: one shot per 333 ms, timed by the system: 342 ms apart still failed on B
 private const val SHOT_TIMEOUT_MS = 500L // ticket 16: worst success 132 ms on B; failures took ~2 s
 private const val BOX_MASK_SCORE = 0.3f // ticket 17 calibration knob: NudeNet box score that masks
@@ -111,7 +111,7 @@ class CaptureSession(
         size = newSize
         // Ticket 08: the old grid's masks no longer sit on the content they hid. Cover the whole
         // content area until TileLoop resets onto the new grid (its first new-size frame).
-        if (masking) overlay.cover(toDisplayFraction(RectF(0f, 0f, 1f, 1f)))
+        if (masking) coverScreen()
     }
 
     /** Called on the FrameSource thread before an Image is decoded; false drops it undecoded. */
@@ -145,10 +145,14 @@ class CaptureSession(
                 } else {
                     val want = wantedModel()
                     val current = judge?.takeIf { it.model == want } ?: run {
+                        // D40: closing a judge clears its masks. Anything masked: cover the screen
+                        // first, and the new judge starts under it and takes it down.
+                        val covered = judge?.masked?.invoke() == true
+                        if (covered) coverScreen() else overlay.uncover()
                         judge?.close?.invoke()
                         overlay.updateBoxes(emptyList())
                         debugPill?.update("${want.label}: loading…")
-                        openJudge(want).also { judge = it }
+                        openJudge(want, covered).also { judge = it }
                     }
                     current.run(bitmap)
                 }
@@ -176,6 +180,8 @@ class CaptureSession(
             judge?.close?.invoke()
         }
     }
+
+    private fun coverScreen() = overlay.cover(toDisplayFraction(RectF(0f, 0f, 1f, 1f)))
 
     /** Frame-normalised box → fraction of the whole display (the frame is the capture's [CaptureSize.crop]). */
     private fun toDisplayFraction(box: RectF): RectF {
@@ -230,29 +236,31 @@ class CaptureSession(
      * Masked tiles are not analysed; CLEAR and PROBING ones are, each applied as it arrives.
      * Runs only on [scope]'s single lane, which keeps the tracker single-threaded.
      */
-    private inner class TileLoop(private val detector: Detector) {
+    private inner class TileLoop(private val detector: Detector, private var coverNext: Boolean) {
         private val tracker = TileMaskTracker(0, 0, ::peekMode)
-        private var grid = Triple(Preset.LIGHT, 0, 0) // preset, frame width, frame height
+        private var grid = Grid(Preset.LIGHT, 0, 0, 0f)
         private var shown: List<TileState> = emptyList()
         private val probedAt = HashMap<Int, Long>()
         private var dueProbe: Job? = null
         private var open = true // a probe-timeout job can outlive a model switch
-        private var coverSince: Long? = null // ticket 08: rotation cover up, not yet seen in a frame
+        private var coverSince: Long? = null // ticket 08, D40: cover up, not yet seen in a frame
         private var ownInFront = false // ticket 09
         private var peeking = false // ticket 16: a window shot or its verdicts in flight
         private var lastShotAt = 0L
 
         suspend fun run(frame: Bitmap): String {
             val preset = settings.preset.tiles
-            if (grid != Triple(preset, frame.width, frame.height)) { // rotation or preset change
-                grid = Triple(preset, frame.width, frame.height)
-                if (shown.any { it != CLEAR }) {
+            val judging = Grid(preset, frame.width, frame.height, container.threshold())
+            if (grid != judging) { // rotation, preset or threshold change (D40)
+                grid = judging
+                if (coverNext || shown.any { it != CLEAR }) { // coverNext: the judge before us had masks
+                    coverNext = false
                     // Anything masked: every new tile will probe (D29), but not yet. The first frames
                     // after a rotation can be the system's rotation animation (a snapshot of the old
                     // screen and its masks), neither content nor our cover: judged as probe frames
                     // they released most tiles, re-masked ~400 ms later (Device B, 2026-10-04).
                     // Hold the cover and ignore frames until one shows it on every tile.
-                    overlay.cover(toDisplayFraction(RectF(0f, 0f, 1f, 1f))) // a preset change has none yet
+                    coverScreen() // a preset or threshold change has none yet
                     tracker.pause(now())
                     dueProbe?.cancel()
                     val since = now().also { coverSince = it }
@@ -260,6 +268,9 @@ class CaptureSession(
                         delay(COVER_WAIT_MS)
                         if (coverSince == since) endCover()
                     }
+                    // This frame was captured before the cover went up: if every tile was masked,
+                    // it would pass the cover check without the cover ever having been on screen.
+                    return "GantMan · $preset · waiting for the cover"
                 } else {
                     val (cols, rows) = preset.grid(frame.width, frame.height)
                     tracker.reset(cols, rows)
@@ -267,9 +278,9 @@ class CaptureSession(
                 }
             }
             if (coverSince != null) {
-                if (!coverOnEveryTile(frame, preset)) return "GantMan · $preset · waiting for the rotation cover"
+                if (!coverOnEveryTile(frame, preset)) return "GantMan · $preset · waiting for the cover"
                 endCover() // this frame shows the cover, so it is not a probe frame
-                return "GantMan · $preset · rotation cover seen"
+                return "GantMan · $preset · cover seen"
             }
             // Probing tiles first: the mask is off until their verdict lands, so every tile judged
             // ahead of them is exposure (D26: ~38 ms per tile on B, ~55 on A). If a probe frame
@@ -333,6 +344,7 @@ class CaptureSession(
             coverSince = null
             val (preset, w, h) = grid
             val (cols, rows) = preset.grid(w, h)
+            Log.d(TAG, "cover ends, every tile probes")
             if (!ownInFront) tracker.resume(now())
             tracker.resetProbing(cols, rows, now())
             overlay.uncover()
@@ -346,7 +358,7 @@ class CaptureSession(
             val toScreen = frameToScreen()
             val (cols, rows) = preset.grid(frame.width, frame.height)
             val samples = (0 until cols * rows).map { DebugMask.sample(frame, preset.tileRect(it, frame.width, frame.height), toScreen) }
-            Log.d(TAG, "rotation cover check ${samples.joinToString(" ") { DebugMask.describe(it) }}")
+            Log.d(TAG, "cover check ${samples.joinToString(" ") { DebugMask.describe(it) }}")
             return samples.all(DebugMask::looksMasked)
         }
 
@@ -436,10 +448,13 @@ class CaptureSession(
             )
         }
 
-        fun close() {
+        /** Masks, probes or our cover are up: a judge switch must cover (D40). */
+        fun masked() = coverSince != null || shown.any { it != CLEAR }
+
+        fun close() { // leaves the cover to onFrame, which may keep it up for the next judge
             open = false
+            coverSince = null // our 1 s timer must not take down a cover the next judge now owns
             masking = false
-            overlay.uncover()
             dueProbe?.cancel()
             overlay.updateMasks(emptyList())
             detector.close()
@@ -477,13 +492,16 @@ class CaptureSession(
         private fun now() = SystemClock.elapsedRealtime()
     }
 
-    private class Judge(val model: SpikeModel, val run: suspend (Bitmap) -> String, val close: () -> Unit,
+    private class Judge(val model: SpikeModel, val run: suspend (Bitmap) -> String, val close: () -> Unit, val masked: () -> Boolean,
         val ownScreen: (Boolean) -> Unit = {}, val protectedFrame: () -> Unit = {},
     )
 
-    private fun openJudge(model: SpikeModel): Judge = when (model.asset) {
-        null -> TileLoop(DetectorFactory.create(appContext, container::threshold)).let { Judge(model, it::run, it::close, it::ownScreen, it::protectedFrame) }
-        else -> BoxLoop(NudeNet.load(appContext, model.asset, model.inputSize), model).let { Judge(model, it::run, it::close) }
+    /** [covered]: the whole-screen cover is up (D40); the new judge takes it down. */
+    private fun openJudge(model: SpikeModel, covered: Boolean): Judge = when (model.asset) {
+        null -> TileLoop(DetectorFactory.create(appContext, container::threshold), covered)
+            .let { Judge(model, it::run, it::close, it::masked, it::ownScreen, it::protectedFrame) }
+        else -> BoxLoop(NudeNet.load(appContext, model.asset, model.inputSize), model, covered)
+            .let { Judge(model, it::run, it::close, it::masked) }
     }
 
     /**
@@ -493,12 +511,20 @@ class CaptureSession(
      * stale), a shot replaces both. No shots possible: outlines only, as in D24 (Precise then runs
      * Balanced tiles instead, see [wantedModel]).
      */
-    private inner class BoxLoop(private val nudeNet: NudeNet, private val model: SpikeModel) {
+    private inner class BoxLoop(private val nudeNet: NudeNet, private val model: SpikeModel, covered: Boolean) {
         private var shotBoxes = emptyList<RectF>() // display fractions, padded
         private var frameBoxes = emptyList<RectF>()
         private var drawn = emptyList<RectF>()
+        private var coverUp = covered
         private var confirmedAt = 0L // last good shot, or when masking started
         private val shots = scope.launch { // same lane as frames, so NudeNet never runs twice at once
+            if (covered) { // D40: a shot sees under the cover; its boxes replace it
+                val start = SystemClock.elapsedRealtime()
+                if (!shoot()) delay(start + COVER_WAIT_MS - SystemClock.elapsedRealtime())
+                Log.d(TAG, "cover ends, box masks=${drawn.size}")
+                overlay.uncover()
+                coverUp = false
+            }
             while (true) {
                 delay(SHOT_INTERVAL_MS)
                 // Nothing masked: frames see everything. Our screen in front: a shot of it would drop every mask.
@@ -523,9 +549,10 @@ class CaptureSession(
                 detections.take(3).joinToString("") { "\n%s %.2f".format(it.label.lowercase(), it.score) }
         }
 
-        private suspend fun shoot() {
-            val service = MaskWindowService.instance ?: return
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return
+        /** False when no shot came (the covered start then waits out the rest of [COVER_WAIT_MS]). */
+        private suspend fun shoot(): Boolean {
+            val service = MaskWindowService.instance ?: return false
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return false
             val real = realMetrics()
             val start = SystemClock.elapsedRealtime()
             val result = withTimeoutOrNull(SHOT_TIMEOUT_MS) { service.appWindowShot(real.widthPixels / 2, real.heightPixels / 2) }
@@ -535,11 +562,11 @@ class CaptureSession(
                 // shot, drop them anyway, or a mask could never come off; frames re-mask what remains.
                 val held = start - confirmedAt < BOX_HOLD_MS
                 Log.d(TAG, "box shot: none, masks ${if (held) "held" else "dropped"}")
-                if (held) return
+                if (held) return false
                 shotBoxes = emptyList()
                 frameBoxes = emptyList()
                 draw()
-                return
+                return false
             }
             confirmedAt = start
             val (shot, bounds) = result
@@ -550,6 +577,7 @@ class CaptureSession(
             frameBoxes = emptyList()
             draw()
             Log.d(TAG, "box shot masks=${shotBoxes.size} totalMs=${SystemClock.elapsedRealtime() - start}")
+            return true
         }
 
         private fun masksOf(detections: List<Detection>) = detections.filter { it.unsafe && it.score >= BOX_MASK_SCORE }.map {
@@ -568,6 +596,9 @@ class CaptureSession(
             overlay.updateMasks(rects)
         }
 
+        /** Boxes or our start-up cover are up: a judge switch must cover (D40). */
+        fun masked() = coverUp || drawn.isNotEmpty()
+
         fun close() {
             shots.cancel()
             overlay.updateMasks(emptyList())
@@ -584,6 +615,9 @@ private fun isProtected(frame: Bitmap): Boolean {
     if (probe !== frame) probe.recycle()
     return BlackFrameDetector.isMostlyBlack(pixels)
 }
+
+/** What tiles are judged against: a change with anything masked takes the cover path (D33, D40). */
+private data class Grid(val preset: Preset, val w: Int, val h: Int, val threshold: Float)
 
 data class CaptureSize(val width: Int, val height: Int, val densityDpi: Int, val crop: Rect)
 
