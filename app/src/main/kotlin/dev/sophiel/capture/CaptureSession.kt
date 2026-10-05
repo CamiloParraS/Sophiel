@@ -129,7 +129,7 @@ class CaptureSession(
                     overlay.updateBoxes(emptyList())
                     "Protected content — not analyzable"
                 } else {
-                    val want = settings.liveModel
+                    val want = wantedModel()
                     val current = judge?.takeIf { it.model == want } ?: run {
                         judge?.close?.invoke()
                         overlay.updateBoxes(emptyList())
@@ -193,9 +193,18 @@ class CaptureSession(
         return Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888).also { Canvas(it).drawBitmap(shot, null, at, Paint(Paint.FILTER_BITMAP_FLAG)) }
     }
 
-    /** Ticket 16: the debug option is on and a window shot is possible. Live: the service turned off falls back to probes. */
-    private fun peekMode() = settings.peekUnderMask && MaskWindowService.instance != null &&
-        Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE
+    /** A window shot is possible (D34): API 34+ and MaskWindowService on. Live: the service can be turned off. */
+    private fun canShoot() = MaskWindowService.instance != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE
+
+    /** Ticket 16: the tile peek option is on and a window shot is possible. Off falls back to probes. */
+    private fun peekMode() = settings.peekUnderMask && canShoot()
+
+    /** D35: Precise is NudeNet 320n box masks where shots work, else [AppContainer.livePreset] tiles (Balanced). */
+    private fun wantedModel() = when {
+        !settings.precise -> settings.liveModel
+        canShoot() -> SpikeModel.NUDENET_320N
+        else -> SpikeModel.GANTMAN
+    }
 
     private fun realMetrics() = DisplayMetrics().also {
         @Suppress("DEPRECATION")
@@ -444,10 +453,11 @@ class CaptureSession(
     }
 
     /**
-     * Ticket 17 experiment (human override of SPEC §1.3, debug menu only): NudeNet's unsafe boxes as
-     * masks. A mask is captured too, so a frame can't see under it, but a window shot can (ticket 16).
-     * Masks = boxes from the last shot plus boxes found by frames since: a frame only adds (it can't
-     * tell a mask is stale), a shot replaces both. Not peeking: outlines only, as in D24.
+     * The Precise preset (D35), also the debug NudeNet models: NudeNet's unsafe boxes as masks. A mask
+     * is captured too, so a frame can't see under it, but a window shot can (D34). Masks = boxes from
+     * the last shot plus boxes found by frames since: a frame only adds (it can't tell a mask is
+     * stale), a shot replaces both. No shots possible: outlines only, as in D24 (Precise then runs
+     * Balanced tiles instead, see [wantedModel]).
      */
     private inner class BoxLoop(private val nudeNet: NudeNet, private val model: SpikeModel) {
         private var shotBoxes = emptyList<RectF>() // display fractions, padded
@@ -457,7 +467,7 @@ class CaptureSession(
         private val shots = scope.launch { // same lane as frames, so NudeNet never runs twice at once
             while (true) {
                 delay(SHOT_INTERVAL_MS)
-                if (peekMode() && drawn.isNotEmpty()) shoot() // nothing masked: frames see everything
+                if (canShoot() && drawn.isNotEmpty()) shoot() // nothing masked: frames see everything
             }
         }
 
@@ -466,7 +476,7 @@ class CaptureSession(
             val detections = nudeNet.detect(frame)
             val ms = SystemClock.elapsedRealtime() - start
             overlay.updateBoxes(detections.map { it.copy(box = toDisplayFraction(it.box)) })
-            if (peekMode()) {
+            if (canShoot()) {
                 frameBoxes = frameBoxes + masksOf(detections)
             } else {
                 shotBoxes = emptyList()

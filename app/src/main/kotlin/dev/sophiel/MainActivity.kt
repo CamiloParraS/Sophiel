@@ -181,6 +181,9 @@ private fun protectionScreen(controller: ProjectionController, container: AppCon
     var liveModel by remember { mutableStateOf(container.liveModel) }
     var livePreset by remember { mutableStateOf(container.livePreset) }
     var peek by remember { mutableStateOf(container.peekUnderMask) }
+    var precise by remember { mutableStateOf(container.precise) }
+    // Window shots (D34) need Android 14+; the accessibility service is checked live by the session.
+    val canShoot = Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE
     Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(state.phase.name, style = MaterialTheme.typography.titleMedium)
@@ -191,12 +194,13 @@ private fun protectionScreen(controller: ProjectionController, container: AppCon
                 Text("Overlay permission is required.", style = MaterialTheme.typography.bodySmall)
             }
             Spacer(Modifier.height(16.dp))
-            // Spike (D24): switches the live model between frames, no restart needed.
+            // Spike (D24): switches the live model between frames, no restart needed. Precise picks its own.
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 SpikeModel.entries.forEach { m ->
                     FilterChip(
                         selected = m == liveModel,
                         onClick = { liveModel = m; container.liveModel = m },
+                        enabled = !precise,
                         label = { Text(m.label) },
                     )
                 }
@@ -204,19 +208,28 @@ private fun protectionScreen(controller: ProjectionController, container: AppCon
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Preset.entries.forEach { p ->
                     FilterChip(
-                        selected = p == livePreset,
-                        onClick = { livePreset = p; container.livePreset = p },
+                        selected = !precise && p == livePreset,
+                        onClick = { precise = false; container.precise = false; livePreset = p; container.livePreset = p },
                         label = { Text(p.name) },
                     )
                 }
+                // D35: where shots stop working mid-session (service off), Precise runs Balanced tiles.
+                FilterChip(
+                    selected = precise,
+                    onClick = {
+                        precise = true; container.precise = true
+                        livePreset = Preset.BALANCED; container.livePreset = Preset.BALANCED
+                    },
+                    enabled = canShoot,
+                    label = { Text(if (canShoot) "PRECISE" else "PRECISE (Android 14+)") },
+                )
             }
             // Ticket 16: live, like the chips above. Needs the accessibility service on as well.
-            val canPeek = Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE
             FilterChip(
-                selected = peek && canPeek,
+                selected = peek && canShoot,
                 onClick = { peek = !peek; container.peekUnderMask = peek },
-                enabled = canPeek,
-                label = { Text(if (canPeek) "Peek under mask" else "Peek under mask (Android 14+)") },
+                enabled = canShoot,
+                label = { Text(if (canShoot) "Peek under mask" else "Peek under mask (Android 14+)") },
             )
             Spacer(Modifier.height(16.dp))
             when (state.phase) {

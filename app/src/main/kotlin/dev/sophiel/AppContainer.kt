@@ -27,4 +27,12 @@ class AppContainer {
      */
     @Volatile
     var peekUnderMask = false
+
+    /**
+     * D35: the Precise preset, NudeNet 320n's boxes masked and refreshed by window shots (API 34+,
+     * MaskWindowService on). Elsewhere it runs [livePreset], set to Balanced when Precise is picked.
+     * Picked on the Protection screen until the Parent setting (M6).
+     */
+    @Volatile
+    var precise = false
 }

@@ -27,8 +27,8 @@ STATUS:             M3.5 re-check passed on both devices (human). M5 designed: D
                     D34: "Peek under mask" debug chip (API 34+): a PEEKING tile is judged from
                     a window screenshot, mask stays up; failed shots fall back to a probe.
                     Ticket 16 done on B (2 runs). Becomes a Parent setting in M6.
-                    D35: NudeNet box masks refreshed by window shots, debug-only experiment
-                    (ticket 17, outside §1.3 on purpose). Works on B; demo use is open.
+                    D35: Precise preset (in the demo, scope addition): NudeNet 320n box masks
+                    refreshed by window shots, Android 14+; Balanced elsewhere. Works on B.
                     Debug "Masks" tab compares mask looks on a phone.
 BLOCKED ON:         Nothing.
 NEXT:               09 own-screen

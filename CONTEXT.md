@@ -3,7 +3,7 @@
 - **Parent**: the person who sets up protection, knows the PIN, and sets sensitivity.
 - **Child**: the person using the protected phone; cannot change settings without the PIN.
 - **Protection**: the running state in which the screen is captured and analysed.
-- **Preset**: a named performance/precision tradeoff. Two exist: **Light** (judges the whole frame) and **Balanced** (judges a grid of tiles).
+- **Preset**: a named performance/precision tradeoff. Three exist: **Light** (judges the whole frame), **Balanced** (judges a grid of tiles), and **Precise** (masks the boxes a detector finds; experimental, Android 14+, D35).
 - **Tile**: one cell of the grid that Balanced classifies on its own.
 - **Mask**: the covering drawn over a flagged tile (or the whole frame in Light).
 - **Probe**: briefly removing one mask to check whether the content under it changed.

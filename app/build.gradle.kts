@@ -52,7 +52,7 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.kotlinx.coroutines.core)
-    implementation(libs.onnxruntime.android) // spike: heavy-model benchmark only
+    implementation(libs.onnxruntime.android) // NudeNet: the Precise preset (D35) and the D24 benchmark
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)

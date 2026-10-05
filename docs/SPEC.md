@@ -57,9 +57,9 @@ The UI and the experience of it (it should feel quick and light) are the product
 
 ### 1.2 In scope
 
-- Two presets: **Light** (whole frame as one tile) and **Balanced** (2 columns × 3 rows).
+- Three presets: **Light** (whole frame as one tile), **Balanced** (2 columns × 3 rows), and **Precise** (experimental, Android 14+): NudeNet 320n's boxes masked, refreshed by window screenshots (D35). Where screenshots aren't possible (Device A, the service turned off) Precise runs Balanced.
 - Noise masks (optional lock chip + "Hidden by Sophiel" label, a Parent setting) that let touches pass through.
-- An accessibility service that hosts the mask window, so masks draw opaque (D32). No events. Window content only to screenshot the app window under a mask, so a probe can judge it without lifting the mask (API 34+, an option; D34). Required to start protection in release builds; debug builds may start without it on the 0.79 app overlay.
+- An accessibility service that hosts the mask window, so masks draw opaque (D32). No events. Window content only to screenshot the app window under a mask (API 34+): for Precise (D35), and so a tile probe can judge it without lifting the mask (an option, D34). Required to start protection in release builds; debug builds may start without it on the 0.79 app overlay.
 - Parent screens: Status, Setup wizard, PIN unlock, Settings (Strict / Normal / Relaxed, preset, show-label toggle), Log.
 - A hidden debug menu (Test Feed, debug pill, raw threshold slider).
 - A permission-free **Test Feed** for development and as the demo fallback.
@@ -70,7 +70,6 @@ Do not build these. If asked mid-project, refuse and cite this section.
 
 | Feature                                                                                | Reason                                                                                |
 | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| Precise preset (bounding-box detector model)                                           | New model, new conversion and parity risk; too risky for one month.                   |
 | Remote parent alerts, accounts, sync, backend                                          | Needs `INTERNET`; breaks C1.                                                          |
 | Tamper resistance (Device Admin, work profile)                                         | Deep rabbit hole; documented as a limitation instead.                                 |
 | Formal evaluation set, ROC, UI corpus as deliverables                                  | Debug-only tooling. May appear as a stretch measurement (§5), never as a deliverable. |
@@ -198,7 +197,7 @@ PROBING ──hash differs──▶ classify ──≥ threshold──▶ MASKED
 
 ### 3.5 Sensitivity and presets
 
-Parent-facing: **Strict / Normal / Relaxed**, each mapped to a score threshold in code (values tuned in M4; Normal starts at the old 0.70). `PolicyEngine` is a stateless mapping (§3.3); its SUGGESTIVE cutoff already exists (D11) and is reserved for the stretch tier. Preset is a separate **Light / Balanced** toggle with a one-line speed-vs-precision description. The raw threshold slider exists only in the debug menu.
+Parent-facing: **Strict / Normal / Relaxed**, each mapped to a score threshold in code (values tuned in M4; Normal starts at the old 0.70). `PolicyEngine` is a stateless mapping (§3.3); its SUGGESTIVE cutoff already exists (D11) and is reserved for the stretch tier. Preset is a separate **Light / Balanced / Precise** choice with a one-line speed-vs-precision description. Sensitivity applies to Light and Balanced; Precise masks NudeNet boxes scoring 0.3 or more (D35). The raw threshold slider exists only in the debug menu.
 
 ### 3.6 Skin gate
 
@@ -324,7 +323,7 @@ M0–M3 are **done and reused**: skeleton, model + parity gate, pipeline + Test 
 
 - **Setup wizard:** create a 4–6 digit PIN (confirm) → overlay permission → accessibility service (D32; on Android 13+ a sideloaded APK first needs App info > "Allow restricted settings", and the wizard says how) → notification permission → preset + sensitivity → start (consent). No PIN recovery; the wizard says so.
 - **Status** (opens with no PIN): on/off, active preset, "Settings (parent)". Starting needs no PIN. Anything that weakens protection needs the PIN: stop, change preset or sensitivity, view the log. An unlock lasts ~2 minutes.
-- **Settings:** Strict / Normal / Relaxed, Light / Balanced, show-label toggle (no PIN needed). `SettingsRepository` (`SharedPreferences`). The PIN is stored as a salted hash, never plaintext. Five wrong attempts lock the prompt for 30 s, doubling on repeats.
+- **Settings:** Strict / Normal / Relaxed, Light / Balanced / Precise (Precise only on Android 14+), show-label toggle (no PIN needed). `SettingsRepository` (`SharedPreferences`). The PIN is stored as a salted hash, never plaintext. Five wrong attempts lock the prompt for 30 s, doubling on repeats.
 - **Log** (plain file, pruned on write): kinds masked (time, tiles masked, score band), protection on, protection off (reason: user stop / screen off / system ended), unanalyzable. **One masked entry per masking episode** (a tile going CLEAR → MASKED), never per frame or per re-mask after a probe. Scalars only: no frames, no app names. Kept 7 days; "Clear log" behind the PIN; summary "N masks today". A gap from a killed app or reboot is inferred on next start.
 - **Notification:** no Stop action; stopping from the app needs the PIN. "Paused — tap to resume" stays.
 - **Debug menu:** 7 taps on the version label + PIN. Holds Test Feed, debug pill, raw slider.
@@ -383,6 +382,7 @@ Copy into `docs/LIMITATIONS.md` and expand with measured numbers.
 16. **Change only under a mask stays masked.** A masked tile probes when its CLEAR neighbours change (D25), so content that changes only inside it (a video exactly under the mask) stays masked until something next to it moves. With Reveal gone (D27), the Parent's fix is stop and restart.
 17. **Rotation exposure.** After a rotation with something masked, the whole screen is uncovered for one probe while the new grid is judged (§3.4): measured 73-161 ms on Device B, 94-218 ms on Device A (D33).
 18. **Opaque masks can hide a system button.** The accessibility window sits above system UI panels, so the rotate-suggestion button (auto-rotate off, gesture navigation) can be hidden under a mask; tapping there still works (D32).
+19. **Precise is Android 14+ and model-bound (D35).** It needs window screenshots, so Device A (Android 13) runs Balanced instead. While scrolling, new content shows until NudeNet's frame verdict lands (~100-200 ms on Device B), and masks trail moving content by up to the 400 ms screenshot gap (Android allows one per 333 ms). NudeNet's weights are gitignored: copy `nudenet_320n.onnx` into `app/src/main/assets/` before building (D24).
 
 ---
 

@@ -984,8 +984,8 @@ Amends D32's "no window content". M5 verification moves to D35, then D36.
 
 ## D35 — NudeNet box masks, an experiment on window shots (2026-10-05, human decision, ticket 17)
 
-Outside SPEC §1.3 ("Precise preset (bounding-box detector model)") on purpose, like D24: debug menu
-only. M5 verification moves to D36.
+Started outside SPEC §1.3 ("Precise preset (bounding-box detector model)") on purpose, like D24;
+now in scope as the Precise preset (amendment below). M5 verification moves to D36.
 
 - **What.** With NudeNet picked and "Peek under mask" on (API 34+), its unsafe boxes (score >= 0.3,
   padded 10 %) are drawn as camo masks. Frames can only add masks: they can't see under one. Every
@@ -1000,6 +1000,11 @@ only. M5 verification moves to D36.
   Human: "great results"; on scroll, new content shows for ~100-200 ms until a frame's detection
   lands (model speed), and masks trail moving content by up to the 400 ms shot gap.
 - **Device A cannot run it** (API 33: no window shots; 320n at 106 ms per frame, D24).
-- **Open (human):** whether the demo shows it as a "Precise (experimental, Android 14+)" mode. Until
-  then it stays behind the debug menu, and tiles remain the protection on both devices.
+- **Amended 2026-10-05 (human): in the demo, as the Precise preset.** Reason: the most impressive
+  result for the demo. Scope addition to SPEC §1.2; the §1.3 "Precise preset" row is removed.
+  Precise = NudeNet 320n box masks wherever window shots work; elsewhere (Device A, service off
+  mid-session) it runs Balanced tiles. Sensitivity does not apply (fixed box score 0.3). Light and
+  Balanced stay the main protection; the demo shows Precise on Device B. NudeNet's weights stay
+  gitignored (D24): a demo build needs `nudenet_320n.onnx` copied into the assets first. SPEC §7
+  item 19.
 
