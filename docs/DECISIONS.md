@@ -1061,3 +1061,104 @@ a calibration knob). Rejected: two SAFE probe frames to release (doubles every p
   the tile 8 of 15 / 7 of 16 times before, 8 of 18 / 8 of 18 after.
 - **Episode log (M6):** each fast re-mask is a CLEAR -> MASKED, so it logs as a new episode, as a
   flip already did.
+
+## D38 — PIN, unlock and gating: one door (2026-10-05, human decisions, `.scratch/m6-parent-app/` ticket 01)
+
+- **One door.** Status opens with no PIN (on/off, preset, Start, "Settings (parent)"). **Stop** and
+  **opening Settings** need the PIN; everything behind Settings is gated by being there: preset,
+  sensitivity, peek, show-label, Change PIN, Log, Clear log, debug menu. One rule, one V1 test.
+  Overrides D28's "show-label needs no PIN". Rejected: per-action gating by direction (stricter
+  passes, weaker prompts), a Settings screen where some controls prompt and others don't.
+- **Unlock** (in memory, held in `AppContainer`): ends 2 min after the last PIN-gated action, or
+  at once when `MainActivity` stops (background or screen off) unless `isChangingConfigurations`
+  (rotation recreates the activity), or when the process dies. Covers the Parent handing the phone
+  over. Leaving for a system Settings page from behind the door relocks; intended. The wizard runs
+  only while no PIN exists and does not depend on the unlock.
+- **Lockout:** 5 wrong attempts -> 30 s, doubling, capped at 1 h (no recovery, so no multi-day
+  lockouts). Count and lock-until persisted in SharedPreferences on `elapsedRealtime` +
+  `Settings.Global.BOOT_COUNT`; after a reboot the current lockout restarts at full length. Resets
+  only on a correct PIN. Rejected: in memory only (one force-stop would beat V1).
+- **Hash:** `PBKDF2WithHmacSHA256` (javax.crypto, API 26+), 16-byte SecureRandom salt, iteration
+  count fixed for ~150 ms per check on Device A, run on `Dispatchers.Default`. A 4-6 digit PIN
+  falls to brute force once the hash is read; the sandbox is the real protection, the hash meets
+  "never plaintext".
+- **PIN pad:** a Compose screen in `MainActivity`; `PinPromptActivity` is dropped (every gated
+  action is already in `MainActivity`). Typed digits are not kept in saved instance state.
+- **Debug menu:** 7 taps on the version label at the bottom of Settings, every build (the demo may
+  run a release build and Test Feed is its fallback). Holds Test Feed, Benchmark, mask look, debug
+  pill, model pick (D24), raw slider (in memory). The bottom-bar tabs go; preset, Precise and peek
+  move to Parent Settings. The notification loses Stop in every build. Debug-build-only stays:
+  starting without the accessibility service (D32).
+- **Change PIN** (human scope addition to SPEC §1.2): a Settings row reusing the wizard's create +
+  confirm screens.
+
+## D39 — The Log: per-screen masking episodes (2026-10-05, human decisions, `.scratch/m6-parent-app/` ticket 02)
+
+- **Masking episode is per screen, not per tile:** the screen going from no masks to at least one,
+  in every preset. Probing/peeking tiles count as masked, so probes and the rotation cover never
+  split it; masks that return within 3 s of the screen clearing (D37's `RECENT_RELEASE_MS`)
+  continue it. Judged on the tracker / box state, not what is drawn (a Sophiel screen hiding the
+  masks doesn't end it). A new session starts a new one. One entry, written at the start. Pure
+  logic, JVM test with a fake clock. Reason: per tile, one photo over three tiles was three entries
+  and a "masked" entry's tile count was always 1; Precise boxes have no identity; "N masks today"
+  should mean "N times something was hidden". Human: also keeps the Log independent of grid size
+  and of NudeNet. Supersedes D37's "Episode log" note: only a re-mask more than 3 s after the
+  screen cleared is a new episode. CONTEXT updated.
+- **Masked entry:** time, effective preset, tile or box count at the start, raw max score. The Log
+  screen draws bands at the sensitivity cut-offs (>= 0.85 "hidden even on Relaxed", 0.70-0.85,
+  0.55-0.70); none for Precise (NudeNet's scale). Raw score keeps bands redrawable.
+- **Unanalyzable:** one entry per protected stretch lasting >= 1 s, checked on the next frame or a
+  1 s timer (a still secure screen sends no frames, D18). Filters the mid-rotation black frames (D36).
+- **Off reasons:** user stop; screen off (`isInteractive` false at teardown); system ended (the
+  projection ended with the screen on). **Inferred gap:** a last-alive time written once a minute
+  while running; on the next start an ON with no OFF gets an OFF at that time, reason "phone
+  restarted" if the boot count changed, else "app was closed" (a Child's force-stop). ON is written
+  at `onProjectionAcquired`, so a failed start logs nothing. ON records preset and sensitivity;
+  mid-session settings changes are not logged.
+- **File:** `filesDir/log.csv`, one line per entry, wall clock. Appends drop lines older than 7 days;
+  reads filter by age too. "Today" is since local midnight. SPEC §7 item 7 notes the wall clock.
+
+## D40 — Settings changes apply through the cover path (2026-10-05, human decisions, `.scratch/m6-parent-app/` ticket 03)
+
+- **Sensitivity is a live threshold** read by `PolicyEngine`; the raw slider writes the same value.
+  `VerdictCache` stores scores and severity is recomputed every frame, so no detector rebuild or
+  cache clear.
+- **One rule for every judging change** (preset, sensitivity, raw slider, Precise falling back to
+  Balanced or coming back): with anything masked, take the cover path; with nothing masked, just
+  switch. Into tiles: D33's whole-screen cover, wait for a frame showing it (or 1 s), then every
+  tile PROBING. Into Precise: keep the cover, take a window shot at once, draw its boxes, drop the
+  cover (failed shot: after 1 s). Widens D29/D33's "a preset change takes the same path".
+  Changes land on the first frame after the Parent leaves Sophiel (frames are dropped meanwhile).
+- **Fixes a gap:** a judge switch (`wantedModel()` -> `judge.close()` -> `openJudge()`) cleared every
+  mask and the new judge started from nothing (a new tile loop needs 2 flagged frames, ~400-600 ms
+  on A plus model load), including Precise's fallback when the service is turned off mid-session.
+- Cost: one whole-screen probe per change (73-218 ms, D33); none with peek on or into Precise.
+  M6 V4 measures it. Rejected: cover only when loosening (a second branch to save a rare probe);
+  no cover for sensitivity (a hash-locked false positive stays masked until a neighbour changes, D25).
+- **Precise on screen:** disabled with "Android 14+" below API 34; when it falls back, Status shows
+  "Precise — running Balanced (accessibility off)". Sensitivity stays selectable with Precise picked
+  (it applies when Precise falls back).
+- **Plumbing:** `SettingsRepository` in memory, loaded once from SharedPreferences, write-through;
+  the session reads it per frame; Compose observes a `StateFlow`. Peek and show-label apply live with
+  no cover (show-label redraws when the Parent leaves). `livePreset`, `precise`, `peekUnderMask`
+  leave `AppContainer`; the debug `liveModel` stays there.
+
+## D41 — Restricted settings and accessibility service state (2026-10-05, research, `.scratch/m6-parent-app/` ticket 04)
+
+Facts from AOSP 13-16 source; One UI is closed source and unverified. Full findings:
+`.scratch/m6-parent-app/research/04-restricted-settings.md`. Corrects D32's wording.
+
+- **Only file-manager or browser installs are restricted** (package source `LOCAL_FILE` /
+  `DOWNLOADED_FILE`). `adb install` and Android Studio are not, on 13-16. D32's "a sideloaded APK
+  needs Allow restricted settings" holds only for those installs.
+- **Allowing it:** tap the greyed service first (its dialog arms the option), then App info > ⋮ >
+  "Allow restricted settings" (lock-screen check), then turn the service on. An already-enabled
+  service is never greyed out.
+- **The app can't detect it** (the app-op and Android 15+'s Enhanced Confirmation are system-only)
+  and can't deep-link to its own service page (`ACTION_ACCESSIBILITY_DETAILS_SETTINGS` is guarded).
+  Usable links: `ACTION_APPLICATION_DETAILS_SETTINGS`, `ACTION_ACCESSIBILITY_SETTINGS`.
+- **Enabled vs bound:** `Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES` = ticked;
+  `getEnabledAccessibilityServiceList()` = actually bound; `addAccessibilityServicesStateChangeListener`
+  (API 33) fires on bind.
+- **Force-stop un-ticks the service** (Settings or `am force-stop`): the Parent must turn it on
+  again. An update keeps it; uninstall clears it and the restricted-settings allowance. SPEC §7 item 6.

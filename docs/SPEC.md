@@ -60,8 +60,8 @@ The UI and the experience of it (it should feel quick and light) are the product
 - Three presets: **Light** (whole frame as one tile), **Balanced** (2 columns × 3 rows), and **Precise** (experimental, Android 14+): NudeNet 320n's boxes masked, refreshed by window screenshots (D35). Where screenshots aren't possible (Device A, the service turned off) Precise runs Balanced.
 - Noise masks (optional lock chip + "Hidden by Sophiel" label, a Parent setting) that let touches pass through.
 - An accessibility service that hosts the mask window, so masks draw opaque (D32). No events. Window content only to screenshot the app window under a mask (API 34+): for Precise (D35), and so a tile probe can judge it without lifting the mask (an option, D34). Required to start protection in release builds; debug builds may start without it on the 0.79 app overlay.
-- Parent screens: Status, Setup wizard, PIN unlock, Settings (Strict / Normal / Relaxed, preset, show-label toggle), Log.
-- A hidden debug menu (Test Feed, debug pill, raw threshold slider).
+- Parent screens: Status, Setup wizard, PIN unlock, Settings (Strict / Normal / Relaxed, preset, show-label toggle, peek under mask, Change PIN), Log. Change PIN is a human scope addition (D38).
+- A hidden debug menu in every build (Test Feed, Benchmark, mask look, debug pill, model pick, raw threshold slider).
 - A permission-free **Test Feed** for development and as the demo fallback.
 
 ### 1.3 Explicitly out of scope
@@ -124,9 +124,9 @@ app/src/main/kotlin/dev/sophiel/
   capture/   ProjectionService, ProjectionController, ProjectionStateMachine,
              CaptureSession, FrameSource, FrameThrottle, BlackFrameDetector   (done, verified)
   overlay/   OverlayController, TileMaskView                                    ← NEW (M5)
-  pin/       PinStore, PinPromptActivity                                        ← NEW (M6)
-  log/       EventLog (plain file in app storage, pruned on write)              ← NEW (M6)
-  settings/  SettingsRepository (SharedPreferences)                             ← NEW (M6)
+  pin/       PinStore (PBKDF2 hash, persisted lockout); PIN pad is a Compose screen ← NEW (M6, D38)
+  log/       EventLog (log.csv in app storage, pruned on write)                 ← NEW (M6, D39)
+  settings/  SettingsRepository (in memory, SharedPreferences write-through)    ← NEW (M6, D40)
   ui/        Status, Setup, Unlock, Settings, Log screens, theme                ← NEW (M5/M6)
   feed/      TestFeedScreen
   debug/     DebugPillOverlay, debug menu
@@ -197,7 +197,7 @@ PROBING ──hash differs──▶ classify ──≥ threshold──▶ MASKED
 
 ### 3.5 Sensitivity and presets
 
-Parent-facing: **Strict / Normal / Relaxed**, each mapped to a score threshold in code (values tuned in M4; Normal starts at the old 0.70). `PolicyEngine` is a stateless mapping (§3.3); its SUGGESTIVE cutoff already exists (D11) and is reserved for the stretch tier. Preset is a separate **Light / Balanced / Precise** choice with a one-line speed-vs-precision description. Sensitivity applies to Light and Balanced; Precise masks NudeNet boxes scoring 0.3 or more (D35). The raw threshold slider exists only in the debug menu.
+Parent-facing: **Strict / Normal / Relaxed**, each mapped to a score threshold in code (values tuned in M4; Normal starts at the old 0.70). `PolicyEngine` is a stateless mapping (§3.3); its SUGGESTIVE cutoff already exists (D11) and is reserved for the stretch tier. Preset is a separate **Light / Balanced / Precise** choice with a one-line speed-vs-precision description. Sensitivity applies to Light and Balanced, including Precise when it falls back to Balanced; Precise masks NudeNet boxes scoring 0.3 or more (D35). The raw threshold slider exists only in the debug menu. A change applies mid-session through the rotation cover path (D40).
 
 ### 3.6 Skin gate
 
@@ -321,19 +321,20 @@ M0–M3 are **done and reused**: skeleton, model + parity gate, pipeline + Test 
 
 **Deliverables.**
 
-- **Setup wizard:** create a 4–6 digit PIN (confirm) → overlay permission → accessibility service (D32; on Android 13+ a sideloaded APK first needs App info > "Allow restricted settings", and the wizard says how) → notification permission → preset + sensitivity → start (consent). No PIN recovery; the wizard says so.
-- **Status** (opens with no PIN): on/off, active preset, "Settings (parent)". Starting needs no PIN. Anything that weakens protection needs the PIN: stop, change preset or sensitivity, view the log. An unlock lasts ~2 minutes.
-- **Settings:** Strict / Normal / Relaxed, Light / Balanced / Precise (Precise only on Android 14+), show-label toggle (no PIN needed). `SettingsRepository` (`SharedPreferences`). The PIN is stored as a salted hash, never plaintext. Five wrong attempts lock the prompt for 30 s, doubling on repeats.
-- **Log** (plain file, pruned on write): kinds masked (time, tiles masked, score band), protection on, protection off (reason: user stop / screen off / system ended), unanalyzable. **One masked entry per masking episode** (a tile going CLEAR → MASKED), never per frame or per re-mask after a probe. Scalars only: no frames, no app names. Kept 7 days; "Clear log" behind the PIN; summary "N masks today". A gap from a killed app or reboot is inferred on next start.
-- **Notification:** no Stop action; stopping from the app needs the PIN. "Paused — tap to resume" stays.
-- **Debug menu:** 7 taps on the version label + PIN. Holds Test Feed, debug pill, raw slider.
+- **Setup wizard:** create a 4–6 digit PIN (confirm) → overlay permission → accessibility service (D32; on Android 13+ an APK installed from a file manager or browser, not `adb install`, first needs App info > "Allow restricted settings", and the wizard says how, D41) → notification permission → preset + sensitivity → start (consent). No PIN recovery; the wizard says so. The wizard runs only while no PIN exists and does not depend on the unlock.
+- **Status** (opens with no PIN): on/off, active preset (the effective one when Precise falls back: "Precise — running Balanced (accessibility off)"), Start, "Settings (parent)". Starting needs no PIN.
+- **One door (D38):** **Stop** and **opening Settings** need the PIN; everything behind Settings is gated by being there (preset, sensitivity, peek, show-label, Change PIN, Log, Clear log, debug menu). PIN pad is a Compose screen in `MainActivity`. An unlock ends 2 minutes after the last PIN-gated action, or at once when Sophiel goes to the background or the screen turns off (not on rotation), or when the process dies.
+- **Settings:** Strict / Normal / Relaxed, Light / Balanced / Precise (Precise disabled with "Android 14+" below API 34), show-label toggle, peek under mask (D34), Change PIN (the wizard's create + confirm). `SettingsRepository` (D40). The PIN is a `PBKDF2WithHmacSHA256` hash with a 16-byte salt, ~150 ms per check on Device A, off the main thread. Five wrong attempts lock the prompt for 30 s, doubling to at most 1 h; the lockout is persisted (`elapsedRealtime` + boot count) and survives force-stop and reboot.
+- **Log** (`log.csv`, pruned on write, D39): kinds masked (time, effective preset, tile or box count, raw max score; the screen shows bands at 0.85 / 0.70 / 0.55, none for Precise), protection on (preset, sensitivity), protection off (reason: user stop / screen off / system ended), unanalyzable (a protected stretch of 1 s or more). **One masked entry per masking episode**: the screen going from no masks to some, in any preset; probes don't split it, and masks that return within 3 s of the screen clearing continue it. Scalars only: no frames, no app names. Kept 7 days; "Clear log" behind the PIN; summary "N masks today" (since local midnight). A gap from a killed app or reboot is inferred on next start from a once-a-minute last-alive time, as "app was closed" or "phone restarted".
+- **Notification:** no Stop action in any build; stopping from the app needs the PIN. "Paused — tap to resume" stays.
+- **Debug menu:** 7 taps on the version label at the bottom of Settings (already behind the PIN), every build. Holds Test Feed, Benchmark, mask look, debug pill, model pick, raw slider (in memory only). Starting without the accessibility service stays debug-build-only (D32).
 
 **Verification**
 
-- `V1` — Every weakening action prompts for the PIN; the PIN is not stored in plaintext; five wrong attempts lock the prompt.
-- `V2` — The log records masks (one per episode), on/off with a reason, and unanalyzable screens; a unit test with a fake clock proves entries older than 7 days are pruned.
+- `V1` — Stop and opening Settings prompt for the PIN; the PIN is not stored in plaintext; five wrong attempts lock the prompt, and a force-stop does not clear the lockout.
+- `V2` — The log records masks (one per per-screen episode), on/off with a reason, and unanalyzable screens; unit tests with a fake clock prove the episode rule and that entries older than 7 days are pruned.
 - `V3` — Wizard completes from a cold install on both devices.
-- `V4` — Changing sensitivity or preset takes effect without restarting the service.
+- `V4` — Changing sensitivity or preset takes effect without restarting the service. With something masked it takes the cover path (D40); its exposure is measured in ms, median and worst, as M5 V3 measured rotation.
 
 **At the end of this week, stop adding features.** Week 4 allows only bug fixes and docs.
 
@@ -369,8 +370,8 @@ Copy into `docs/LIMITATIONS.md` and expand with measured numbers.
 3. **Tile granularity.** Masks are tile-sized, not object-sized. Content that straddles tiles is judged per tile and can score below the threshold in each. Measured in M4 (D26): feed-sized content is still caught (6-7 of 8 straddling the centre line), but content about one tile in size that sits on a boundary is mostly missed, and a whole-frame pass does not catch it either, so there is no safety net. A mask can also cover more than the content.
 4. **`FLAG_SECURE` blindness.** Secure windows (banking apps, incognito) yield black frames and cannot be analysed; the Log records them as unanalyzable.
 5. **Consent friction.** Fresh consent every session. Protection cannot survive a reboot or screen-off silently; Android 15+ ends the projection on a secure lock. "Paused — tap to resume" makes it one tap.
-6. **The Child can end it.** None of these can be blocked without root or Device Admin: the system screen-share indicator, Android 13+'s "Active apps" panel in Quick Settings, force-stopping the app, revoking the overlay permission, clearing app data (which also resets the PIN and wipes the log), or uninstalling. There is no PIN recovery. No tamper resistance.
-7. **Log gaps.** If the app is killed or the phone reboots, no "off" entry can be written; the gap is inferred on next start.
+6. **The Child can end it.** None of these can be blocked without root or Device Admin: the system screen-share indicator, Android 13+'s "Active apps" panel in Quick Settings, force-stopping the app, revoking the overlay permission, clearing app data (which also resets the PIN and wipes the log), or uninstalling. Force-stopping also turns the accessibility service off, so release builds can't start again until the Parent turns it back on (D41). There is no PIN recovery. No tamper resistance.
+7. **Log gaps.** If the app is killed or the phone reboots, no "off" entry can be written; the gap is inferred on next start from a last-alive time kept once a minute, so its end is accurate to about a minute. Log times use the wall clock, which the Child can change to scramble them (D39).
 8. **Threshold is a value judgement.** "Explicit" is contextual; sensitivity is Parent-set because no single value is right.
 9. **Single-model bias.** Inherits the biases of its training data (GantMan MobileNetV2, D12).
 10. **Overlay gaps.** System dialogs and parts of system UI cannot be covered; Android 15+ hides other apps' notifications while sharing (D16).
