@@ -21,7 +21,7 @@ STATUS:             M5 verified on A and B (D36): V1-V5 pass; probe exposure med
                     an EXPLICIT verdict).
 BLOCKED ON:         Nothing.
 NEXT:               M6 Parent app: planning map charted 2026-10-05 at .scratch/m6-parent-app/map.md
-                    (tickets 01-08; 01-04 resolved and in SPEC as D38-D41; frontier 05, 06). Ticket 15 done (D37: fast re-mask within 3 s of a
+                    (tickets 01-08; all resolved but 06 look prototype; decisions D38-D43 in SPEC). Ticket 15 done (D37: fast re-mask within 3 s of a
                     release; exposure per flip A 154/295 ms, B 135/204).
                     FEATURE FREEZE end of week 3 (end of M6), then M7.
 ```

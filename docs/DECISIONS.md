@@ -1162,3 +1162,55 @@ Facts from AOSP 13-16 source; One UI is closed source and unverified. Full findi
   (API 33) fires on bind.
 - **Force-stop un-ticks the service** (Settings or `am force-stop`): the Parent must turn it on
   again. An update keeps it; uninstall clears it and the restricted-settings allowance. SPEC §7 item 6.
+
+## D42 — Setup wizard, live service check, masks follow the service (2026-10-05, human decisions + Device A run, `.scratch/m6-parent-app/` tickets 05 and 07)
+
+**Device A run (ticket 05, One UI 5, debug build, wireless adb).**
+
+- **D36's 0.79 start explained.** After an update the service stays ticked but unbound until ~1.8 s
+  after the app opens, and Status read `MaskWindowService.instance` only in `onResume`, before the
+  bind: the note "Accessibility off" stayed 25 s later. Debug builds start anyway (0.79); release
+  would keep Start disabled until the next resume. The test (bound) was right; reading it once was not.
+- Force-stop un-ticks the service (D41 confirmed). Enabling it in Settings binds at once. A Recents
+  swipe and screen-off keep it bound.
+- **The accessibility shortcut** (human used it) turns the service off in one tap, and the masks
+  then stayed at 0.79 for the rest of the session even after it came back (D32).
+- **Play Protect blocks file-manager installs** on A: developer verification passed (`[ADV]
+  VERIFICATION_ALLOW`), the local scan was clean, then a server verdict `response=11 ...
+  enable_ecm=true` rejected it ("App not installed", no override; likely enhanced fraud protection,
+  inferred). With scanning off it installs, and One UI's restricted flow matches AOSP: "Restricted
+  setting" dialog, App info > ⋮ > "Allow restricted settings" behind the lock screen, then the
+  switch enables. adb installs have neither problem. SPEC §7 item 20.
+- **Samsung sleeping apps:** "Put unused apps to sleep" is on by default. App info > Battery >
+  Unrestricted put Sophiel on the deviceidle allow list but **not** on "Never auto sleeping apps"
+  (count stayed 0). Both are needed. SPEC §7 item 21.
+- `uiautomator dump` briefly unbinds accessibility services: never use it during a measured run.
+
+**Wizard (ticket 07, human).**
+
+- Runs on launch whenever no PIN exists; ends by starting protection, then Status (a cancelled
+  consent lands on Status with setup complete).
+- Steps: PIN + confirm (no recovery) -> overlay (required: D32's fallback) -> accessibility ->
+  keep awake (Unrestricted + Never auto sleeping apps; text and an App info button, no new
+  permission) -> notifications (skippable, degraded) -> preset + sensitivity (Balanced + Normal;
+  Precise disabled below API 34, "experimental" above) -> start ("Entire screen" on Android 14
+  QPR2+, D21). Linear with Back; granted steps show done and move on by themselves.
+- Accessibility step: completes on **bound, checked live**; always-there collapsed help for a
+  greyed switch (undetectable, D41); tells the Parent to leave the shortcut off; "Skip (debug)".
+- After setup the wizard never re-runs: Status shows a "Needs attention" card per missing item
+  (overlay, service, notifications) with a fix button, no PIN. Release Start is disabled while the
+  service is unbound or overlay is missing, checked live. The battery item can't be detected, so
+  it is wizard-only.
+- **Masks follow the service (amends D32):** when the service binds again mid-session, the masks
+  move back to the opaque accessibility window, new window added before the old is removed.
+  Replaces D32's "takes effect on the next protection start". Reason: the run showed one shortcut
+  tap downgrades the whole session.
+- V3 is spelled out step by step in SPEC M6; it ends on `mask window: accessibility, alpha 1.0`.
+
+## D43 — Parent UI language and theme (2026-10-05, human decision, `.scratch/m6-parent-app/` ticket 06 inputs)
+
+Human scope addition to SPEC §1.2. All app text is bilingual, **Spanish first**: the default
+`values/strings.xml` is Spanish, English lives in `values-en/`, and every user-facing string goes
+through resources from the start. Material You dynamic colour (both devices are Android 12+, with a
+fixed fallback scheme below API 31), light theme only. Feel: approachable, calm and helpful. The
+look itself is settled by the ticket 06 prototype.
