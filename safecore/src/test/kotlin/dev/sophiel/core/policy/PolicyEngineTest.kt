@@ -5,7 +5,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class PolicyEngineTest {
-    private val engine = PolicyEngine(explicitThreshold = 0.70f, suggestiveThreshold = 0.35f)
+    private val engine = PolicyEngine(0.70f)
 
     @Test
     fun `scores map to severities and the mapping holds no state`() {
@@ -14,5 +14,16 @@ class PolicyEngineTest {
             assertEquals(Severity.SUGGESTIVE, engine.classify(0.5f))
             assertEquals(Severity.EXPLICIT, engine.classify(0.9f))
         }
+    }
+
+    @Test
+    fun `a threshold change applies on the next classify (D40)`() {
+        var threshold = 0.70f
+        val live = PolicyEngine { threshold }
+        assertEquals(Severity.SUGGESTIVE, live.classify(0.6f))
+        threshold = 0.55f
+        assertEquals(Severity.EXPLICIT, live.classify(0.6f))
+        threshold = 0.85f
+        assertEquals(Severity.SUGGESTIVE, live.classify(0.6f))
     }
 }

@@ -31,6 +31,7 @@ import dev.sophiel.feed.Detection
 import dev.sophiel.feed.NudeNet
 import dev.sophiel.feed.SpikeModel
 import dev.sophiel.feed.unsafeScore
+import dev.sophiel.settings.ParentPreset
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -62,9 +63,10 @@ class CaptureSession(
     private val projection: MediaProjection,
     private var size: CaptureSize,
     private val onStatus: (String) -> Unit,
-    private val settings: AppContainer,
+    private val container: AppContainer,
 ) {
     private val appContext = context.applicationContext
+    private val settings get() = container.settings.value // D40: read per frame
 
     // Spike (D24): swapped between frames when the picked model changes. Only touched from the
     // single in-flight frame job, then from close() once that job has finished.
@@ -74,7 +76,7 @@ class CaptureSession(
     // One lane: frame jobs and probe timeouts both touch the tile tracker, which is not thread-safe.
     private val scope = CoroutineScope(Dispatchers.Default.limitedParallelism(1) + Job())
     private val debugPill = if (context.isDebuggable) DebugPillOverlay(context).also { it.show() } else null
-    private val overlay = OverlayController(context).also { it.show() }
+    private val overlay = OverlayController(context) { settings.showLabel }.also { it.show() }
 
     // Frame being analysed, if any. New frames are dropped while it runs (SPEC.md §4.5): the
     // throttle alone let frames queue on the single inference thread whenever analysis took
@@ -114,13 +116,13 @@ class CaptureSession(
 
     /** Called on the FrameSource thread before an Image is decoded; false drops it undecoded. */
     private fun wantsFrame(): Boolean =
-        !closed && !settings.ownScreens.showing.value && inFlight?.isActive != true &&
+        !closed && !container.ownScreens.showing.value && inFlight?.isActive != true &&
             throttle.shouldProcess(SystemClock.elapsedRealtime())
 
     // Ticket 09: on the lane, so the tracker is only touched there. Frames are dropped meanwhile (wantsFrame).
     init {
         scope.launch {
-            settings.ownScreens.showing.collect { own ->
+            container.ownScreens.showing.collect { own ->
                 overlay.setHidden(own)
                 judge?.ownScreen?.invoke(own)
             }
@@ -211,9 +213,9 @@ class CaptureSession(
     /** Ticket 16: the tile peek option is on and a window shot is possible. Off falls back to probes. */
     private fun peekMode() = settings.peekUnderMask && canShoot()
 
-    /** D35: Precise is NudeNet 320n box masks where shots work, else [AppContainer.livePreset] tiles (Balanced). */
+    /** D35: Precise is NudeNet 320n box masks where shots work, else Balanced tiles. */
     private fun wantedModel() = when {
-        !settings.precise -> settings.liveModel
+        settings.preset != ParentPreset.PRECISE -> container.liveModel
         canShoot() -> SpikeModel.NUDENET_320N
         else -> SpikeModel.GANTMAN
     }
@@ -241,7 +243,7 @@ class CaptureSession(
         private var lastShotAt = 0L
 
         suspend fun run(frame: Bitmap): String {
-            val preset = settings.livePreset
+            val preset = settings.preset.tiles
             if (grid != Triple(preset, frame.width, frame.height)) { // rotation or preset change
                 grid = Triple(preset, frame.width, frame.height)
                 if (shown.any { it != CLEAR }) {
@@ -480,7 +482,7 @@ class CaptureSession(
     )
 
     private fun openJudge(model: SpikeModel): Judge = when (model.asset) {
-        null -> TileLoop(DetectorFactory.create(appContext)).let { Judge(model, it::run, it::close, it::ownScreen, it::protectedFrame) }
+        null -> TileLoop(DetectorFactory.create(appContext, container::threshold)).let { Judge(model, it::run, it::close, it::ownScreen, it::protectedFrame) }
         else -> BoxLoop(NudeNet.load(appContext, model.asset, model.inputSize), model).let { Judge(model, it::run, it::close) }
     }
 
@@ -500,7 +502,7 @@ class CaptureSession(
             while (true) {
                 delay(SHOT_INTERVAL_MS)
                 // Nothing masked: frames see everything. Our screen in front: a shot of it would drop every mask.
-                if (canShoot() && drawn.isNotEmpty() && !settings.ownScreens.showing.value) shoot()
+                if (canShoot() && drawn.isNotEmpty() && !container.ownScreens.showing.value) shoot()
             }
         }
 

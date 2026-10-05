@@ -166,7 +166,7 @@ interface Detector {
 }
 ```
 
-Per-tile emission exists for feel: a flagged tile is masked after its own classification, not after the slowest tile in the sweep. `DetectorFactory.create(context, threshold)` stays; the threshold comes from the Parent's sensitivity (§3.5). `PolicyEngine` becomes a stateless score-to-severity mapping; its old engage/release counters move into the tracker.
+Per-tile emission exists for feel: a flagged tile is masked after its own classification, not after the slowest tile in the sweep. `DetectorFactory.create(context, threshold)` stays; the threshold comes from the Parent's sensitivity (§3.5) and is a provider read per tile, so a change applies without a rebuild (D40). `PolicyEngine` becomes a stateless score-to-severity mapping; its old engage/release counters move into the tracker.
 
 ### 3.4 Tile state machine (`TileMaskTracker`, pure logic)
 

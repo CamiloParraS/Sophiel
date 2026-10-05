@@ -28,6 +28,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -46,11 +47,12 @@ import dev.sophiel.capture.MaskWindowService
 import dev.sophiel.capture.ProjectionController
 import dev.sophiel.capture.ProjectionService
 import dev.sophiel.capture.isDebuggable
-import dev.sophiel.core.Preset
+import dev.sophiel.core.Sensitivity
 import dev.sophiel.feed.SpikeModel
 import dev.sophiel.feed.benchmarkScreen
 import dev.sophiel.feed.maskLookScreen
 import dev.sophiel.feed.testFeedScreen
+import dev.sophiel.settings.ParentPreset
 
 /** Top-level app destinations. Benchmark is the heavy-model spike (branch spike/heavy-models). */
 private enum class Destination { Status, TestFeed, Benchmark, Masks }
@@ -238,13 +240,13 @@ private fun statusScreen(controller: ProjectionController, container: AppContain
     }
 }
 
-/** Spike and experiment switches (D24, D34, D35), live between frames. Move to M6's debug menu. */
+/** Spike and experiment switches (D24, D34, D35) and the Parent settings (D40), live between frames. Move to M6's debug menu and Settings. */
 @Composable
 private fun debugChips(container: AppContainer) {
+    val settings by container.settings.state.collectAsState()
     var liveModel by remember { mutableStateOf(container.liveModel) }
-    var livePreset by remember { mutableStateOf(container.livePreset) }
-    var peek by remember { mutableStateOf(container.peekUnderMask) }
-    var precise by remember { mutableStateOf(container.precise) }
+    var override by remember { mutableStateOf(container.thresholdOverride) }
+    val precise = settings.preset == ParentPreset.PRECISE
     // Window shots (D34) need Android 14+; the accessibility service is checked live by the session.
     val canShoot = Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -259,31 +261,47 @@ private fun debugChips(container: AppContainer) {
                 )
             }
         }
+        // D35: where shots stop working mid-session (service off), Precise runs Balanced tiles.
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Preset.entries.forEach { p ->
+            ParentPreset.entries.forEach { p ->
+                val available = p != ParentPreset.PRECISE || canShoot
                 FilterChip(
-                    selected = !precise && p == livePreset,
-                    onClick = { precise = false; container.precise = false; livePreset = p; container.livePreset = p },
-                    label = { Text(p.name) },
+                    selected = p == settings.preset,
+                    onClick = { container.settings.update { it.copy(preset = p) } },
+                    enabled = available,
+                    label = { Text(if (available) p.name else "${p.name} (Android 14+)") },
                 )
             }
-            // D35: where shots stop working mid-session (service off), Precise runs Balanced tiles.
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Sensitivity.entries.forEach { s ->
+                FilterChip(
+                    selected = override == null && s == settings.sensitivity,
+                    onClick = { override = null; container.pickSensitivity(s) },
+                    label = { Text(s.name) },
+                )
+            }
+        }
+        // D40: raw cutoff, in memory only; picking a sensitivity clears it.
+        Text("Threshold %.2f%s".format(container.threshold(), if (override != null) " (raw)" else ""), style = MaterialTheme.typography.bodySmall)
+        Slider(
+            value = container.threshold(),
+            onValueChange = { override = it; container.thresholdOverride = it },
+            modifier = Modifier.fillMaxWidth(0.8f),
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            // Ticket 16: needs the accessibility service on as well.
             FilterChip(
-                selected = precise,
-                onClick = {
-                    precise = true; container.precise = true
-                    livePreset = Preset.BALANCED; container.livePreset = Preset.BALANCED
-                },
+                selected = settings.peekUnderMask && canShoot,
+                onClick = { container.settings.update { it.copy(peekUnderMask = !it.peekUnderMask) } },
                 enabled = canShoot,
-                label = { Text(if (canShoot) "PRECISE" else "PRECISE (Android 14+)") },
+                label = { Text(if (canShoot) "Peek under mask" else "Peek under mask (Android 14+)") },
+            )
+            FilterChip(
+                selected = settings.showLabel,
+                onClick = { container.settings.update { it.copy(showLabel = !it.showLabel) } },
+                label = { Text("Show label") },
             )
         }
-        // Ticket 16: live, like the chips above. Needs the accessibility service on as well.
-        FilterChip(
-            selected = peek && canShoot,
-            onClick = { peek = !peek; container.peekUnderMask = peek },
-            enabled = canShoot,
-            label = { Text(if (canShoot) "Peek under mask" else "Peek under mask (Android 14+)") },
-        )
     }
 }

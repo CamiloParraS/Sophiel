@@ -65,13 +65,13 @@ interface Detector {
 /** Entry point for [Detector] construction. See SPEC.md §3.4. */
 object DetectorFactory {
     fun create(context: android.content.Context, sensitivity: Sensitivity = Sensitivity.NORMAL): Detector =
-        create(context, sensitivity.threshold)
+        create(context) { sensitivity.threshold }
 
-    /** Raw cutoff for the debug menu only. @param threshold unsafe-probability cutoff for [Severity.EXPLICIT], in [0,1] */
-    fun create(context: android.content.Context, threshold: Float): Detector =
+    /** @param threshold live unsafe-probability cutoff for [Severity.EXPLICIT], in [0,1], read per tile (D40) */
+    fun create(context: android.content.Context, threshold: () -> Float): Detector =
         DetectionPipeline(
             classifier = NsfwClassifier.load(context),
-            policy = PolicyEngine(explicitThreshold = threshold),
+            policy = PolicyEngine(threshold),
             dispatcher = Executors.newSingleThreadExecutor().asCoroutineDispatcher(),
         )
 }

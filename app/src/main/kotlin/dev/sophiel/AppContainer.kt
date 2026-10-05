@@ -1,9 +1,11 @@
 package dev.sophiel
 
+import android.content.Context
 import dev.sophiel.capture.OwnScreens
 import dev.sophiel.capture.ProjectionController
-import dev.sophiel.core.Preset
+import dev.sophiel.core.Sensitivity
 import dev.sophiel.feed.SpikeModel
+import dev.sophiel.settings.SettingsRepository
 
 /**
  * Manual DI (SPEC.md §2.4/D2): two modules and a handful of app-scoped singletons don't
@@ -11,7 +13,9 @@ import dev.sophiel.feed.SpikeModel
  * read [projectionController] off [SophielApp] so they observe/drive the same session even
  * though the service outlives any single Activity instance.
  */
-class AppContainer {
+class AppContainer(context: Context) {
+    val settings = SettingsRepository(context)
+
     val projectionController = ProjectionController()
 
     /** Ticket 09: a Sophiel screen fills the display; capture hides the masks and pauses. */
@@ -21,22 +25,15 @@ class AppContainer {
     @Volatile
     var liveModel = SpikeModel.GANTMAN
 
-    /** Tile grid live capture uses, picked on the Status screen (debug builds) until the Parent setting (M6). */
+    /** Debug raw cutoff (D40), in memory: cleared by [pickSensitivity] or process death. */
     @Volatile
-    var livePreset = Preset.BALANCED
+    var thresholdOverride: Float? = null
 
-    /**
-     * Ticket 16: judge masked tiles from a window shot instead of lifting the mask (API 34+, needs
-     * MaskWindowService). Picked on the Status screen (debug builds) until the Parent setting (M6).
-     */
-    @Volatile
-    var peekUnderMask = false
+    /** Live [dev.sophiel.core.Severity.EXPLICIT] cutoff, read by the detector per tile (D40). */
+    fun threshold() = thresholdOverride ?: settings.value.sensitivity.threshold
 
-    /**
-     * D35: the Precise preset, NudeNet 320n's boxes masked and refreshed by window shots (API 34+,
-     * MaskWindowService on). Elsewhere it runs [livePreset], set to Balanced when Precise is picked.
-     * Picked on the Status screen (debug builds) until the Parent setting (M6).
-     */
-    @Volatile
-    var precise = false
+    fun pickSensitivity(s: Sensitivity) {
+        thresholdOverride = null
+        settings.update { it.copy(sensitivity = s) }
+    }
 }
