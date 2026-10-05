@@ -22,7 +22,7 @@ STATUS:             M5 verified on A and B (D36): V1-V5 pass; probe exposure med
 BLOCKED ON:         Nothing.
 NEXT:               M6 Parent app. Ticket 15 done (D37: fast re-mask within 3 s of a
                     release; exposure per flip A 154/295 ms, B 135/204).
-                    Then M6 Parent app (FEATURE FREEZE end of week 3), M7.
+                    FEATURE FREEZE end of week 3 (end of M6), then M7.
 ```
 
 Milestones are **strictly sequential**. Do not start M(n+1) until every verification item in M(n) passes. If you believe a milestone should be skipped or reordered, stop and ask.
