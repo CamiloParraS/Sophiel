@@ -412,6 +412,6 @@ python tools/reference_infer.py --fixtures safecore/src/androidTest/assets/fixtu
 - [x] **M3** Capture — frames flowing, all permission paths handled
 - [x] **M3.5** Gate — branches merged; M3 V1–V7 and D21 re-verified on device (2026-10-03)
 - [x] **M4** Tile pipeline — state machine, hash lock, measured cost (D25, D26)
-- [ ] **M5** Overlay — one full-screen noise-mask window, Status screen (D28, D29)
+- [x] **M5** Overlay — one full-screen noise-mask window, Status screen (D28, D29, D36)
 - [ ] **M6** Parent app — wizard, PIN, settings, 7-day log · **FEATURE FREEZE**
 - [ ] **M7** Harden + ship — soak, feel numbers, limitations, demo video

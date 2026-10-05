@@ -11,28 +11,18 @@ Agent entrypoint for **Sophiel**. Read this fully, then read `./docs/SPEC.md`.
 > **Update this block at the end of every work session. It is the first thing you and I both read.**
 
 ```
-CURRENT MILESTONE:  M5 — Overlay (planned 2026-10-03; build not started)
-STATUS:             M3.5 re-check passed on both devices (human). M5 designed: D27 (Reveal
-                    dropped), D28 (one full-screen touch-through window at alpha 0.79, strong-noise
-                    mask, optional lock chip + label as a Parent toggle, mean-colour mask check).
-                    Plan review fixes recorded as D29 (rotation resets into PROBING, tinted noise,
-                    protected probe frame releases the tile, V4/V5, §7 items 14-17).
-                    Build tickets 06-12: .scratch/m5-overlay/issues/ (local, not committed).
-                    D30: camo mask + pattern-correlation check replace strong noise + mean colour.
-                    D31: probe backoff 1-2-4-8 s + owed probes on a static screen. 15 (video
-                    release flips) needs-info: needs a repeatable test clip.
-                    D32: accessibility window draws masks opaque (scope addition); amended:
-                    main path in release, 0.79 app overlay is a debug-only start option.
-                    D33: rotation cover held until seen; ticket 08 done on A and B.
-                    D34: "Peek under mask" debug chip (API 34+): a PEEKING tile is judged from
-                    a window screenshot, mask stays up; failed shots fall back to a probe.
-                    Ticket 16 done on B (2 runs). Becomes a Parent setting in M6.
-                    D35: Precise preset (in the demo, scope addition): NudeNet 320n box masks
-                    refreshed by window shots, Android 14+; Balanced elsewhere. Works on B.
-                    Debug "Masks" tab compares mask looks on a phone.
+CURRENT MILESTONE:  M6 — Parent app (not started). M5 done 2026-10-05 (D36).
+STATUS:             M5 verified on A and B (D36): V1-V5 pass; probe exposure median/worst
+                    A 146/306 ms, B 85/188 ms; after rotation A 220/304, B 129/210.
+                    Release Start gate checked on B only. M5 decisions: D27-D36.
+                    Scope additions in M5: D32 opaque accessibility mask window, D34 peek under
+                    mask (debug chip, Parent setting in M6), D35 Precise preset (B, Android 14+).
+                    Ticket 12 also fixed VerdictCache caching dHash 0 (black tiles inherited
+                    an EXPLICIT verdict).
 BLOCKED ON:         Nothing.
-NEXT:               09, 10, 12 done (B; 12 also fixed VerdictCache hash 0). Next:
-                    11 verify + D36 on A and B (incl. release Start gate, signed APK).
+NEXT:               Ticket 15 (video release flips): test clip being set up (screen recording,
+                    ~200 MB, in gitignored eval/images/m5-video/); bar "common" = >1 in 5
+                    releases re-mask within 3 s (proposed, not yet confirmed by human).
                     Then M6 Parent app (FEATURE FREEZE end of week 3), M7.
 ```
 

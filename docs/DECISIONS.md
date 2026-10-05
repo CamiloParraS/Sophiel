@@ -715,7 +715,7 @@ runs each model whole-frame on the 62 Test Feed images (no skin gate, no cache, 
   in-the-way effect was seen, so no mitigation in the spike.
 - **Score** = max over the EXPOSED buttocks/breast/genitalia/anus classes. Per-class max replaces NMS.
 
-| ms per image (mean / p90) | Device A (A71) | Device B (S24 FE) |
+| ms per image (mean / p90) | Device A (A71) | Device B (S24) |
 | ------------------------- | -------------- | ----------------- |
 | GantMan 224 (shipped)     | 52 / 55        | 27 / 30           |
 | NudeNet 320n              | 106 / 119      | 22 / 26           |
@@ -749,7 +749,7 @@ Test Feed images squashed to a 360×744 portrait frame, 3 runs, fresh verdict ca
 Normal threshold (0.70). Device A plugged in, 70→78 %, 29.6 °C; Device B on battery, 77→74 %,
 31.4→32.6 °C. "Gate off" = every tile classified (worst case).
 
-| ms                         | A71: Light | A71: Balanced | S24 FE: Light | S24 FE: Balanced |
+| ms                         | A71: Light | A71: Balanced | S24: Light | S24 : Balanced |
 | -------------------------- | ---------- | ------------- | ------------- | ---------------- |
 | sweep p50, gate on         | 51         | 252           | 38            | 192              |
 | sweep p90, gate on         | 53         | 309           | 39            | 327              |
@@ -1008,3 +1008,36 @@ now in scope as the Precise preset (amendment below). M5 verification moves to D
   gitignored (D24): a demo build needs `nudenet_320n.onnx` copied into the assets first. SPEC §7
   item 19.
 
+## D36 — M5 verification (2026-10-05, ticket 11, human device runs)
+
+Debug build at `ad80964`, Balanced, accessibility mask window (alpha 1.0). Device A = SM-A715F
+(API 33), Device B = SM-S721B (API 36). Numbers from the run's `Sophiel` logcat; probe exposure is
+`probe tile=N exposureMs`, "after rotation" is a probe within 2.5 s of a capture resize.
+
+| | A | B |
+|---|---|---|
+| V1 masks on flagged tiles, portrait + landscape; touches pass through | pass | pass |
+| V2 static image 10 s, no flicker; releases after content changes | pass | pass |
+| V3 probe exposure, median / worst | 146 / 306 ms (n=26) | 85 / 188 ms (n=20) |
+| V3 after rotation, median / worst (9 / 10 rotations) | 220 / 304 ms (n=12) | 129 / 210 ms (n=12) |
+| V3 shortest gap between probes on one tile | 2121 ms | 2053 ms |
+| V4 "Stop sharing" chip and Quick Settings Stop leave no window; Recents swipe keeps running | pass | pass |
+| V5 secure app releases the mask, no flicker | pass, last tile ~2.1 s after the switch | pass (ticket 12 run 2) |
+
+- **Worst cases sit on the 300 ms probe cap**: a probe that got no valid frame re-masks at 300 ms.
+- **V5 needed a cache fix (ticket 12).** Black tiles hash to dHash 0; a dark tile scored EXPLICIT
+  during an app switch was cached under 0 and re-masked every black probe after it. `VerdictCache`
+  no longer stores hash 0. With several tiles masked the frame is not "mostly black", so ordinary
+  probes release those tiles (black gates SAFE) and `releaseProbes` frees the last one.
+- **V5 on A is slower by design (D31):** every tile released on its first probe after the switch,
+  but three had just re-masked on the real image, so their next probe waited the 2 s backoff gap.
+  That run drew masks on the 0.79 app overlay: the accessibility service was enabled but not yet
+  connected when protection started (not investigated).
+- **Rotation frames can be protected** (A: two black frames mid-rotation). The tracker is paused
+  under the rotation cover, so they change nothing.
+- **Release Start gate (D32), B:** a release build signed with the debug key. With the service off
+  the note shows and Start is disabled; turning it on enables Start. Not run on A.
+- **Own-screen pause (ticket 09)**: checked on B only (masks hide in Sophiel, return unchanged,
+  stay up in split screen).
+- **Open, not an M5 verification item:** ticket 15 (release flips on video), needs-info until
+  there is a repeatable test clip. M5 is ticked on V1-V5.
