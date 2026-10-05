@@ -102,6 +102,28 @@ class TileMaskTrackerTest {
         assertEquals(MASKED, t[0])
     }
 
+    @Test fun `a protected probe frame releases the probing tile and leaves masked ones`() {
+        val t = TileMaskTracker(2, 3)
+        val hashes = listOf(unsafe, 1L, 2L, 3L, 4L, unsafe)
+        t.frame(0, hashes, flagged = setOf(0, 5))
+        t.frame(100, hashes, flagged = setOf(0, 5))
+        t.frame(1100, listOf(mask, 11L, 12L, 3L, 4L, mask), showsMask = setOf(0, 5)) // tile 0's neighbours moved
+        assertEquals(PROBING, t[0])
+        t.releaseProbes(1150) // the probe frame came back FLAG_SECURE black: never scored
+        assertEquals(CLEAR, t[0])
+        assertEquals(MASKED, t[5])
+        t.expireProbes(1500)
+        assertEquals(CLEAR, t[0]) // no 300 ms re-mask behind it
+    }
+
+    @Test fun `a protected frame while paused changes nothing`() {
+        val t = maskedLight()
+        t.frame(2100, listOf(mask))
+        t.pause(2150)
+        t.releaseProbes(2200)
+        assertEquals(PROBING, t[0])
+    }
+
     @Test fun `expireProbes re-masks a lifted tile without a frame, and never starts a probe`() {
         val t = maskedLight()
         t.frame(2100, listOf(mask))

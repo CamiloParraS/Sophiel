@@ -138,6 +138,7 @@ class CaptureSession(
                 val status = if (isProtected(bitmap)) {
                     Log.d(TAG, "protected content (mostly-black frame, likely FLAG_SECURE)")
                     overlay.updateBoxes(emptyList())
+                    judge?.protectedFrame?.invoke()
                     "Protected content — not analyzable"
                 } else {
                     val want = wantedModel()
@@ -292,6 +293,12 @@ class CaptureSession(
             // every frame redraws it, which makes a static screen deliver frames forever.
             return "GantMan · $preset · ${shown.joinToString(" ") { it.name.take(1) }} · " +
                 "${probes.size + if (probeStillMasked) 0 else clears.size} analysed"
+        }
+
+        /** Ticket 12 (D29): a protected frame can't judge a probe, and none later will: release them. */
+        fun protectedFrame() {
+            tracker.releaseProbes(now())
+            publish()
         }
 
         private fun expireLater() = scope.launch {
@@ -468,10 +475,12 @@ class CaptureSession(
         private fun now() = SystemClock.elapsedRealtime()
     }
 
-    private class Judge(val model: SpikeModel, val run: suspend (Bitmap) -> String, val close: () -> Unit, val ownScreen: (Boolean) -> Unit = {})
+    private class Judge(val model: SpikeModel, val run: suspend (Bitmap) -> String, val close: () -> Unit,
+        val ownScreen: (Boolean) -> Unit = {}, val protectedFrame: () -> Unit = {},
+    )
 
     private fun openJudge(model: SpikeModel): Judge = when (model.asset) {
-        null -> TileLoop(DetectorFactory.create(appContext)).let { Judge(model, it::run, it::close, it::ownScreen) }
+        null -> TileLoop(DetectorFactory.create(appContext)).let { Judge(model, it::run, it::close, it::ownScreen, it::protectedFrame) }
         else -> BoxLoop(NudeNet.load(appContext, model.asset, model.inputSize), model).let { Judge(model, it::run, it::close) }
     }
 

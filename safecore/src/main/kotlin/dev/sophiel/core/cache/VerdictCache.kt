@@ -25,8 +25,14 @@ class VerdictCache(private val capacity: Int = 256) {
     /** Returns the cached [TileVerdict] stored under exactly [hash], or null on a miss. */
     fun get(hash: Long): TileVerdict? = entries[hash] // access-order map: a read refreshes LRU recency
 
-    /** Stores [verdict] under [hash], evicting the least-recently-used entry if over [capacity]. */
+    /**
+     * Stores [verdict] under [hash], evicting the least-recently-used entry if over [capacity].
+     * Never under 0: every flat tile hashes to 0 (a black FLAG_SECURE tile too), and so does any
+     * tile that never brightens left to right. A dark tile scored EXPLICIT during an app switch
+     * was cached under 0, then served to every black probe tile after it (Device B, 2026-10-05).
+     */
     fun put(hash: Long, verdict: TileVerdict) {
+        if (hash == 0L) return
         entries[hash] = verdict
     }
 

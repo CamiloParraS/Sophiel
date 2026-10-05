@@ -27,14 +27,22 @@ class VerdictCacheTest {
     }
 
     @Test
+    fun `a flat tile's hash 0 is never cached`() {
+        val cache = VerdictCache()
+        cache.put(0L, verdict.copy(severity = Severity.EXPLICIT, score = 0.86f))
+
+        assertNull(cache.get(0L))
+    }
+
+    @Test
     fun `get misses on a near-duplicate hash`() {
         val cache = VerdictCache()
-        cache.put(0b0000_0000L, verdict)
+        cache.put(0b0001_0000L, verdict)
 
         // One flipped bit: the signature of a single feed thumbnail changing contents.
         // It must re-run the classifier, not reuse the neighbour's verdict.
-        assertNull(cache.get(0b0000_0001L))
-        assertNull(cache.get(0b0000_1111L))
+        assertNull(cache.get(0b0001_0001L))
+        assertNull(cache.get(0b0001_1111L))
     }
 
     @Test

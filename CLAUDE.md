@@ -31,8 +31,8 @@ STATUS:             M3.5 re-check passed on both devices (human). M5 designed: D
                     refreshed by window shots, Android 14+; Balanced elsewhere. Works on B.
                     Debug "Masks" tab compares mask looks on a phone.
 BLOCKED ON:         Nothing.
-NEXT:               09, 10 done (B). Next: 12 protected probe frame,
-                    11 verify + D36 (incl. release Start gate, needs a signed APK).
+NEXT:               09, 10, 12 done (B; 12 also fixed VerdictCache hash 0). Next:
+                    11 verify + D36 on A and B (incl. release Start gate, signed APK).
                     Then M6 Parent app (FEATURE FREEZE end of week 3), M7.
 ```
 

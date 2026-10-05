@@ -135,6 +135,17 @@ class TileMaskTracker(private var cols: Int, rows: Int, private val peek: () -> 
     }
 
     /**
+     * Ticket 12 (D29): the frame is protected (FLAG_SECURE, captured black), so it can't judge a
+     * probe and no later one will: the black CLEAR neighbours never change again. Every PROBING
+     * tile is released; MASKED and PEEKING ones are untouched. Accepts under-masking on a screen
+     * the capture can't see over masking it forever.
+     */
+    fun releaseProbes(now: Long) {
+        if (pausedAt != null) return
+        for (tile in tiles) if (tile.state == PROBING) tile.release(now)
+    }
+
+    /**
      * Ticket 16: no window shot for this PEEKING tile (it failed, timed out, or peeking stopped).
      * It probes the old way, mask lifted, with a fresh 300 ms. Device B: inside X every shot
      * failed after ~2 s, and timing those out re-masked tiles for minutes.
