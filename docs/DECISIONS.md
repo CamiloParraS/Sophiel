@@ -1041,3 +1041,23 @@ Debug build at `ad80964`, Balanced, accessibility mask window (alpha 1.0). Devic
   stay up in split screen).
 - **Open, not an M5 verification item:** ticket 15 (release flips on video), needs-info until
   there is a repeatable test clip. M5 is ticked on V1-V5.
+
+## D37 — Fast re-mask just after a release (2026-10-05, ticket 15, human-set bar)
+
+A probe can land on one safe frame of a video that is flagged again a moment later; re-engaging
+then needed 2 flagged frames, so the video played uncovered. **A tile released by a probe or peek
+in the last 3 s re-masks on its first flagged frame** (`TileMaskTracker.RECENT_RELEASE_MS`,
+a calibration knob). Rejected: two SAFE probe frames to release (doubles every probe's exposure).
+
+- **Bar (human):** build if > 1 in 5 releases re-mask within 3 s, or any uncovered stretch > ~1 s,
+  on either phone, over at least 15-20 releases. Clip: a human screen recording (protection off),
+  gitignored under `eval/images/m5-video/`, sha256 `3f326560…a5e9696`, played twice per phone.
+- **Baseline:** A 15 of 65 releases flipped (23 %), B 17 of 55 (31 %). Bar met on both.
+- **3 s fits:** release -> re-mask gaps cluster in 0-3 s (A 15, B 17); 3 in 3-5 s; the rest > 5 s.
+- **Exposure per flip** (first flagged frame captured -> mask), median / worst:
+  A 475 / 669 -> **154 / 295 ms**; B 274 / 969 -> **135 / 204 ms**.
+- **Flip count is unchanged by design** (A 18 of 65, B 18 of 68): a flip is still a release then
+  a re-mask, just shorter. **No sign of extra false masks:** after a flip the next probe released
+  the tile 8 of 15 / 7 of 16 times before, 8 of 18 / 8 of 18 after.
+- **Episode log (M6):** each fast re-mask is a CLEAR -> MASKED, so it logs as a new episode, as a
+  flip already did.

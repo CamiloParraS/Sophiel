@@ -102,6 +102,33 @@ class TileMaskTrackerTest {
         assertEquals(MASKED, t[0])
     }
 
+    /** Light tile released by a safe probe at t=2150 (ticket 15). */
+    private fun releasedLight() = maskedLight().apply {
+        frame(2100, listOf(mask))
+        frame(2150, listOf(1L))
+        assertEquals(CLEAR, this[0])
+    }
+
+    @Test fun `a tile released under 3 s ago re-masks on its first flagged frame`() {
+        val t = releasedLight()
+        assertEquals(listOf(true), t.frame(5149, listOf(unsafe), flagged = setOf(0)))
+        assertEquals(MASKED, t[0])
+    }
+
+    @Test fun `3 s after a release, engaging takes two flagged frames again`() {
+        val t = releasedLight()
+        t.frame(5150, listOf(unsafe), flagged = setOf(0))
+        assertEquals(CLEAR, t[0])
+        t.frame(5200, listOf(unsafe), flagged = setOf(0))
+        assertEquals(MASKED, t[0])
+    }
+
+    @Test fun `a tile that was never masked still needs two flagged frames`() {
+        val t = TileMaskTracker(1, 1)
+        t.frame(0, listOf(unsafe), flagged = setOf(0))
+        assertEquals(CLEAR, t[0])
+    }
+
     @Test fun `a protected probe frame releases the probing tile and leaves masked ones`() {
         val t = TileMaskTracker(2, 3)
         val hashes = listOf(unsafe, 1L, 2L, 3L, 4L, unsafe)
@@ -194,10 +221,9 @@ class TileMaskTrackerTest {
         t.video(at + 4050, tile0 = 7L, showsMask = false) // new, safe content: released
         assertEquals(CLEAR, t[0])
         t.video(at + 4100, tile0 = unsafe) // flagged again: a new episode
-        t.frame(at + 4150, listOf(unsafe, 1L, 2L, 3L, 4L, 5L), flagged = setOf(0))
-        t.frame(at + 4200, listOf(unsafe, 1L, 2L, 3L, 4L, 5L), flagged = setOf(0))
+        t.frame(at + 4150, listOf(unsafe, 1L, 2L, 3L, 4L, 5L), flagged = setOf(0)) // one frame: just released
         assertEquals(MASKED, t[0])
-        t.wastedProbeAt(at + 4200 + 1000) // back to 1 s
+        t.wastedProbeAt(at + 4150 + 1000) // back to 1 s
     }
 
     @Test fun `light's 2 s timer backs off too`() {

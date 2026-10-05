@@ -20,9 +20,8 @@ STATUS:             M5 verified on A and B (D36): V1-V5 pass; probe exposure med
                     Ticket 12 also fixed VerdictCache caching dHash 0 (black tiles inherited
                     an EXPLICIT verdict).
 BLOCKED ON:         Nothing.
-NEXT:               Ticket 15 (video release flips): test clip being set up (screen recording,
-                    ~200 MB, in gitignored eval/images/m5-video/); bar "common" = >1 in 5
-                    releases re-mask within 3 s (proposed, not yet confirmed by human).
+NEXT:               M6 Parent app. Ticket 15 done (D37: fast re-mask within 3 s of a
+                    release; exposure per flip A 154/295 ms, B 135/204).
                     Then M6 Parent app (FEATURE FREEZE end of week 3), M7.
 ```
 

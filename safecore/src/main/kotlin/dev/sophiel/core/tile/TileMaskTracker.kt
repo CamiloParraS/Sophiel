@@ -37,6 +37,7 @@ class TileMaskTracker(private var cols: Int, rows: Int, private val peek: () -> 
         var hashChanged = false // since the previous frame
         var wastedProbes = 0 // probes in a row that ended re-masked; backs off the next one (ticket 14)
         var probeDue = false // the neighbour rule fired inside the gap: probe once it ends (ticket 14)
+        var releasedAt: Long? = null // last release by a probe or peek (ticket 15)
     }
 
     private var tiles = List(cols * rows) { Tile() } // row-major on the frame's grid
@@ -67,7 +68,7 @@ class TileMaskTracker(private var cols: Int, rows: Int, private val peek: () -> 
         when (tile.state) {
             CLEAR -> {
                 tile.flaggedStreak = if (flagged) tile.flaggedStreak + 1 else 0
-                if (tile.flaggedStreak >= ENGAGE_FRAMES) {
+                if (tile.flaggedStreak >= tile.engageFrames(now)) {
                     tile.mask(verdict.hash, now)
                     return true
                 }
@@ -207,7 +208,16 @@ class TileMaskTracker(private var cols: Int, rows: Int, private val peek: () -> 
     private fun Tile.release(now: Long) {
         enter(CLEAR, now)
         wastedProbes = 0
+        releasedAt = now
     }
+
+    /**
+     * Ticket 15: a probe can land on one safe frame of a video that is flagged again a moment later.
+     * Waiting for two flagged frames then left it uncovered 0.4-3 s (Device B). Just after a release
+     * one flagged frame re-masks. Cost: a one-frame false positive in that window masks (safe side).
+     */
+    private fun Tile.engageFrames(now: Long) =
+        if (releasedAt?.let { now - it < RECENT_RELEASE_MS } == true) 1 else ENGAGE_FRAMES
 
     private fun Tile.enter(next: TileState, now: Long) {
         state = next
@@ -237,6 +247,7 @@ class TileMaskTracker(private var cols: Int, rows: Int, private val peek: () -> 
 
     private companion object {
         const val ENGAGE_FRAMES = 2 // the old PolicyEngine value; tuned in ticket 07
+        const val RECENT_RELEASE_MS = 3_000L // ticket 15 calibration knob: set from the clip's flip gaps
         const val MIN_PROBE_GAP_MS = 1_000L
         const val PROBE_TIMER_MS = 2_000L
         const val PROBE_VALID_MS = 300L
