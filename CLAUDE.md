@@ -21,12 +21,18 @@ STATUS:             M3.5 re-check passed on both devices (human). M5 designed: D
                     D30: camo mask + pattern-correlation check replace strong noise + mean colour.
                     D31: probe backoff 1-2-4-8 s + owed probes on a static screen. 15 (video
                     release flips) needs-info: needs a repeatable test clip.
-                    D32: optional accessibility window draws masks opaque (scope addition).
+                    D32: accessibility window draws masks opaque (scope addition); amended:
+                    main path in release, 0.79 app overlay is a debug-only start option.
                     D33: rotation cover held until seen; ticket 08 done on A and B.
+                    D34: "Peek under mask" debug chip (API 34+): a PEEKING tile is judged from
+                    a window screenshot, mask stays up; failed shots fall back to a probe.
+                    Ticket 16 done on B (2 runs). Becomes a Parent setting in M6.
+                    D35: NudeNet box masks refreshed by window shots, debug-only experiment
+                    (ticket 17, outside §1.3 on purpose). Works on B; demo use is open.
                     Debug "Masks" tab compares mask looks on a phone.
 BLOCKED ON:         Nothing.
 NEXT:               09 own-screen
-                    pause, 10 Status, 12 protected probe frame, 11 verify + D34.
+                    pause, 10 Status, 12 protected probe frame, 11 verify + D36.
                     Then M6 Parent app (FEATURE FREEZE end of week 3), M7.
 ```
 

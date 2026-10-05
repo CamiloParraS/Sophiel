@@ -929,6 +929,11 @@ Scope addition to SPEC §1.2 (human). Amends D28's alpha 0.79.
   takes effect on the next protection start. An accessibility overlay sits above system UI panels,
   so the rotate-suggestion button (auto-rotate off, gesture navigation) can hide under a mask; a tap
   there still reaches it. Leaving holes in the bottom corners was rejected: it would expose content.
+- **Amended 2026-10-04 (human): the accessibility window is the main path.** Release builds start
+  protection only with the service on (Status and the M6 wizard gate Start); starting on the 0.79
+  app overlay without it is a debug-build option. Reason: the app never ships to Play (school
+  project), and opaque masks give better results. Turning the service off mid-session still moves
+  the masks to the app overlay in every build, so one Settings toggle cannot drop every mask.
 
 ## D33 — Rotation cover held until the capture shows it (2026-10-04, ticket 08 device runs)
 
@@ -948,4 +953,53 @@ Refines D29's rotation design. M5 verification moves to D34.
 - **Device runs (opaque masks, D32):** cover seen after 373-393 ms on B, 526-730 ms on A; then
   tiles uncovered 73-161 ms on B, 94-218 ms on A, flagged tiles re-masked on the first probe frame.
   Baseline without the cover: ~440 ms on B, 740-900 ms on A.
+
+## D34 — Peek under the mask with a window screenshot (2026-10-04, human decision, ticket 16 spike)
+
+Amends D32's "no window content". M5 verification moves to D35, then D36.
+
+- **Why.** Every probe lifts the mask, because MediaProjection captures it; D25-D33 and ticket 15
+  work around that. `AccessibilityService.takeScreenshotOfWindow()` (API 34+) shoots one window
+  without the windows above it. The SDK documents it for this case: a target window "visually
+  underneath an accessibility overlay".
+- **How (spike).** Debug chip "Peek under mask" on the Protection screen, default off; a Parent
+  setting in M6. With it on, API 34+ and `MaskWindowService` on, a PROBING tile stays masked and is
+  judged from a shot of the top app window under it, scaled into the capture frame's geometry. The
+  tracker is unchanged (same triggers, backoff, 300 ms timeout). The shot is recycled after judging.
+- **Service capabilities:** `canRetrieveWindowContent`, `canTakeScreenshot`,
+  `flagRetrieveInteractiveWindows`. Only window ids, types and bounds are read: no nodes, no event
+  types. Capabilities are static, so every build declares them; only the option uses them. Device B
+  picked them up on reinstall without re-enabling the service (`capabilities=129`).
+- **Device A (API 33) has no such API** and keeps the probe path.
+- **Run 1 (B):** shots p50 59 ms, max 132; no flash. Tiles got stuck: inside X every shot failed
+  (error 1, ~2 s), and probes waiting on a shot timed out, both counted as wasted and backed off.
+  **Now:** a peek is its own state, PEEKING. A failed, slow (> 500 ms) or windowless shot lifts the
+  tile into an ordinary probe, so peeking is never worse than probing. A flagged peek does not back
+  off: nothing was shown.
+- **Run 2 (B, ~3 min incl. X):** no tile stuck; 38 episodes all released, every one over 4 s was
+  flagged content still on screen. Shots p50 73 ms, max 134. When X's shots failed again, the
+  fallback probes released the tiles in ~85-130 ms. Shots now 400 ms apart (342 ms hit the limit).
+- **Kept as an option**, debug chip now and a Parent setting in M6 (human). Unknown: why X's shots
+  start failing (error 1, in system_server).
+
+## D35 — NudeNet box masks, an experiment on window shots (2026-10-05, human decision, ticket 17)
+
+Outside SPEC §1.3 ("Precise preset (bounding-box detector model)") on purpose, like D24: debug menu
+only. M5 verification moves to D36.
+
+- **What.** With NudeNet picked and "Peek under mask" on (API 34+), its unsafe boxes (score >= 0.3,
+  padded 10 %) are drawn as camo masks. Frames can only add masks: they can't see under one. Every
+  400 ms, while something is masked, a window shot (D34) replaces them all. A failed shot holds
+  them up to 2 s. `NudeNet.detect` now does per-class NMS (IoU 0.45) instead of one box per class,
+  so two regions get two masks; the max score, and D24's numbers, are unchanged.
+- **Window cache off.** Run 1 flashed: 29 of 30 shots failed (error 1, ~2 s) after a switch through
+  Recents, and each failure dropped the masks. `MaskWindowService` now calls
+  `setCacheEnabled(false)`, so `getWindows()` is never stale. Run 2 (B, ~6 min, Gallery and X):
+  130 shots, 0 failures. This also covers D34's tile peeks, which failed in X the same way.
+- **Run 2 (B):** shot to masks p50 144 ms, max 954; NudeNet 320n per frame p50 54 ms, p90 115.
+  Human: "great results"; on scroll, new content shows for ~100-200 ms until a frame's detection
+  lands (model speed), and masks trail moving content by up to the 400 ms shot gap.
+- **Device A cannot run it** (API 33: no window shots; 320n at 106 ms per frame, D24).
+- **Open (human):** whether the demo shows it as a "Precise (experimental, Android 14+)" mode. Until
+  then it stays behind the debug menu, and tiles remain the protection on both devices.
 

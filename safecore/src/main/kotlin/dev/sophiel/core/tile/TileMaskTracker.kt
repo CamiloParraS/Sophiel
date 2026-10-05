@@ -4,9 +4,11 @@ import dev.sophiel.core.Severity
 import dev.sophiel.core.TileVerdict
 import dev.sophiel.core.tile.TileState.CLEAR
 import dev.sophiel.core.tile.TileState.MASKED
+import dev.sophiel.core.tile.TileState.PEEKING
 import dev.sophiel.core.tile.TileState.PROBING
 
-enum class TileState { CLEAR, MASKED, PROBING }
+/** PEEKING: masked, judged from a window screenshot that skips our mask (ticket 16); PROBING lifts the mask. */
+enum class TileState { CLEAR, MASKED, PROBING, PEEKING }
 
 /**
  * Per-tile mask state machine (SPEC.md §3.4). Pure logic: time is passed in
@@ -19,8 +21,10 @@ enum class TileState { CLEAR, MASKED, PROBING }
  *
  * Per frame: [onTile] for each tile as its verdict arrives, then [endFrame].
  * Not thread-safe: drive it from one frame stream.
+ *
+ * @param peek read whenever a probe starts: true starts it as PEEKING (ticket 16)
  */
-class TileMaskTracker(private var cols: Int, rows: Int) {
+class TileMaskTracker(private var cols: Int, rows: Int, private val peek: () -> Boolean = { false }) {
 
     private class Tile {
         var state = CLEAR
@@ -51,6 +55,13 @@ class TileMaskTracker(private var cols: Int, rows: Int) {
         if (pausedAt != null) return false
         val tile = tiles[verdict.index]
         val flagged = verdict.severity == Severity.EXPLICIT
+        // A PEEKING verdict comes from a window shot, never a captured frame (that shows our mask).
+        // Its hash is the shot's, so it stays out of the capture's hash history and lock.
+        // An invisible re-mask costs nothing on screen, so it doesn't back off (ticket 14's reason).
+        if (tile.state == PEEKING) {
+            if (flagged) tile.enter(MASKED, now) else tile.release(now)
+            return false
+        }
         tile.hashChanged = tile.lastHash != verdict.hash
         tile.lastHash = verdict.hash
         when (tile.state) {
@@ -67,12 +78,10 @@ class TileMaskTracker(private var cols: Int, rows: Int) {
             PROBING -> when {
                 showsMask -> Unit
                 verdict.hash == tile.lockedHash || flagged -> tile.remask(verdict.hash, now)
-                else -> {
-                    tile.enter(CLEAR, now)
-                    tile.wastedProbes = 0
-                }
+                else -> tile.release(now)
             }
             MASKED -> Unit // the capture sees our mask: its score means nothing
+            PEEKING -> Unit // handled above
         }
         return false
     }
@@ -85,9 +94,9 @@ class TileMaskTracker(private var cols: Int, rows: Int) {
             when (tile.state) {
                 // The timer path only says yes past the gap, so only a neighbour change is ever owed.
                 MASKED -> if (tile.probeDue || neighboursSayProbe(index, age)) {
-                    if (age >= tile.probeGap()) tile.enter(PROBING, now) else tile.probeDue = true
+                    if (age >= tile.probeGap()) tile.startProbe(now) else tile.probeDue = true
                 }
-                CLEAR, PROBING -> Unit
+                CLEAR, PROBING, PEEKING -> Unit
             }
         }
         for (tile in tiles) tile.hashChanged = false // after the loop: neighbours read these flags
@@ -114,11 +123,24 @@ class TileMaskTracker(private var cols: Int, rows: Int) {
     /**
      * Re-masks every probe with no valid frame within 300 ms. [endFrame] does this too; call it
      * on a timer while a tile is PROBING, because a screen that goes static after the mask is
-     * lifted delivers no frame. Never starts a probe.
+     * lifted delivers no frame. A peek with no verdict in 1 s is lifted as a backstop ([liftPeek]).
      */
     fun expireProbes(now: Long) {
         if (pausedAt != null) return
-        for (tile in tiles) if (tile.state == PROBING && now - tile.enteredAt >= PROBE_VALID_MS) tile.remask(tile.lockedHash, now)
+        for (tile in tiles) {
+            val age = now - tile.enteredAt
+            if (tile.state == PROBING && age >= PROBE_VALID_MS) tile.remask(tile.lockedHash, now)
+            if (tile.state == PEEKING && age >= PEEK_VALID_MS) tile.enter(PROBING, now)
+        }
+    }
+
+    /**
+     * Ticket 16: no window shot for this PEEKING tile (it failed, timed out, or peeking stopped).
+     * It probes the old way, mask lifted, with a fresh 300 ms. Device B: inside X every shot
+     * failed after ~2 s, and timing those out re-masked tiles for minutes.
+     */
+    fun liftPeek(index: Int, now: Long) {
+        if (pausedAt == null && tiles[index].state == PEEKING) tiles[index].enter(PROBING, now)
     }
 
     /**
@@ -135,7 +157,7 @@ class TileMaskTracker(private var cols: Int, rows: Int) {
     fun startDueProbes(now: Long) {
         if (pausedAt != null) return
         for (tile in tiles) {
-            if (tile.state == MASKED && tile.probeDue && now - tile.enteredAt >= tile.probeGap()) tile.enter(PROBING, now)
+            if (tile.state == MASKED && tile.probeDue && now - tile.enteredAt >= tile.probeGap()) tile.startProbe(now)
         }
     }
 
@@ -161,12 +183,19 @@ class TileMaskTracker(private var cols: Int, rows: Int) {
 
     /**
      * The grid changed while something was masked (D29, ticket 08): every tile of the new grid
-     * starts PROBING, and the usual probe rules decide. Masks on the old grid cannot be mapped
+     * starts probing (or peeking), and the usual probe rules decide. Masks on the old grid cannot be mapped
      * onto the new one, and starting CLEAR would show flagged content for the 2 frames engaging takes.
      */
     fun resetProbing(cols: Int, rows: Int, now: Long) {
         reset(cols, rows)
-        for (tile in tiles) tile.enter(PROBING, now)
+        for (tile in tiles) tile.startProbe(now)
+    }
+
+    private fun Tile.startProbe(now: Long) = enter(if (peek()) PEEKING else PROBING, now)
+
+    private fun Tile.release(now: Long) {
+        enter(CLEAR, now)
+        wastedProbes = 0
     }
 
     private fun Tile.enter(next: TileState, now: Long) {
@@ -200,5 +229,6 @@ class TileMaskTracker(private var cols: Int, rows: Int) {
         const val MIN_PROBE_GAP_MS = 1_000L
         const val PROBE_TIMER_MS = 2_000L
         const val PROBE_VALID_MS = 300L
+        const val PEEK_VALID_MS = 1_000L // backstop only: CaptureSession lifts a failed shot at once
     }
 }

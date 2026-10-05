@@ -180,6 +180,7 @@ private fun protectionScreen(controller: ProjectionController, container: AppCon
     val state by controller.state.collectAsState()
     var liveModel by remember { mutableStateOf(container.liveModel) }
     var livePreset by remember { mutableStateOf(container.livePreset) }
+    var peek by remember { mutableStateOf(container.peekUnderMask) }
     Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(state.phase.name, style = MaterialTheme.typography.titleMedium)
@@ -209,6 +210,14 @@ private fun protectionScreen(controller: ProjectionController, container: AppCon
                     )
                 }
             }
+            // Ticket 16: live, like the chips above. Needs the accessibility service on as well.
+            val canPeek = Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE
+            FilterChip(
+                selected = peek && canPeek,
+                onClick = { peek = !peek; container.peekUnderMask = peek },
+                enabled = canPeek,
+                label = { Text(if (canPeek) "Peek under mask" else "Peek under mask (Android 14+)") },
+            )
             Spacer(Modifier.height(16.dp))
             when (state.phase) {
                 ControllerPhase.IDLE -> Button(onClick = controller::start) { Text("Start protection") }

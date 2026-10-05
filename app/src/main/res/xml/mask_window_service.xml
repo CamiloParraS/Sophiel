@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- No accessibilityEventTypes and no canRetrieveWindowContent: it only hosts the mask window. -->
+<!-- No accessibilityEventTypes. Window content only to shoot the app window under a mask (ticket 16):
+     window ids and bounds are read, never nodes. -->
 <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
     android:accessibilityFeedbackType="feedbackGeneric"
-    android:canRetrieveWindowContent="false"
+    android:accessibilityFlags="flagRetrieveInteractiveWindows"
+    android:canRetrieveWindowContent="true"
+    android:canTakeScreenshot="true"
     android:description="@string/mask_window_service_description" />

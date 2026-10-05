@@ -2,6 +2,8 @@ package dev.sophiel.capture
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Paint
 import android.graphics.Rect
 import android.graphics.RectF
 import android.hardware.display.DisplayManager
@@ -21,9 +23,11 @@ import dev.sophiel.core.tile.TileMaskTracker
 import dev.sophiel.core.tile.TileState
 import dev.sophiel.core.tile.TileState.CLEAR
 import dev.sophiel.core.tile.TileState.MASKED
+import dev.sophiel.core.tile.TileState.PEEKING
 import dev.sophiel.core.tile.TileState.PROBING
 import dev.sophiel.core.grid
 import dev.sophiel.core.tileRect
+import dev.sophiel.feed.Detection
 import dev.sophiel.feed.NudeNet
 import dev.sophiel.feed.SpikeModel
 import dev.sophiel.feed.unsafeScore
@@ -34,6 +38,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.concurrent.thread
 
 private const val TAG = "Sophiel"
@@ -41,6 +46,11 @@ private const val FRAME_INTERVAL_MS = 80L
 private const val MIN_CAPTURE_SHORT_SIDE = 360f
 private const val BLACK_PROBE_SIZE = 64
 private const val COVER_WAIT_MS = 1_000L // ticket 08: longest a rotation cover waits to be seen
+private const val SHOT_INTERVAL_MS = 400L // ticket 16: one shot per 333 ms, timed by the system: 342 ms apart still failed on B
+private const val SHOT_TIMEOUT_MS = 500L // ticket 16: worst success 132 ms on B; failures took ~2 s
+private const val BOX_MASK_SCORE = 0.3f // ticket 17 calibration knob: NudeNet box score that masks
+private const val BOX_PAD = 0.1f // ticket 17 calibration knob: mask margin per side, fraction of the box
+private const val BOX_HOLD_MS = 2_000L // ticket 17: longest masks are held through failed shots
 
 /**
  * Everything that exists only while capturing (SPEC.md §4.4 RUNNING): the [VirtualDisplay][android.hardware.display.VirtualDisplay],
@@ -164,14 +174,32 @@ class CaptureSession(
 
     /** Frame pixel → the screen pixel it was captured from (pixel centres), for the mask check (D30). */
     private fun frameToScreen(): (Int, Int) -> Pair<Int, Int> {
-        val real = DisplayMetrics()
-        @Suppress("DEPRECATION")
-        appContext.getSystemService(WindowManager::class.java).defaultDisplay.getRealMetrics(real)
+        val real = realMetrics()
         val (width, height, _, crop) = size
         return { x, y ->
             ((crop.left + x + 0.5f) * real.widthPixels / width).toInt() to
                 ((crop.top + y + 0.5f) * real.heightPixels / height).toInt()
         }
+    }
+
+    /** Ticket 16: [shot] of a window at [bounds] (screen px) drawn where it sits in a [w]×[h] capture frame. */
+    private fun shotToFrame(shot: Bitmap, bounds: Rect, w: Int, h: Int): Bitmap {
+        val real = realMetrics()
+        val (width, height, _, crop) = size
+        val sx = width.toFloat() / real.widthPixels
+        val sy = height.toFloat() / real.heightPixels
+        val at = RectF(bounds.left * sx - crop.left, bounds.top * sy - crop.top, bounds.right * sx - crop.left, bounds.bottom * sy - crop.top)
+        // Outside the window stays black; peekOnce only judges tiles whose centre is inside it.
+        return Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888).also { Canvas(it).drawBitmap(shot, null, at, Paint(Paint.FILTER_BITMAP_FLAG)) }
+    }
+
+    /** Ticket 16: the debug option is on and a window shot is possible. Live: the service turned off falls back to probes. */
+    private fun peekMode() = settings.peekUnderMask && MaskWindowService.instance != null &&
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE
+
+    private fun realMetrics() = DisplayMetrics().also {
+        @Suppress("DEPRECATION")
+        appContext.getSystemService(WindowManager::class.java).defaultDisplay.getRealMetrics(it)
     }
 
     /**
@@ -180,13 +208,15 @@ class CaptureSession(
      * Runs only on [scope]'s single lane, which keeps the tracker single-threaded.
      */
     private inner class TileLoop(private val detector: Detector) {
-        private val tracker = TileMaskTracker(0, 0)
+        private val tracker = TileMaskTracker(0, 0, ::peekMode)
         private var grid = Triple(Preset.LIGHT, 0, 0) // preset, frame width, frame height
         private var shown: List<TileState> = emptyList()
         private val probedAt = HashMap<Int, Long>()
         private var dueProbe: Job? = null
         private var open = true // a probe-timeout job can outlive a model switch
         private var coverSince: Long? = null // ticket 08: rotation cover up, not yet seen in a frame
+        private var peeking = false // ticket 16: a window shot or its verdicts in flight
+        private var lastShotAt = 0L
 
         suspend fun run(frame: Bitmap): String {
             val preset = settings.livePreset
@@ -289,6 +319,67 @@ class CaptureSession(
             }
         }
 
+        /**
+         * Ticket 16: judge the PEEKING tiles from a shot of the app window under them. The shot skips
+         * our mask, so the mask stays up and nothing is exposed. One shot in flight at a time; a tile
+         * the shot can't serve is lifted into an ordinary probe, so peeking is never worse than probing.
+         */
+        private fun peek() {
+            if (peeking || !open) return
+            peeking = true
+            scope.launch {
+                try {
+                    peekOnce()
+                } finally {
+                    peeking = false
+                }
+                // Tiles in another window, or that started peeking meanwhile. Each round either takes
+                // a shot (so the next waits out the rate limit) or resolves every PEEKING tile.
+                if (open && coverSince == null && (0 until tracker.size).any { tracker[it] == PEEKING }) peek()
+            }
+        }
+
+        private suspend fun peekOnce() {
+            delay(lastShotAt + SHOT_INTERVAL_MS - now())
+            val waiting = (0 until tracker.size).filter { tracker[it] == PEEKING }
+            if (waiting.isEmpty() || coverSince != null) return // a rotation resets every tile anyway
+            val service = MaskWindowService.instance
+            if (!peekMode() || service == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return lift(waiting, "peeking off")
+            val at = grid
+            val (preset, w, h) = at
+            val toScreen = frameToScreen()
+            val centre = { i: Int -> preset.tileRect(i, w, h).let { toScreen((it.left + it.right) / 2, (it.top + it.bottom) / 2) } }
+            val (x, y) = centre(waiting.first())
+            val start = now().also { lastShotAt = it }
+            val (shot, bounds) = withTimeoutOrNull(SHOT_TIMEOUT_MS) { service.appWindowShot(x, y) }
+                ?: return lift(waiting, "no shot after ${now() - start} ms")
+            val inWindow = waiting.filter { i -> centre(i).let { (cx, cy) -> bounds.contains(cx, cy) } }
+            Log.d(TAG, "peek tiles=$inWindow of $waiting window=$bounds shot=${shot.width}x${shot.height} shotMs=${now() - start}")
+            val frame = shotToFrame(shot, bounds, w, h)
+            shot.recycle()
+            try {
+                detector.analyze(frame, preset, inWindow).collect { v ->
+                    // Rotated meanwhile, or lifted by the tracker's backstop: the verdict is stale.
+                    if (grid == at && tracker[v.index] == PEEKING) apply(v, showsMask = false)
+                }
+                Log.d(TAG, "peek done totalMs=${now() - start}")
+            } finally {
+                frame.recycle()
+            }
+        }
+
+        /** Ticket 16: these tiles probe the old way, mask lifted, on a fresh 300 ms. */
+        private fun lift(tiles: List<Int>, why: String) {
+            Log.d(TAG, "peek: lifting $tiles ($why)")
+            tiles.forEach { tracker.liftPeek(it, now()) }
+            publish()
+            scope.launch { // as in run(): the lifted mask may bring no valid frame
+                delay(tracker.probeTimeoutMs)
+                tracker.expireProbes(now())
+                publish()
+            }
+        }
+
         private fun apply(v: TileVerdict, showsMask: Boolean) {
             if (tracker.onTile(now(), v, showsMask)) {
                 Log.i(TAG, "mask episode tile=${v.index} frameToMaskMs=${now() - frameAvailableAt}")
@@ -322,21 +413,24 @@ class CaptureSession(
             states.forEachIndexed { i, state ->
                 val was = shown.getOrNull(i)
                 if (state == was) return@forEachIndexed
-                if (state == PROBING) probedAt[i] = now
-                if (was == PROBING) {
-                    probedAt.remove(i)?.let { Log.i(TAG, "probe tile=$i exposureMs=${now - it} -> $state") }
+                // A peek keeps the mask up: its time is how long the verdict took, not exposure.
+                if (was == PROBING || was == PEEKING) probedAt.remove(i)?.let {
+                    Log.i(TAG, "${if (was == PROBING) "probe tile=$i exposureMs" else "peek tile=$i ms"}=${now - it} -> $state")
                 }
+                if (state == PROBING || state == PEEKING) probedAt[i] = now
                 Log.i(TAG, "tile $i $was -> $state")
             }
             shown = states
             masking = states.any { it != CLEAR }
             val (preset, w, h) = grid
             overlay.updateMasks(
-                states.indices.filter { states[it] == MASKED }.map { i ->
+                states.indices.filter { states[it] == MASKED || states[it] == PEEKING }.map { i ->
                     val r = preset.tileRect(i, w, h)
                     toDisplayFraction(RectF(r.left / w.toFloat(), r.top / h.toFloat(), r.right / w.toFloat(), r.bottom / h.toFloat()))
                 },
             )
+            // Every path into PEEKING (neighbour rule, owed probe, rotation) publishes after it.
+            if (PEEKING in states) peek()
         }
 
         private fun now() = SystemClock.elapsedRealtime()
@@ -346,16 +440,93 @@ class CaptureSession(
 
     private fun openJudge(model: SpikeModel): Judge = when (model.asset) {
         null -> TileLoop(DetectorFactory.create(appContext)).let { Judge(model, it::run, it::close) }
-        else -> NudeNet.load(appContext, model.asset, model.inputSize).let { nudeNet ->
-            Judge(model, { bitmap ->
-                val start = SystemClock.elapsedRealtime()
-                val detections = nudeNet.detect(bitmap)
-                val ms = SystemClock.elapsedRealtime() - start
-                overlay.updateBoxes(detections.map { it.copy(box = toDisplayFraction(it.box)) })
-                Log.d(TAG, "live model=${model.name} score=${detections.unsafeScore()} latencyMs=$ms")
-                "%s · score=%.2f · %dms".format(model.label, detections.unsafeScore(), ms) +
-                    detections.take(3).joinToString("") { "\n%s %.2f".format(it.label.lowercase(), it.score) }
-            }, nudeNet::close)
+        else -> BoxLoop(NudeNet.load(appContext, model.asset, model.inputSize), model).let { Judge(model, it::run, it::close) }
+    }
+
+    /**
+     * Ticket 17 experiment (human override of SPEC §1.3, debug menu only): NudeNet's unsafe boxes as
+     * masks. A mask is captured too, so a frame can't see under it, but a window shot can (ticket 16).
+     * Masks = boxes from the last shot plus boxes found by frames since: a frame only adds (it can't
+     * tell a mask is stale), a shot replaces both. Not peeking: outlines only, as in D24.
+     */
+    private inner class BoxLoop(private val nudeNet: NudeNet, private val model: SpikeModel) {
+        private var shotBoxes = emptyList<RectF>() // display fractions, padded
+        private var frameBoxes = emptyList<RectF>()
+        private var drawn = emptyList<RectF>()
+        private var confirmedAt = 0L // last good shot, or when masking started
+        private val shots = scope.launch { // same lane as frames, so NudeNet never runs twice at once
+            while (true) {
+                delay(SHOT_INTERVAL_MS)
+                if (peekMode() && drawn.isNotEmpty()) shoot() // nothing masked: frames see everything
+            }
+        }
+
+        fun run(frame: Bitmap): String {
+            val start = SystemClock.elapsedRealtime()
+            val detections = nudeNet.detect(frame)
+            val ms = SystemClock.elapsedRealtime() - start
+            overlay.updateBoxes(detections.map { it.copy(box = toDisplayFraction(it.box)) })
+            if (peekMode()) {
+                frameBoxes = frameBoxes + masksOf(detections)
+            } else {
+                shotBoxes = emptyList()
+                frameBoxes = emptyList()
+            }
+            draw()
+            Log.d(TAG, "live model=${model.name} score=${detections.unsafeScore()} latencyMs=$ms masks=${shotBoxes.size}+${frameBoxes.size}")
+            return "%s · score=%.2f · %dms · %d masks".format(model.label, detections.unsafeScore(), ms, drawn.size) +
+                detections.take(3).joinToString("") { "\n%s %.2f".format(it.label.lowercase(), it.score) }
+        }
+
+        private suspend fun shoot() {
+            val service = MaskWindowService.instance ?: return
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return
+            val real = realMetrics()
+            val start = SystemClock.elapsedRealtime()
+            val result = withTimeoutOrNull(SHOT_TIMEOUT_MS) { service.appWindowShot(real.widthPixels / 2, real.heightPixels / 2) }
+            if (result == null) {
+                // A failed shot says nothing new: hold the masks. Dropping them at once flashed the
+                // content each time (run 1: 29 of 30 shots failed). After BOX_HOLD_MS without a good
+                // shot, drop them anyway, or a mask could never come off; frames re-mask what remains.
+                val held = start - confirmedAt < BOX_HOLD_MS
+                Log.d(TAG, "box shot: none, masks ${if (held) "held" else "dropped"}")
+                if (held) return
+                shotBoxes = emptyList()
+                frameBoxes = emptyList()
+                draw()
+                return
+            }
+            confirmedAt = start
+            val (shot, bounds) = result
+            val frame = shotToFrame(shot, bounds, size.crop.width(), size.crop.height())
+            shot.recycle()
+            val detections = try { nudeNet.detect(frame) } finally { frame.recycle() }
+            shotBoxes = masksOf(detections)
+            frameBoxes = emptyList()
+            draw()
+            Log.d(TAG, "box shot masks=${shotBoxes.size} totalMs=${SystemClock.elapsedRealtime() - start}")
+        }
+
+        private fun masksOf(detections: List<Detection>) = detections.filter { it.unsafe && it.score >= BOX_MASK_SCORE }.map {
+            val b = toDisplayFraction(it.box)
+            val dx = b.width() * BOX_PAD
+            val dy = b.height() * BOX_PAD
+            RectF(b.left - dx, b.top - dy, b.right + dx, b.bottom + dy)
+        }
+
+        // Only on change: a redraw is captured, and a static screen would then send frames forever (D18).
+        private fun draw() {
+            val rects = shotBoxes + frameBoxes
+            if (rects == drawn) return
+            if (drawn.isEmpty()) confirmedAt = SystemClock.elapsedRealtime() // a fresh mask starts its hold
+            drawn = rects
+            overlay.updateMasks(rects)
+        }
+
+        fun close() {
+            shots.cancel()
+            overlay.updateMasks(emptyList())
+            nudeNet.close()
         }
     }
 }

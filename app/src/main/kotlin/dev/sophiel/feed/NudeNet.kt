@@ -22,7 +22,7 @@ enum class SpikeModel(val label: String, val asset: String?, val inputSize: Int)
 /** Unsafe score for a NudeNet result: the best exposed-class detection, 0 if none. */
 fun List<Detection>.unsafeScore(): Float = filter { it.unsafe }.maxOfOrNull { it.score } ?: 0f
 
-/** One NudeNet class's best box; [box] is normalised to the source bitmap. */
+/** One NudeNet detection; [box] is normalised to the source bitmap. */
 data class Detection(val label: String, val score: Float, val box: RectF) {
     val unsafe get() = label in UNSAFE
 }
@@ -36,7 +36,7 @@ class NudeNet private constructor(private val session: OrtSession, private val s
     private val env = OrtEnvironment.getEnvironment()
     private val inputName = session.inputNames.first()
 
-    /** Per-class best detection at or above upstream's 0.2 floor, highest score first. */
+    /** Detections at or above upstream's 0.2 floor after per-class NMS, highest score first. */
     fun detect(bitmap: Bitmap): List<Detection> {
         val scale = size.toFloat() / maxOf(bitmap.width, bitmap.height)
         val square = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
@@ -56,28 +56,40 @@ class NudeNet private constructor(private val session: OrtSession, private val s
             session.run(mapOf(inputName to input)).use { (it[0] as OnnxTensor).floatBuffer }
         }
         val anchors = out.capacity() / (4 + LABELS.size)
-        // ponytail: per-class max instead of upstream's NMS — one box per class, multiple
-        // instances of a class collapse. Add NMS if boxes ever drive real masks.
-        val best = arrayOfNulls<Detection>(LABELS.size)
+        val found = ArrayList<Detection>()
         for (a in 0 until anchors) {
             var cls = 0
             for (c in 1 until LABELS.size) if (out[(4 + c) * anchors + a] > out[(4 + cls) * anchors + a]) cls = c
             val score = out[(4 + cls) * anchors + a]
-            if (score < MIN_SCORE || score <= (best[cls]?.score ?: 0f)) continue
+            if (score < MIN_SCORE) continue
             val cx = out[a]; val cy = out[anchors + a]; val w = out[2 * anchors + a]; val h = out[3 * anchors + a]
             val toX = 1f / (scale * bitmap.width); val toY = 1f / (scale * bitmap.height)
-            best[cls] = Detection(
+            found += Detection(
                 LABELS[cls], score,
                 RectF((cx - w / 2) * toX, (cy - h / 2) * toY, (cx + w / 2) * toX, (cy + h / 2) * toY),
             )
         }
-        return best.filterNotNull().sortedByDescending { it.score }
+        // Per-class NMS (ticket 17: boxes drive masks, so two instances of a class need two boxes).
+        // Upstream's NMS is class-agnostic; per class, a covered region can't suppress an exposed one.
+        val kept = ArrayList<Detection>()
+        for (d in found.sortedByDescending { it.score }) {
+            if (kept.none { it.label == d.label && iou(it.box, d.box) > NMS_IOU }) kept += d
+        }
+        return kept
+    }
+
+    private fun iou(a: RectF, b: RectF): Float {
+        val w = minOf(a.right, b.right) - maxOf(a.left, b.left)
+        val h = minOf(a.bottom, b.bottom) - maxOf(a.top, b.top)
+        if (w <= 0f || h <= 0f) return 0f
+        return w * h / (a.width() * a.height() + b.width() * b.height() - w * h)
     }
 
     override fun close() = session.close()
 
     companion object {
         private const val MIN_SCORE = 0.2f
+        private const val NMS_IOU = 0.45f // upstream nudenet.py
 
         /**
          * Copies the asset to filesDir once (ORT wants a path; a 100 MB byte[] risks OOM).

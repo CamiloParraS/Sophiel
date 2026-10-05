@@ -4,6 +4,7 @@ import dev.sophiel.core.Severity
 import dev.sophiel.core.TileVerdict
 import dev.sophiel.core.tile.TileState.CLEAR
 import dev.sophiel.core.tile.TileState.MASKED
+import dev.sophiel.core.tile.TileState.PEEKING
 import dev.sophiel.core.tile.TileState.PROBING
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -23,8 +24,8 @@ class TileMaskTrackerTest {
     ): List<Boolean> = hashes.mapIndexed { i, h -> onTile(now, v(i, h, i in flagged), i in showsMask) }
         .also { endFrame(now) }
 
-    /** Light tracker with its tile masked at t=100 on [unsafe]. */
-    private fun maskedLight() = TileMaskTracker(1, 1).apply {
+    /** Light tracker with its tile masked at t=100 on [unsafe]; [peek] starts its probes as peeks. */
+    private fun maskedLight(peek: Boolean = false) = TileMaskTracker(1, 1) { peek }.apply {
         frame(0, listOf(unsafe), flagged = setOf(0))
         frame(100, listOf(unsafe), flagged = setOf(0))
         assertEquals(MASKED, this[0])
@@ -265,5 +266,49 @@ class TileMaskTrackerTest {
         assertEquals(List(6) { CLEAR }, List(t.size) { t[it] })
         assertFalse(t.frame(200, listOf(unsafe, 1L, 2L, 3L, 4L, 5L), flagged = setOf(0))[0])
         assertTrue(t.frame(300, listOf(unsafe, 1L, 2L, 3L, 4L, 5L), flagged = setOf(0))[0])
+    }
+
+    // Ticket 16: a PEEKING tile stays masked; its verdict comes from a window shot (onTile directly,
+    // never frame(), whose verdicts are captured pixels).
+
+    /** Light in peek mode: masked at 100, its 2 s timer starts a peek at 2100. */
+    private fun peekingLight() = maskedLight(peek = true).apply {
+        frame(2100, listOf(mask))
+        assertEquals(PEEKING, this[0])
+    }
+
+    @Test fun `a safe shot releases the peeking tile`() {
+        val t = peekingLight()
+        t.onTile(2200, v(0, 1L), showsMask = false)
+        assertEquals(CLEAR, t[0])
+    }
+
+    @Test fun `flagged shots re-mask without backing off`() {
+        val t = peekingLight()
+        t.onTile(2200, v(0, 555L, flagged = true), showsMask = false)
+        t.frame(4200, listOf(mask))
+        t.onTile(4300, v(0, 555L, flagged = true), showsMask = false)
+        assertEquals(MASKED, t[0])
+        // Two wasted lifted probes would make the gap 4 s; two flagged peeks keep the 2 s timer.
+        t.frame(6300, listOf(mask))
+        assertEquals(PEEKING, t[0])
+    }
+
+    @Test fun `a lifted peek probes the old way with a fresh 300 ms`() {
+        val t = peekingLight()
+        t.liftPeek(0, 2400)
+        assertEquals(PROBING, t[0])
+        t.expireProbes(2699)
+        assertEquals(PROBING, t[0])
+        t.expireProbes(2700)
+        assertEquals(MASKED, t[0])
+    }
+
+    @Test fun `a peek with no verdict in 1 s is lifted`() {
+        val t = peekingLight()
+        t.expireProbes(3099)
+        assertEquals(PEEKING, t[0])
+        t.expireProbes(3100)
+        assertEquals(PROBING, t[0])
     }
 }

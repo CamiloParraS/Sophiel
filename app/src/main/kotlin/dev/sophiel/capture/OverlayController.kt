@@ -50,24 +50,31 @@ class OverlayController(private val context: Context) {
         attach()
     }
 
-    // D32: with MaskWindowService enabled, its trusted window draws the masks opaque.
-    private fun attach() {
+    // D32: MaskWindowService's trusted window draws the masks opaque. Starting on the 0.79 app
+    // overlay without it is a debug-build option; release needs the service (Status gates Start).
+    private fun attach(fallback: Boolean = context.isDebuggable) {
         if (host != null) return
         val a11y = MaskWindowService.instance
-        if (a11y == null && !Settings.canDrawOverlays(context)) return
+        if (a11y == null && !(fallback && Settings.canDrawOverlays(context))) {
+            Log.w("Sophiel", "mask window: none (accessibility service off)")
+            return
+        }
         val wm = a11y?.getSystemService(WindowManager::class.java) ?: windowManager
         wm.addView(view, touchThroughOverlayParams(trusted = a11y != null))
         host = wm
         Log.i("Sophiel", "mask window: ${if (a11y != null) "accessibility, alpha 1.0" else "app overlay, alpha $OVERLAY_ALPHA"}")
     }
 
-    /** The service was turned off mid-session: its window goes with it, so the masks move to a plain overlay. */
+    /**
+     * The service was turned off mid-session: its window goes with it, so the masks move to a plain
+     * overlay in every build. Otherwise one toggle in Settings would drop every mask.
+     */
     private fun fallBackToAppOverlay() {
         if (host == null || host === windowManager) return
         // The system may already have removed the window along with the service's token.
         runCatching { host?.removeViewImmediate(view) }
         host = null
-        attach()
+        attach(fallback = true)
     }
 
     /** [rects] are fractions of the whole display, not of the frame. */

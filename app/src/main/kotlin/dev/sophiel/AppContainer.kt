@@ -20,4 +20,11 @@ class AppContainer {
     /** Tile grid live capture uses, picked on the Protection screen until the Parent setting (M6). */
     @Volatile
     var livePreset = Preset.LIGHT
+
+    /**
+     * Ticket 16: judge masked tiles from a window shot instead of lifting the mask (API 34+, needs
+     * MaskWindowService). Picked on the Protection screen until the Parent setting (M6).
+     */
+    @Volatile
+    var peekUnderMask = false
 }

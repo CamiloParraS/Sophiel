@@ -59,7 +59,7 @@ The UI and the experience of it (it should feel quick and light) are the product
 
 - Two presets: **Light** (whole frame as one tile) and **Balanced** (2 columns × 3 rows).
 - Noise masks (optional lock chip + "Hidden by Sophiel" label, a Parent setting) that let touches pass through.
-- An optional accessibility service that only hosts the mask window, so masks draw opaque (D32). No events, no window content.
+- An accessibility service that hosts the mask window, so masks draw opaque (D32). No events. Window content only to screenshot the app window under a mask, so a probe can judge it without lifting the mask (API 34+, an option; D34). Required to start protection in release builds; debug builds may start without it on the 0.79 app overlay.
 - Parent screens: Status, Setup wizard, PIN unlock, Settings (Strict / Normal / Relaxed, preset, show-label toggle), Log.
 - A hidden debug menu (Test Feed, debug pill, raw threshold slider).
 - A permission-free **Test Feed** for development and as the demo fallback.
@@ -225,7 +225,12 @@ The highest-risk area. Implement exactly as specified; it is already built and v
 <!-- DELIBERATELY ABSENT: android.permission.INTERNET -->
 <service android:name=".capture.ProjectionService"
          android:foregroundServiceType="mediaProjection" android:exported="false" />
+<!-- D32: hosts the opaque mask window. No event types, canRetrieveWindowContent="false". -->
+<service android:name=".capture.MaskWindowService" android:exported="false"
+         android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE" />
 ```
+
+`SYSTEM_ALERT_WINDOW` stays: the app overlay is the debug-build start option and the fallback when the accessibility service is turned off mid-session (D32).
 
 ### 4.2 Platform facts the implementation must respect
 
@@ -237,7 +242,7 @@ The highest-risk area. Implement exactly as specified; it is already built and v
 | The foreground service (type `mediaProjection`) must be running **before** `getMediaProjection()`.                                                        | Ordering in §4.4 is mandatory.                                                                                       |
 | Apps using `FLAG_SECURE` yield black frames.                                                                                                              | Detect them (≥ 90% black pixels, D18) and log **unanalyzable**; never score them.                                    |
 | The user can end the session from the system status bar at any time.                                                                                      | Register `MediaProjection.Callback.onStop()` and tear down cleanly. Cannot be blocked; documented limitation (§8).   |
-| Android 12+ drops touches through an app's overlays when the windows covering the touch point exceed 0.8 combined opacity (per window alpha, not pixels). | One touch-through window at alpha 0.79; never stack another over it (D28).                                           |
+| Android 12+ drops touches through an app's overlays when the windows covering the touch point exceed 0.8 combined opacity (per window alpha, not pixels). | Accessibility overlays are trusted and exempt: one window at alpha 1.0 (D32), or 0.79 as an app overlay (D28); never stack another over it.                                         |
 | Overlays cannot cover system permission dialogs or parts of system UI.                                                                                    | Never claim total coverage.                                                                                          |
 | Android 15+ stops the projection on a secure keyguard; a session cannot outlive screen-off.                                                               | Tear down on `ACTION_SCREEN_OFF` (D18); the "Paused — tap to resume" notification gives one-tap fresh consent (D21). |
 | Android 15+ hides other apps' notifications while screen sharing (D16).                                                                                   | Not a bug; mention in the limitations.                                                                               |
@@ -296,14 +301,14 @@ M0–M3 are **done and reused**: skeleton, model + parity gate, pipeline + Test 
 
 **Deliverables.**
 
-- `OverlayController` + `TileMaskView` replace the debug mask: **one full-screen** `TYPE_APPLICATION_OVERLAY` window that draws every mask (D28), at window alpha 0.79. Debug boxes share this window; nothing else touch-through may overlap it.
+- `OverlayController` + `TileMaskView` replace the debug mask: **one full-screen** window that draws every mask (D28): a `TYPE_ACCESSIBILITY_OVERLAY` at alpha 1.0 hosted by `MaskWindowService` (D32), or in debug builds without the service a `TYPE_APPLICATION_OVERLAY` at alpha 0.79. Service turned off mid-session: the masks move to the app overlay. Debug boxes share this window; nothing else touch-through may overlap it.
 - Flags `FLAG_NOT_FOCUSABLE | FLAG_NOT_TOUCHABLE | FLAG_LAYOUT_IN_SCREEN`. Every touch, including one on a mask, passes through to the app beneath, so the Child can scroll past masked content.
 - Mask look: multi-scale "camo" noise, high-contrast blobs up to 16 px plus ~1 px grain (never pure black), in a muted tint, generated once, tiled and anchored to the screen, never redrawn differently (D30). A small centred chip (lock + "Hidden by Sophiel") that a Parent setting can turn off. Chosen on device (D28); blur-behind is not available on either device.
 - The "still shows our mask" check correlates the captured tile's luminance with the pattern the overlay drew at the same screen pixels, centre excluded; colour-free, so any tint works. The threshold is set from device data (D30).
 - Masks cover the content area only; system bars stay visible (D28).
 - **Coordinate mapping** from capture tiles back to screen pixels: undo the 360 px downscale and add back the system-bar and cutout insets. Recomputed on configuration change. Rotation per §3.4.
 - Masks hidden and tracker paused while a Sophiel activity is resumed and not in multi-window mode (§3.4, D28).
-- A basic **Status** screen with the on/off switch. Running end-to-end on hard-coded settings.
+- A basic **Status** screen with the on/off switch. Running end-to-end on hard-coded settings. In release builds Start is disabled until `MaskWindowService` is on, with a button to Accessibility settings (D32).
 
 **Verification**
 
@@ -317,7 +322,7 @@ M0–M3 are **done and reused**: skeleton, model + parity gate, pipeline + Test 
 
 **Deliverables.**
 
-- **Setup wizard:** create a 4–6 digit PIN (confirm) → overlay permission → notification permission → preset + sensitivity → start (consent). No PIN recovery; the wizard says so.
+- **Setup wizard:** create a 4–6 digit PIN (confirm) → overlay permission → accessibility service (D32; on Android 13+ a sideloaded APK first needs App info > "Allow restricted settings", and the wizard says how) → notification permission → preset + sensitivity → start (consent). No PIN recovery; the wizard says so.
 - **Status** (opens with no PIN): on/off, active preset, "Settings (parent)". Starting needs no PIN. Anything that weakens protection needs the PIN: stop, change preset or sensitivity, view the log. An unlock lasts ~2 minutes.
 - **Settings:** Strict / Normal / Relaxed, Light / Balanced, show-label toggle (no PIN needed). `SettingsRepository` (`SharedPreferences`). The PIN is stored as a salted hash, never plaintext. Five wrong attempts lock the prompt for 30 s, doubling on repeats.
 - **Log** (plain file, pruned on write): kinds masked (time, tiles masked, score band), protection on, protection off (reason: user stop / screen off / system ended), unanalyzable. **One masked entry per masking episode** (a tile going CLEAR → MASKED), never per frame or per re-mask after a probe. Scalars only: no frames, no app names. Kept 7 days; "Clear log" behind the PIN; summary "N masks today". A gap from a killed app or reboot is inferred on next start.
@@ -373,7 +378,7 @@ Copy into `docs/LIMITATIONS.md` and expand with measured numbers.
 11. **Grayscale blindness in the skin gate.** True black-and-white imagery has no skin chroma and is gated SAFE. Do not "fix" it by classifying every achromatic tile: dark-mode UIs are achromatic too.
 12. **Energy figures are whole-device estimates**, valid only unplugged.
 13. **Low capture resolution.** Frames are 360 px on the short side; small or distant content may be missed.
-14. **Masks are not opaque unless the accessibility service is on.** Android blocks touches through another app's overlay above 0.8 opacity, so without the optional service (D32) masks draw at 0.79 and about 21 % of the masked content shows through under the noise (D28).
+14. **Masks are not opaque without the accessibility service.** Android blocks touches through another app's overlay above 0.8 opacity, so if the service is turned off mid-session (or in a debug build started without it) masks draw at 0.79 and about 21 % of the masked content shows through under the noise (D28, D32). Turning it off is one more thing the Child can do (item 6); it weakens the masks but does not remove them.
 15. **System bars are never masked or judged.** Full-screen apps (video, gallery) draw under the hidden bars, and the capture always crops the bar area (§4.6), so that strip is not covered.
 16. **Change only under a mask stays masked.** A masked tile probes when its CLEAR neighbours change (D25), so content that changes only inside it (a video exactly under the mask) stays masked until something next to it moves. With Reveal gone (D27), the Parent's fix is stop and restart.
 17. **Rotation exposure.** After a rotation with something masked, the whole screen is uncovered for one probe while the new grid is judged (§3.4): measured 73-161 ms on Device B, 94-218 ms on Device A (D33).
