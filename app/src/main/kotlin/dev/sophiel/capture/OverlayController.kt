@@ -36,14 +36,14 @@ internal const val OVERLAY_ALPHA = 0.79f
  *
  * Plain [View] on a raw [WindowManager], per D4: no Compose in an overlay window.
  */
-class OverlayController(private val context: Context, showLabel: () -> Boolean) {
+class OverlayController(private val context: Context, private val showLabel: () -> Boolean) {
     private val mainHandler = Handler(Looper.getMainLooper())
     private val windowManager = context.getSystemService(WindowManager::class.java)
-    private val view = TileMaskView(context, windowManager, showLabel)
+    private var view = TileMaskView(context, windowManager, showLabel)
     private var host: WindowManager? = null
 
     fun show() = mainHandler.post {
-        MaskWindowService.onUnbound = { mainHandler.post(::fallBackToAppOverlay) }
+        MaskWindowService.onChange = { mainHandler.post(::followService) }
         attach()
     }
 
@@ -63,15 +63,40 @@ class OverlayController(private val context: Context, showLabel: () -> Boolean) 
     }
 
     /**
-     * The service was turned off mid-session: its window goes with it, so the masks move to a plain
-     * overlay in every build. Otherwise one toggle in Settings would drop every mask.
+     * The service went off or came back mid-session. Off: its window goes with it, so the masks move
+     * to a plain overlay in every build, or one toggle would drop every mask. Back on (D42, amends
+     * D32): the masks move back to the opaque window, a new view added before the old one is removed
+     * (a view lives in one window), so no mask is down in between.
      */
-    private fun fallBackToAppOverlay() {
-        if (host == null || host === windowManager) return
-        // The system may already have removed the window along with the service's token.
-        runCatching { host?.removeViewImmediate(view) }
-        host = null
-        attach(fallback = true)
+    private fun followService() {
+        // Off and back on can both land before this runs: compare against the live service's window
+        // manager (one per service context), not just "not ours".
+        val a11yWm = MaskWindowService.instance?.getSystemService(WindowManager::class.java)
+        when {
+            host == null || host === a11yWm -> return // hidden (or nothing to move), or already there
+            host !== windowManager -> {
+                // A dead service's window: the system may already have removed it with the token.
+                runCatching { host?.removeViewImmediate(view) }
+                host = null
+                attach(fallback = true)
+            }
+            a11yWm != null -> {
+                val old = view
+                view = TileMaskView(context, windowManager, showLabel).apply {
+                    masks = old.masks
+                    cover = old.cover
+                    boxes = old.boxes
+                    visibility = old.visibility
+                }
+                host = null
+                // Bad token (gone again) or no window at all: put the old view back as the host.
+                runCatching { attach() }
+                when (host) {
+                    null -> { view = old; host = windowManager }
+                    else -> windowManager.removeView(old)
+                }
+            }
+        }
     }
 
     /** [rects] are fractions of the whole display, not of the frame. */
@@ -112,7 +137,7 @@ class OverlayController(private val context: Context, showLabel: () -> Boolean) 
     }
 
     fun hide() = mainHandler.post {
-        MaskWindowService.onUnbound = null
+        MaskWindowService.onChange = null
         if (view.isAttachedToWindow) host?.removeView(view)
         host = null
     }

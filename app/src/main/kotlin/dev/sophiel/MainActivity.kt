@@ -74,9 +74,6 @@ class MainActivity : ComponentActivity() {
     private var pendingResultCode = Activity.RESULT_CANCELED
     private var pendingResultData: Intent? = null
 
-    // D32: release builds start only with MaskWindowService on. Re-read on resume (back from Settings).
-    private var maskWindowOn by mutableStateOf(false)
-
     private lateinit var notificationPermissionLauncher: ActivityResultLauncher<String>
     private lateinit var consentLauncher: ActivityResultLauncher<Intent>
 
@@ -99,6 +96,8 @@ class MainActivity : ComponentActivity() {
         setContent {
             MaterialTheme {
                 var current by remember { mutableStateOf(Destination.Status) }
+                // D32: release builds start only with MaskWindowService bound; watched live (D42).
+                val maskWindowOn = MaskWindowService.bound.collectAsState().value != null
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
                     bottomBar = {
@@ -128,11 +127,6 @@ class MainActivity : ComponentActivity() {
         controller.effects = activityEffects()
         controller.recheckOverlay() // re-check after a possible trip to Settings
         consumeResume()
-    }
-
-    override fun onResume() {
-        super.onResume()
-        maskWindowOn = MaskWindowService.instance != null
     }
 
     override fun onNewIntent(intent: Intent) {
