@@ -11,22 +11,18 @@ Agent entrypoint for **Sophiel**. Read this fully, then read `./docs/SPEC.md`.
 > **Update this block at the end of every work session. It is the first thing you and I both read.**
 
 ```
-CURRENT MILESTONE:  M5 — Overlay (M4 done 2026-10-03 on branch feat/tile-pipeline)
-STATUS:             M4 done: per-tile Flow contract, TileGrid (landscape swaps to 3x2),
-                    TileMaskTracker (D25: probe only on neighbouring change), live capture
-                    behind a debug-only purple mask, Strict/Normal/Relaxed. Measured on both
-                    devices (D26): grid stays 2x3, no whole-frame safety net, probe exposure
-                    median ~130 ms, no timeouts. Tickets: .scratch/m4-tile-pipeline/ (local,
-                    excluded from git). Branch also carries the NudeNet spike (ef56711, D24,
-                    "not for main as-is"): the human chose to build M4 on top of it.
-BLOCKED ON:         M3.5 was skipped, not passed: the human never re-ran M3 V1-V7 and the
-                    D21 resume check on a device. feat/tile-pipeline is not merged or pushed;
-                    it cannot reach main until the spike is backed out or accepted.
-NEXT:               M5 — polished overlay replacing the debug mask. Carry over: ONE
-                    full-screen touch-through window at alpha <= 0.8 (two at 0.8 blocked every
-                    touch, ticket 06); rotation covers the content area until post-rotation
-                    verdicts; masks hidden + tracker paused on Sophiel screens; PIN Reveal.
-                    Then M6 Parent app (FEATURE FREEZE end of week 3), M7 Harden + ship.
+CURRENT MILESTONE:  M6 — Parent app (not started). M5 done 2026-10-05 (D36).
+STATUS:             M5 verified on A and B (D36): V1-V5 pass; probe exposure median/worst
+                    A 146/306 ms, B 85/188 ms; after rotation A 220/304, B 129/210.
+                    Release Start gate checked on B only. M5 decisions: D27-D36.
+                    Scope additions in M5: D32 opaque accessibility mask window, D34 peek under
+                    mask (debug chip, Parent setting in M6), D35 Precise preset (B, Android 14+).
+                    Ticket 12 also fixed VerdictCache caching dHash 0 (black tiles inherited
+                    an EXPLICIT verdict).
+BLOCKED ON:         Nothing.
+NEXT:               M6 Parent app. Ticket 15 done (D37: fast re-mask within 3 s of a
+                    release; exposure per flip A 154/295 ms, B 135/204).
+                    FEATURE FREEZE end of week 3 (end of M6), then M7.
 ```
 
 Milestones are **strictly sequential**. Do not start M(n+1) until every verification item in M(n) passes. If you believe a milestone should be skipped or reordered, stop and ask.

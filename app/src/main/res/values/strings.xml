@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">Sophiel</string>
+    <string name="mask_window_service_label">Sophiel opaque masks</string>
+    <string name="mask_window_service_description">Draws Sophiel\'s masks fully opaque. With \"Peek under mask\" on, it screenshots the app under a mask to check it, in memory only. Reads no text and receives no events.</string>
 </resources>

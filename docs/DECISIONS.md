@@ -715,7 +715,7 @@ runs each model whole-frame on the 62 Test Feed images (no skin gate, no cache, 
   in-the-way effect was seen, so no mitigation in the spike.
 - **Score** = max over the EXPOSED buttocks/breast/genitalia/anus classes. Per-class max replaces NMS.
 
-| ms per image (mean / p90) | Device A (A71) | Device B (S24 FE) |
+| ms per image (mean / p90) | Device A (A71) | Device B (S24) |
 | ------------------------- | -------------- | ----------------- |
 | GantMan 224 (shipped)     | 52 / 55        | 27 / 30           |
 | NudeNet 320n              | 106 / 119      | 22 / 26           |
@@ -749,7 +749,7 @@ Test Feed images squashed to a 360×744 portrait frame, 3 runs, fresh verdict ca
 Normal threshold (0.70). Device A plugged in, 70→78 %, 29.6 °C; Device B on battery, 77→74 %,
 31.4→32.6 °C. "Gate off" = every tile classified (worst case).
 
-| ms                         | A71: Light | A71: Balanced | S24 FE: Light | S24 FE: Balanced |
+| ms                         | A71: Light | A71: Balanced | S24: Light | S24 : Balanced |
 | -------------------------- | ---------- | ------------- | ------------- | ---------------- |
 | sweep p50, gate on         | 51         | 252           | 38            | 192              |
 | sweep p90, gate on         | 53         | 309           | 39            | 327              |
@@ -809,3 +809,255 @@ battery and warming, so treat B's Balanced numbers as an upper bound.
   Retune only if real use shows misses or wasted sweeps.
 - **Sensitivity values: kept as starting values (human decision, 2026-10-03):** Strict 0.55,
   Normal 0.70, Relaxed 0.85. Revisit with labelled score data.
+
+## D27 — Drop Reveal (2026-10-03, human decision during M5 planning)
+
+Reveal (PIN-gated uncover of all masks for 5 s) is removed. Touches already pass through masks, so
+the Child can scroll past one; a false positive is handled by stopping protection behind the PIN
+and restarting (one extra consent tap). Dropping it removes the REVEALED tracker state, the
+PinPromptActivity from M5, the notification action and old M5 V5. Overrides SPEC §1.2, D22 and D23.
+SPEC/CONTEXT/tracker cleanup is ticket 05 of `.scratch/m5-overlay/`.
+
+Same session, D24 follow-up: the NudeNet spike stays on `main`, but only behind the debug menu.
+Confirmed from the ORT 1.30.0 AAR's own manifest: it declares `INTERNET`, `ACCESS_NETWORK_STATE`
+and a `TelemetryInitializer` provider; our manifest strips both permissions. Re-run the aapt
+check on every ORT bump.
+
+## D28 — M5 overlay architecture (2026-10-03, human decisions, `.scratch/m5-overlay/` tickets 01-03)
+
+- **One full-screen touch-through window** draws all masks, at window alpha 0.79. Supersedes the SPEC's
+  "one window per masked tile". Reason: it is what M4 proved on both devices, debug boxes can share it,
+  and a probe is one redrawn rectangle with no add/remove churn. Research (ticket 01): Android's
+  untrusted-touch rule is per touch point and per UID, from window alpha not pixels, `>0.8` blocks,
+  so per-tile windows were legal too, but nothing else may overlap a mask window.
+- **Look: strong noise** (~1 px, full brightness range). Beat flat+lock, lock pattern, old noise,
+  pixelate (shape stays readable) and blur of our own copy at alpha 0.8 and 0.7 on both devices.
+  Blur-behind is "NOT enabled" on both devices (A71 `mBlurEnabled=false`): dropped.
+- **Lock chip + label** (small, centred) is a Parent **show-label toggle** (default on, no PIN to change).
+  Human scope addition to SPEC §1.2; lives in M6 Settings, M5 draws both behind a constant.
+- **"Still shows our mask"** = captured-tile mean colour vs the mask's, centre excluded; the capture is
+  downscaled ~3-4x so the grain averages out. Tolerance set from probe-frame logs on both devices.
+- **Masks cover the content area only**; bars stay visible (the capture crops them anyway).
+- **Swiping from Recents does not stop protection** (the foreground service survives). Otherwise a
+  Child could end protection with one swipe and no PIN. V4 now tests force-stop leaves no orphan window.
+- **Own screens:** masks hidden and tracker paused only while a Sophiel activity is resumed and not in
+  multi-window mode; in split-screen masks stay up. Detected with an in-process lifecycle counter.
+
+## D29 — M5 plan review fixes (2026-10-03, review of tickets 06-11, human-approved)
+
+A review of the M5 tickets against the code, before any overlay code, found design holes.
+SPEC §3.4, M5, §7 and §9 are updated; tickets 06-12 of `.scratch/m5-overlay/` carry the work.
+
+- **Rotation cover redesigned.** "Cover until the first post-rotation verdicts" cannot work: the
+  capture sees the cover, so those verdicts would score it SAFE, and `reset()` to CLEAR with a
+  2-frame engage would show flagged content for ~500 ms on Device A. Now: cover at once only if
+  something is masked; on the first new-size frame every tile starts PROBING and the existing probe
+  rules decide. Cost: one whole-screen probe per rotation, measured in V3. A preset change takes the
+  same path (M6 V4).
+- **Noise mask tinted.** The chosen noise averages to near-neutral grey, and so do ordinary photos;
+  a mean-colour check could not tell them apart, and the tile would never release (no Reveal, D27).
+  The noise keeps its grain and full brightness range but its mean moves well off grey. Generated
+  once and tiled: a mask that changes per draw keeps a static screen sending frames (D18).
+- **Protected probe frame releases the tile (human decision).** On a `FLAG_SECURE` app the probe
+  frame is black, never scored, and the tile re-masked forever (Light: flickered every 2 s). Now
+  every PROBING tile goes CLEAR on a protected frame. Rejected: accepting permanent over-masking.
+- **V4 tests the paths that can fail.** Force-stop kills the process and its windows with it; an
+  orphan window is only possible when protection ends with the process alive (status bar "Stop
+  sharing", Quick Settings "Active apps"). The Recents-swipe claim in D28 was never tested on these
+  Samsung devices; ticket 06's device run checks it first.
+- **Limitations added (§7, 14-17):** ~21 % show-through at alpha 0.79; system bars never masked;
+  change only under a mask stays masked (D25's "Reveal covers it" no longer holds); rotation
+  exposure.
+- M5 verification moves to D30.
+
+## D30 — Camo mask and pattern-correlation mask check (2026-10-03, human decisions, ticket 13)
+
+Supersedes D28's strong-noise look and D28/D29's mean-colour check. M5 verification moves to D31.
+
+- **Why the strong noise showed through.** At about 393 ppi and 30 cm, a 1 px dot is under 1 arcminute,
+  so the eye averages the grain to flat colour and the content's large shapes (silhouettes, skin on
+  dark) show through at 21 %. Ticket 02 never saw true 1 px grain: the Masks tab stretched it ~5x
+  in-app and 2x in the real window. The tab now draws at 1:1 device pixels.
+- **Look: camo** (human pick in the Masks tab): blobs at 16/8/4 px plus 1 px grain, histogram-
+  equalised (full contrast), 256 px, seeded, tiled. The shader is anchored to screen pixels.
+- **Check: correlation, not mean colour.** A masked tile is 0.79 x pattern + 0.21 x content, so its
+  luminance at 108 sample points follows the blobs we drew there; bare content is unrelated to our
+  seeded blobs. Frame pixels map back to screen pixels through the capture crop and scale.
+  Colour-free: the purple tint (D29) is no longer needed, and purple content no longer reads as
+  masked. JVM simulation (raw grain, 3x capture): masked r >= 0.71, bare r <= 0.31.
+- **Shipped settings (human pick, Masks tab):** blobs 16/8/4 px, brightness 100 (luma ~82), Slate.
+  Purple was found too flashy.
+- **Device run (2026-10-03):** B 141 probe frames (portrait), A 74 (portrait + landscape). Masked
+  r 0.67-0.89, bare r -0.29-0.26, nothing in between on either device or orientation.
+  THRESHOLD = 0.45, mid-gap leaning to "masked".
+
+## D31 — Probe backoff on re-masking tiles (2026-10-03, human decision, ticket 14)
+
+Amends D25's timing; the neighbour rule itself stays. M5 verification moves to D32.
+
+- **Found on Device B:** a video playing next to a masked tile changes its neighbours on every
+  frame, so the tile probed at the 1 s floor (tile 3: 43 probes in ~3 min, 32 re-masked) and the
+  mask blinked about once a second for nothing.
+- **Rule:** each probe that ends re-masked (locked hash, flagged, or the 300 ms timeout) doubles
+  the tile's minimum probe gap: 1, 2, 4, 8 s. A releasing probe resets it; a new episode starts at
+  1 s. The no-neighbour timer (Light) is max(2 s, gap).
+- **Owed probes start on a timer.** First device check: a tile stuck masked. Its neighbours changed
+  inside the 8 s gap, then the screen went static, so no frame came to start the probe (D18). A
+  neighbour change inside the gap now marks the probe as owed; it starts when the gap ends, on the
+  next frame or on a timer if none comes. Lifting the mask changes the screen, so the probe frame
+  arrives. The Light/no-neighbour timer is never owed: it still needs a frame, as in D25.
+- **Cost:** a backed-off tile can stay masked up to 8 s after its content leaves. Over-masking,
+  the safe direction. Rejected for now: requiring 2 SAFE probe frames to release (would also stop
+  the rarer release-then-re-mask cycle on video, but lengthens every probe).
+
+## D32 — Opaque masks through an optional accessibility window (2026-10-03, human decision and build)
+
+Scope addition to SPEC §1.2 (human). Amends D28's alpha 0.79.
+
+- **Why.** At alpha 0.79 about 21 % of the masked content shows through (D28, §7 item 14), and the
+  camo (D30) only reduces how readable it is. Android 12+ exempts trusted windows, including
+  accessibility overlays, from the untrusted-touch opacity rule, so a `TYPE_ACCESSIBILITY_OVERLAY`
+  window can be fully opaque and still pass every touch through.
+- **How.** `MaskWindowService` is an `AccessibilityService` that does nothing but lend
+  `OverlayController` its window token: no event types, `canRetrieveWindowContent="false"`. Enabled:
+  the one mask window is an accessibility overlay at alpha 1.0. Off: the app overlay at 0.79, as
+  before. Turned off mid-session: the masks move to the app overlay.
+- **Device runs (2026-10-04):** A and B log `mask window: accessibility, alpha 1.0`; masking,
+  probing and the D30 mask check work unchanged (masked tiles read r 0.70-0.90).
+- **Costs and limits.** The Parent enables it in Accessibility settings; on Android 13+ a sideloaded
+  APK first needs App info > "Allow restricted settings" (Parent setup, M6). Enabling it mid-session
+  takes effect on the next protection start. An accessibility overlay sits above system UI panels,
+  so the rotate-suggestion button (auto-rotate off, gesture navigation) can hide under a mask; a tap
+  there still reaches it. Leaving holes in the bottom corners was rejected: it would expose content.
+- **Amended 2026-10-04 (human): the accessibility window is the main path.** Release builds start
+  protection only with the service on (Status and the M6 wizard gate Start); starting on the 0.79
+  app overlay without it is a debug-build option. Reason: the app never ships to Play (school
+  project), and opaque masks give better results. Turning the service off mid-session still moves
+  the masks to the app overlay in every build, so one Settings toggle cannot drop every mask.
+
+## D33 — Rotation cover held until the capture shows it (2026-10-04, ticket 08 device runs)
+
+Refines D29's rotation design. M5 verification moves to D34.
+
+- **Cover down too early.** D29 took the cover down on the first new-size frame. On Device B that
+  frame (and the next ~4) is the system rotation animation, a snapshot of the old screen: not the
+  content, not our cover (r 0.00-0.44). Judged as probe frames they released most tiles, and the
+  flagged ones re-masked ~400 ms later, barely better than the 440 ms baseline.
+- **Now:** after a grid change with anything masked, the tracker pauses, the cover stays, and frames
+  are ignored until one shows the cover on every tile (D30 check). Then every tile starts PROBING
+  and the cover comes down. If no frame shows it within 1 s (static screen, secure app), it goes
+  ahead anyway. A preset change draws the same cover.
+- **Blank tiles re-masked after a reset.** A reset tile's lock was hash 0, and a blank tile's dHash
+  is 0, so empty content matched and stayed masked (Device A). The lock is now null until a tile
+  is masked.
+- **Device runs (opaque masks, D32):** cover seen after 373-393 ms on B, 526-730 ms on A; then
+  tiles uncovered 73-161 ms on B, 94-218 ms on A, flagged tiles re-masked on the first probe frame.
+  Baseline without the cover: ~440 ms on B, 740-900 ms on A.
+
+## D34 — Peek under the mask with a window screenshot (2026-10-04, human decision, ticket 16 spike)
+
+Amends D32's "no window content". M5 verification moves to D35, then D36.
+
+- **Why.** Every probe lifts the mask, because MediaProjection captures it; D25-D33 and ticket 15
+  work around that. `AccessibilityService.takeScreenshotOfWindow()` (API 34+) shoots one window
+  without the windows above it. The SDK documents it for this case: a target window "visually
+  underneath an accessibility overlay".
+- **How (spike).** Debug chip "Peek under mask" on the Protection screen, default off; a Parent
+  setting in M6. With it on, API 34+ and `MaskWindowService` on, a PROBING tile stays masked and is
+  judged from a shot of the top app window under it, scaled into the capture frame's geometry. The
+  tracker is unchanged (same triggers, backoff, 300 ms timeout). The shot is recycled after judging.
+- **Service capabilities:** `canRetrieveWindowContent`, `canTakeScreenshot`,
+  `flagRetrieveInteractiveWindows`. Only window ids, types and bounds are read: no nodes, no event
+  types. Capabilities are static, so every build declares them; only the option uses them. Device B
+  picked them up on reinstall without re-enabling the service (`capabilities=129`).
+- **Device A (API 33) has no such API** and keeps the probe path.
+- **Run 1 (B):** shots p50 59 ms, max 132; no flash. Tiles got stuck: inside X every shot failed
+  (error 1, ~2 s), and probes waiting on a shot timed out, both counted as wasted and backed off.
+  **Now:** a peek is its own state, PEEKING. A failed, slow (> 500 ms) or windowless shot lifts the
+  tile into an ordinary probe, so peeking is never worse than probing. A flagged peek does not back
+  off: nothing was shown.
+- **Run 2 (B, ~3 min incl. X):** no tile stuck; 38 episodes all released, every one over 4 s was
+  flagged content still on screen. Shots p50 73 ms, max 134. When X's shots failed again, the
+  fallback probes released the tiles in ~85-130 ms. Shots now 400 ms apart (342 ms hit the limit).
+- **Kept as an option**, debug chip now and a Parent setting in M6 (human). Unknown: why X's shots
+  start failing (error 1, in system_server).
+
+## D35 — NudeNet box masks, an experiment on window shots (2026-10-05, human decision, ticket 17)
+
+Started outside SPEC §1.3 ("Precise preset (bounding-box detector model)") on purpose, like D24;
+now in scope as the Precise preset (amendment below). M5 verification moves to D36.
+
+- **What.** With NudeNet picked and "Peek under mask" on (API 34+), its unsafe boxes (score >= 0.3,
+  padded 10 %) are drawn as camo masks. Frames can only add masks: they can't see under one. Every
+  400 ms, while something is masked, a window shot (D34) replaces them all. A failed shot holds
+  them up to 2 s. `NudeNet.detect` now does per-class NMS (IoU 0.45) instead of one box per class,
+  so two regions get two masks; the max score, and D24's numbers, are unchanged.
+- **Window cache off.** Run 1 flashed: 29 of 30 shots failed (error 1, ~2 s) after a switch through
+  Recents, and each failure dropped the masks. `MaskWindowService` now calls
+  `setCacheEnabled(false)`, so `getWindows()` is never stale. Run 2 (B, ~6 min, Gallery and X):
+  130 shots, 0 failures. This also covers D34's tile peeks, which failed in X the same way.
+- **Run 2 (B):** shot to masks p50 144 ms, max 954; NudeNet 320n per frame p50 54 ms, p90 115.
+  Human: "great results"; on scroll, new content shows for ~100-200 ms until a frame's detection
+  lands (model speed), and masks trail moving content by up to the 400 ms shot gap.
+- **Device A cannot run it** (API 33: no window shots; 320n at 106 ms per frame, D24).
+- **Amended 2026-10-05 (human): in the demo, as the Precise preset.** Reason: the most impressive
+  result for the demo. Scope addition to SPEC §1.2; the §1.3 "Precise preset" row is removed.
+  Precise = NudeNet 320n box masks wherever window shots work; elsewhere (Device A, service off
+  mid-session) it runs Balanced tiles. Sensitivity does not apply (fixed box score 0.3). Light and
+  Balanced stay the main protection; the demo shows Precise on Device B. NudeNet's weights stay
+  gitignored (D24): a demo build needs `nudenet_320n.onnx` copied into the assets first. SPEC §7
+  item 19.
+
+## D36 — M5 verification (2026-10-05, ticket 11, human device runs)
+
+Debug build at `ad80964`, Balanced, accessibility mask window (alpha 1.0). Device A = SM-A715F
+(API 33), Device B = SM-S721B (API 36). Numbers from the run's `Sophiel` logcat; probe exposure is
+`probe tile=N exposureMs`, "after rotation" is a probe within 2.5 s of a capture resize.
+
+| | A | B |
+|---|---|---|
+| V1 masks on flagged tiles, portrait + landscape; touches pass through | pass | pass |
+| V2 static image 10 s, no flicker; releases after content changes | pass | pass |
+| V3 probe exposure, median / worst | 146 / 306 ms (n=26) | 85 / 188 ms (n=20) |
+| V3 after rotation, median / worst (9 / 10 rotations) | 220 / 304 ms (n=12) | 129 / 210 ms (n=12) |
+| V3 shortest gap between probes on one tile | 2121 ms | 2053 ms |
+| V4 "Stop sharing" chip and Quick Settings Stop leave no window; Recents swipe keeps running | pass | pass |
+| V5 secure app releases the mask, no flicker | pass, last tile ~2.1 s after the switch | pass (ticket 12 run 2) |
+
+- **Worst cases sit on the 300 ms probe cap**: a probe that got no valid frame re-masks at 300 ms.
+- **V5 needed a cache fix (ticket 12).** Black tiles hash to dHash 0; a dark tile scored EXPLICIT
+  during an app switch was cached under 0 and re-masked every black probe after it. `VerdictCache`
+  no longer stores hash 0. With several tiles masked the frame is not "mostly black", so ordinary
+  probes release those tiles (black gates SAFE) and `releaseProbes` frees the last one.
+- **V5 on A is slower by design (D31):** every tile released on its first probe after the switch,
+  but three had just re-masked on the real image, so their next probe waited the 2 s backoff gap.
+  That run drew masks on the 0.79 app overlay: the accessibility service was enabled but not yet
+  connected when protection started (not investigated).
+- **Rotation frames can be protected** (A: two black frames mid-rotation). The tracker is paused
+  under the rotation cover, so they change nothing.
+- **Release Start gate (D32), B:** a release build signed with the debug key. With the service off
+  the note shows and Start is disabled; turning it on enables Start. Not run on A.
+- **Own-screen pause (ticket 09)**: checked on B only (masks hide in Sophiel, return unchanged,
+  stay up in split screen).
+- **Open, not an M5 verification item:** ticket 15 (release flips on video), needs-info until
+  there is a repeatable test clip. M5 is ticked on V1-V5.
+
+## D37 — Fast re-mask just after a release (2026-10-05, ticket 15, human-set bar)
+
+A probe can land on one safe frame of a video that is flagged again a moment later; re-engaging
+then needed 2 flagged frames, so the video played uncovered. **A tile released by a probe or peek
+in the last 3 s re-masks on its first flagged frame** (`TileMaskTracker.RECENT_RELEASE_MS`,
+a calibration knob). Rejected: two SAFE probe frames to release (doubles every probe's exposure).
+
+- **Bar (human):** build if > 1 in 5 releases re-mask within 3 s, or any uncovered stretch > ~1 s,
+  on either phone, over at least 15-20 releases. Clip: a human screen recording (protection off),
+  gitignored under `eval/images/m5-video/`, sha256 `3f326560…a5e9696`, played twice per phone.
+- **Baseline:** A 15 of 65 releases flipped (23 %), B 17 of 55 (31 %). Bar met on both.
+- **3 s fits:** release -> re-mask gaps cluster in 0-3 s (A 15, B 17); 3 in 3-5 s; the rest > 5 s.
+- **Exposure per flip** (first flagged frame captured -> mask), median / worst:
+  A 475 / 669 -> **154 / 295 ms**; B 274 / 969 -> **135 / 204 ms**.
+- **Flip count is unchanged by design** (A 18 of 65, B 18 of 68): a flip is still a release then
+  a re-mask, just shorter. **No sign of extra false masks:** after a flip the next probe released
+  the tile 8 of 15 / 7 of 16 times before, 8 of 18 / 8 of 18 after.
+- **Episode log (M6):** each fast re-mask is a CLEAR -> MASKED, so it logs as a new episode, as a
+  flip already did.

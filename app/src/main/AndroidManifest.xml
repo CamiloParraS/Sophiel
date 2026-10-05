@@ -44,6 +44,20 @@
             android:name=".capture.ProjectionService"
             android:foregroundServiceType="mediaProjection"
             android:exported="false" />
+
+        <!-- Optional: lends the mask window a trusted token so masks draw opaque (D32). -->
+        <service
+            android:name=".capture.MaskWindowService"
+            android:exported="false"
+            android:label="@string/mask_window_service_label"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/mask_window_service" />
+        </service>
     </application>
 
 </manifest>
