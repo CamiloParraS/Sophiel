@@ -149,6 +149,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onStop() {
+        (application as SophielApp).container.unlock.onActivityStop(isChangingConfigurations)
         controller.effects = null
         super.onStop()
     }

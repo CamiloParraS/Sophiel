@@ -4,7 +4,11 @@ import android.content.Context
 import dev.sophiel.capture.OwnScreens
 import dev.sophiel.capture.ProjectionController
 import dev.sophiel.core.Sensitivity
+import android.os.SystemClock
+import android.provider.Settings
 import dev.sophiel.feed.SpikeModel
+import dev.sophiel.pin.PinStore
+import dev.sophiel.pin.Unlock
 import dev.sophiel.settings.SettingsRepository
 
 /**
@@ -15,6 +19,17 @@ import dev.sophiel.settings.SettingsRepository
  */
 class AppContainer(context: Context) {
     val settings = SettingsRepository(context)
+
+    private val pinPrefs = context.getSharedPreferences("pin", Context.MODE_PRIVATE)
+
+    /** D38: hash and lockout on disk (never the PIN), the unlock window in memory only. */
+    val pin = PinStore(
+        read = { pinPrefs.getString(it, null) },
+        write = { m -> pinPrefs.edit().apply { m.forEach { (k, v) -> putString(k, v) } }.apply() },
+        clock = SystemClock::elapsedRealtime,
+        bootCount = { Settings.Global.getInt(context.contentResolver, Settings.Global.BOOT_COUNT, 0) },
+    )
+    val unlock = Unlock(SystemClock::elapsedRealtime)
 
     val projectionController = ProjectionController()
 
