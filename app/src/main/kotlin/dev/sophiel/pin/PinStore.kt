@@ -105,8 +105,8 @@ class PinStore(
     private fun unhex(s: String) = ByteArray(s.length / 2) { s.substring(it * 2, it * 2 + 2).toInt(16).toByte() }
 
     companion object {
-        // ponytail: provisional; set so one verify is ~150 ms on Device A (PinTiming logs it, ticket 12).
-        const val ITERATIONS = 100_000
+        // Measured on Device A (PinTiming): 100_000 took ~588 ms, so 25_000 is ~150 ms (D38).
+        const val ITERATIONS = 25_000
         private const val SALT = "pin_salt"
         private const val HASH = "pin_hash"
         private const val COUNT = "pin_iterations"
