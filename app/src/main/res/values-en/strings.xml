@@ -1,0 +1,29 @@
+<resources>
+    <string name="app_name">Sophiel</string>
+
+    <string name="mask_window_service_label">Sophiel opaque masks</string>
+    <string name="mask_window_service_description">Draws Sophiel\'s masks fully opaque. With \"Peek under mask\" on, it screenshots the app under a mask to check it, in memory only. Reads no text and receives no events.</string>
+
+    <!-- Status -->
+    <string name="status_idle">Not protecting</string>
+    <string name="status_running">Protection on</string>
+    <string name="status_starting">Starting…</string>
+    <string name="status_stopping">Stopping…</string>
+    <string name="status_blocked">Protection blocked</string>
+    <string name="status_notifications_denied">Notifications denied: status shows in logcat only.</string>
+    <string name="status_overlay_required">Permission to display over other apps is required.</string>
+    <string name="status_settings_summary">Balanced · Normal</string>
+    <string name="status_enable_accessibility">Turn on Sophiel in Accessibility settings to start.</string>
+    <string name="status_open_accessibility">Open Accessibility settings</string>
+    <string name="action_start">Start protection</string>
+    <string name="action_stop">Stop protection</string>
+    <string name="action_retry">Retry</string>
+
+    <!-- Notifications -->
+    <string name="notif_channel">Screen protection</string>
+    <string name="notif_running_title">Sophiel protection on</string>
+    <string name="notif_starting">Starting protection…</string>
+    <string name="notif_stop">Stop</string>
+    <string name="notif_paused_title">Sophiel protection paused</string>
+    <string name="notif_paused_text">The screen turned off. Tap to resume.</string>
+</resources>

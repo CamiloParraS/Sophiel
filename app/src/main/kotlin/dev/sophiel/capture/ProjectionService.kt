@@ -137,8 +137,8 @@ class ProjectionService : Service() {
             this, 0, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Sophiel protection paused")
-            .setContentText("The screen turned off. Tap to resume.")
+            .setContentTitle(getString(R.string.notif_paused_title))
+            .setContentText(getString(R.string.notif_paused_text))
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)
@@ -148,7 +148,7 @@ class ProjectionService : Service() {
 
     private fun startForegroundWithType() {
         getSystemService(NotificationManager::class.java).cancel(RESUME_NOTIFICATION_ID)
-        val notification = buildNotification("Starting protection…")
+        val notification = buildNotification(getString(R.string.notif_starting))
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION)
         } else {
@@ -167,18 +167,18 @@ class ProjectionService : Service() {
         )
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setCategory(Notification.CATEGORY_SERVICE)
-            .setContentTitle("Sophiel protection running")
+            .setContentTitle(getString(R.string.notif_running_title))
             .setContentText(text)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))
-            .addAction(0, "Stop", stopPendingIntent)
+            .addAction(0, getString(R.string.notif_stop), stopPendingIntent)
             .build()
     }
 
     private fun createNotificationChannel() {
-        val channel = NotificationChannel(CHANNEL_ID, "Screen protection", NotificationManager.IMPORTANCE_LOW)
+        val channel = NotificationChannel(CHANNEL_ID, getString(R.string.notif_channel), NotificationManager.IMPORTANCE_LOW)
         getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
     }
 }

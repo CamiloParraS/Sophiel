@@ -24,6 +24,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
@@ -40,6 +42,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import dev.sophiel.capture.ControllerPhase
@@ -53,6 +56,16 @@ import dev.sophiel.feed.benchmarkScreen
 import dev.sophiel.feed.maskLookScreen
 import dev.sophiel.feed.testFeedScreen
 import dev.sophiel.settings.ParentPreset
+import dev.sophiel.ui.theme.SophielTheme
+
+/** Status line for each phase. */
+private fun ControllerPhase.label() = when (this) {
+    ControllerPhase.IDLE -> R.string.status_idle
+    ControllerPhase.RUNNING -> R.string.status_running
+    ControllerPhase.STOPPING -> R.string.status_stopping
+    ControllerPhase.BLOCKED -> R.string.status_blocked
+    else -> R.string.status_starting
+}
 
 /** Top-level app destinations. Benchmark is the heavy-model spike (branch spike/heavy-models). */
 private enum class Destination { Status, TestFeed, Benchmark, Masks }
@@ -94,7 +107,7 @@ class MainActivity : ComponentActivity() {
 
         enableEdgeToEdge()
         setContent {
-            MaterialTheme {
+            SophielTheme {
                 var current by remember { mutableStateOf(Destination.Status) }
                 // D32: release builds start only with MaskWindowService bound; watched live (D42).
                 val maskWindowOn = MaskWindowService.bound.collectAsState().value != null
@@ -204,32 +217,33 @@ private fun statusScreen(controller: ProjectionController, container: AppContain
     val context = LocalContext.current
     val debug = context.isDebuggable
     Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(state.phase.name, style = MaterialTheme.typography.titleMedium)
+        // Scrolls so the largest font scale still reaches every button.
+        Column(Modifier.verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(stringResource(state.phase.label()), style = MaterialTheme.typography.titleMedium)
             if (state.degraded) {
-                Text("Notifications denied — status is logcat-only", style = MaterialTheme.typography.bodySmall)
+                Text(stringResource(R.string.status_notifications_denied), style = MaterialTheme.typography.bodySmall)
             }
             if (state.phase == ControllerPhase.BLOCKED) {
-                Text("Overlay permission is required.", style = MaterialTheme.typography.bodySmall)
+                Text(stringResource(R.string.status_overlay_required), style = MaterialTheme.typography.bodySmall)
             }
             Spacer(Modifier.height(16.dp))
             // Release: the hard-coded settings. Debug: the chips show what is picked.
-            if (debug) debugChips(container) else Text("Balanced · Normal", style = MaterialTheme.typography.bodySmall)
+            if (debug) debugChips(container) else Text(stringResource(R.string.status_settings_summary), style = MaterialTheme.typography.bodySmall)
             Spacer(Modifier.height(16.dp))
             if (!maskWindowOn && state.phase == ControllerPhase.IDLE) {
                 Text(
-                    if (debug) "Accessibility off: masks draw at 0.79 (debug only)" else "Turn on Sophiel in Accessibility settings to start.",
+                    if (debug) "Accessibility off: masks draw at 0.79 (debug only)" else stringResource(R.string.status_enable_accessibility),
                     style = MaterialTheme.typography.bodySmall,
                 )
                 TextButton(onClick = { context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }) {
-                    Text("Open Accessibility settings")
+                    Text(stringResource(R.string.status_open_accessibility))
                 }
             }
             when (state.phase) {
-                ControllerPhase.IDLE -> Button(onClick = controller::start, enabled = context.canStart(maskWindowOn)) { Text("Start protection") }
-                ControllerPhase.RUNNING -> Button(onClick = controller::stop) { Text("Stop protection") }
-                ControllerPhase.BLOCKED -> Button(onClick = controller::recheckOverlay) { Text("Retry") }
-                else -> Text("Working…", style = MaterialTheme.typography.bodySmall)
+                ControllerPhase.IDLE -> Button(onClick = controller::start, enabled = context.canStart(maskWindowOn)) { Text(stringResource(R.string.action_start)) }
+                ControllerPhase.RUNNING -> Button(onClick = controller::stop) { Text(stringResource(R.string.action_stop)) }
+                ControllerPhase.BLOCKED -> Button(onClick = controller::recheckOverlay) { Text(stringResource(R.string.action_retry)) }
+                else -> Text(stringResource(R.string.status_starting), style = MaterialTheme.typography.bodySmall)
             }
         }
     }

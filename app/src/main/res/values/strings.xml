@@ -1,5 +1,29 @@
 <resources>
     <string name="app_name">Sophiel</string>
-    <string name="mask_window_service_label">Sophiel opaque masks</string>
-    <string name="mask_window_service_description">Draws Sophiel\'s masks fully opaque. With \"Peek under mask\" on, it screenshots the app under a mask to check it, in memory only. Reads no text and receives no events.</string>
+
+    <string name="mask_window_service_label">Máscaras opacas de Sophiel</string>
+    <string name="mask_window_service_description">Dibuja las máscaras de Sophiel totalmente opacas. Con «Mirar bajo la máscara» activado, hace una captura de la app que queda debajo para revisarla, solo en memoria. No lee texto ni recibe eventos.</string>
+
+    <!-- Estado -->
+    <string name="status_idle">Sin protección</string>
+    <string name="status_running">Protección activa</string>
+    <string name="status_starting">Iniciando…</string>
+    <string name="status_stopping">Deteniendo…</string>
+    <string name="status_blocked">Protección bloqueada</string>
+    <string name="status_notifications_denied">Notificaciones denegadas: el estado solo aparece en logcat.</string>
+    <string name="status_overlay_required">Hace falta el permiso para mostrarse sobre otras apps.</string>
+    <string name="status_settings_summary">Equilibrado · Normal</string>
+    <string name="status_enable_accessibility">Activa Sophiel en los ajustes de Accesibilidad para empezar.</string>
+    <string name="status_open_accessibility">Abrir ajustes de Accesibilidad</string>
+    <string name="action_start">Iniciar protección</string>
+    <string name="action_stop">Detener protección</string>
+    <string name="action_retry">Reintentar</string>
+
+    <!-- Notificaciones -->
+    <string name="notif_channel">Protección de pantalla</string>
+    <string name="notif_running_title">Protección de Sophiel activa</string>
+    <string name="notif_starting">Iniciando protección…</string>
+    <string name="notif_stop">Detener</string>
+    <string name="notif_paused_title">Protección de Sophiel en pausa</string>
+    <string name="notif_paused_text">La pantalla se apagó. Toca para reanudar.</string>
 </resources>
