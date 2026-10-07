@@ -1,5 +1,223 @@
 <resources>
     <string name="app_name">Sophiel</string>
-    <string name="mask_window_service_label">Sophiel opaque masks</string>
-    <string name="mask_window_service_description">Draws Sophiel\'s masks fully opaque. With \"Peek under mask\" on, it screenshots the app under a mask to check it, in memory only. Reads no text and receives no events.</string>
+
+    <string name="mask_window_service_label">Máscaras opacas de Sophiel</string>
+    <string name="mask_window_service_description">Dibuja las máscaras de Sophiel totalmente opacas. Con «Mirar bajo la máscara» activado, hace una captura de la app que queda debajo para revisarla, solo en memoria. No lee texto ni recibe eventos.</string>
+
+    <!-- Estado -->
+    <string name="status_idle">Sin protección</string>
+    <string name="status_starting">Iniciando…</string>
+    <string name="action_start">Iniciar protección</string>
+    <string name="action_stop">Detener protección</string>
+
+    <!-- Notificaciones -->
+    <string name="notif_channel">Protección de pantalla</string>
+    <string name="notif_running_title">Protección de Sophiel activa</string>
+    <string name="notif_starting">Iniciando protección…</string>
+    <string name="notif_stop">Detener</string>
+    <string name="notif_paused_title">Protección de Sophiel en pausa</string>
+    <string name="notif_paused_text">La pantalla se apagó. Toca para reanudar.</string>
+
+    <!-- PIN y puerta -->
+    <string name="pin_title">Escribe el PIN</string>
+    <string name="pin_subtitle">Solo para padres</string>
+    <plurals name="pin_wrong">
+        <item quantity="one">PIN incorrecto · te queda %d intento</item>
+        <item quantity="other">PIN incorrecto · te quedan %d intentos</item>
+    </plurals>
+    <string name="pin_locked">Bloqueado %1$s</string>
+    <string name="pin_try_again">Ya puedes intentarlo otra vez</string>
+    <string name="pin_unlocked">Desbloqueado durante 2 min</string>
+    <string name="pin_unlock">Desbloquear</string>
+    <string name="pin_cancel">Cancelar</string>
+    <string name="pin_delete">Borrar</string>
+    <string name="pin_forgot">¿Olvidaste el PIN?</string>
+    <string name="pin_forgot_body">No hay forma de recuperarlo. Para empezar de nuevo hay que borrar los datos de la app en los ajustes del teléfono, y eso también borra el historial.</string>
+    <string name="pin_create_title">Crea un PIN</string>
+    <string name="pin_create_enter">Elige un PIN de 4 a 6 dígitos</string>
+    <string name="pin_create_confirm">Escríbelo otra vez para confirmar</string>
+    <string name="pin_create_mismatch">No coinciden. Escríbelo otra vez.</string>
+    <string name="pin_create_note">Solo para padres. No se puede recuperar si se olvida.</string>
+    <string name="pin_continue">Continuar</string>
+    <string name="pin_save">Guardar PIN</string>
+    <string name="door_footnote">Detener y abrir Ajustes piden el PIN</string>
+    <string name="unlocked_banner">Ajustes desbloqueado · Se bloquea en %1$s</string>
+    <string name="lock_now">Bloquear ahora</string>
+    <string name="settings_title">Ajustes</string>
+    <string name="back">Atrás</string>
+    <string name="version_label">Versión %1$s</string>
+
+    <!-- Estado -->
+    <string name="status_protected">Protegido</string>
+    <string name="status_protected_text">Cubriendo esta pantalla</string>
+    <plurals name="status_missing">
+        <item quantity="one">Falta %d cosa</item>
+        <item quantity="other">Faltan %d cosas</item>
+    </plurals>
+    <string name="status_ready">Listo para iniciar</string>
+    <string name="status_ready_partial">Con la máscara algo transparente</string>
+    <string name="status_ready_text">Todo está en orden</string>
+    <string name="status_starting_text">Android te pedirá permiso para capturar la pantalla</string>
+    <string name="status_what_will_happen">Qué va a pasar</string>
+    <string name="status_capture_permission">Permiso de captura</string>
+    <string name="status_capture_permission_text">Hay que aceptarlo cada vez que inicias. No se guarda ninguna imagen.</string>
+    <string name="status_starting_note">Si cierras el permiso, la protección no se inicia</string>
+    <string name="status_stopped">Se detuvo</string>
+    <string name="status_stopped_text">La protección se apagó sola a las %1$s</string>
+    <string name="status_what_happened">Qué pasó</string>
+    <string name="stopped_screen_off">La pantalla se apagó</string>
+    <string name="stopped_screen_off_text">La protección se pausó</string>
+    <string name="stopped_system">Android detuvo la protección</string>
+    <string name="stopped_system_text">El sistema terminó la captura</string>
+    <string name="stopped_restarted">El teléfono se reinició</string>
+    <string name="stopped_restarted_text">La protección no vuelve sola</string>
+    <string name="stopped_app_closed">La app se cerró</string>
+    <string name="stopped_app_closed_text">Android la detuvo</string>
+    <string name="status_see_log">Ver en Historial</string>
+    <string name="status_to_restart">Para volver a iniciar</string>
+    <string name="status_review">Revisión</string>
+    <string name="status_care">Cuidado</string>
+    <string name="preset_light">Ahorro</string>
+    <string name="preset_balanced">Equilibrado</string>
+    <string name="preset_thorough">Reforzado</string>
+    <string name="preset_precise">Detallado</string>
+    <string name="care_strict">Tapar más</string>
+    <string name="care_normal">Normal</string>
+    <string name="care_relaxed">Tapar menos</string>
+    <string name="status_precise_using">Detallado · usando Equilibrado</string>
+    <string name="fallback_accessibility">Activa la máscara completa para usar Detallado</string>
+    <string name="fallback_android">Detallado necesita Android 14 o más nuevo</string>
+    <string name="health_ok">Todo en orden</string>
+    <string name="health_ok_text">Máscara, avisos y permisos</string>
+    <string name="need_overlay">Mostrar la máscara</string>
+    <string name="need_service">Máscara completa</string>
+    <string name="need_notifications">Avisos</string>
+    <string name="tag_allowed">Permitido</string>
+    <string name="tag_working">Funcionando</string>
+    <string name="tag_enabled">Activados</string>
+    <string name="need_overlay_missing">Sin permiso: Android no deja dibujar la máscara</string>
+    <string name="need_service_missing">Apagada: la máscara se verá algo transparente</string>
+    <string name="need_service_forced">Se apaga cuando la app se cierra a la fuerza</string>
+    <string name="need_notifications_missing">No verás el aviso cuando se pause</string>
+    <string name="fix_allow">Permitir</string>
+    <string name="fix_enable">Activar</string>
+    <string name="group_required">Para funcionar</string>
+    <string name="group_recommended">Recomendado</string>
+    <string name="note_overlay">Permite mostrar la máscara para poder iniciar</string>
+    <string name="note_partial">Sin la máscara completa, la máscara se verá algo transparente</string>
+
+    <!-- Historial -->
+    <string name="log_title">Historial</string>
+    <string name="log_today">HOY</string>
+    <string name="log_today_title">Hoy · %1$s</string>
+    <plurals name="log_week">
+        <item quantity="one">Esta semana · %d vez</item>
+        <item quantity="other">Esta semana · %d veces</item>
+    </plurals>
+    <string name="log_stat_masked">Tapados</string>
+    <string name="log_stat_unchecked">Sin revisar</string>
+    <string name="log_stat_off">Detenidas</string>
+    <string name="log_filter_all">Todo</string>
+    <string name="log_filter_masked">Tapados</string>
+    <string name="log_filter_others">Otros</string>
+    <string name="log_nothing_masked">No se tapó nada este día.</string>
+    <string name="log_nothing">Nada que mostrar.</string>
+    <string name="log_more">Mostrar más (%d)</string>
+    <string name="log_masked">Se tapó algo</string>
+    <plurals name="log_parts">
+        <item quantity="one">%d parte de la pantalla</item>
+        <item quantity="other">%d partes de la pantalla</item>
+    </plurals>
+    <plurals name="log_zones">
+        <item quantity="one">%d zona</item>
+        <item quantity="other">%d zonas</item>
+    </plurals>
+    <string name="log_detail">Revisión: %1$s · puntuación %2$s · %3$s</string>
+    <string name="log_detail_precise">Revisión: %1$s · %2$s</string>
+    <string name="log_band_high">Muy seguro</string>
+    <string name="log_band_mid">Seguro</string>
+    <string name="log_band_low">Dudoso</string>
+    <string name="log_unchecked">No se pudo revisar</string>
+    <string name="log_unchecked_text">La app protege su pantalla · %1$d s</string>
+    <string name="log_on">Protección activada</string>
+    <string name="log_on_text">Revisión %1$s · cuidado %2$s</string>
+    <string name="log_off">Protección detenida</string>
+    <string name="log_off_user">La detuviste tú</string>
+    <string name="log_off_screen">La pantalla se apagó</string>
+    <string name="log_off_system">El sistema la cerró</string>
+    <string name="log_off_app">La app se cerró</string>
+    <string name="log_off_restarted">El teléfono se reinició</string>
+    <string name="log_empty">Nada que mostrar aún</string>
+    <string name="log_empty_text">El historial se queda en este teléfono y se borra a los 7 días.</string>
+    <string name="log_clear">Borrar historial</string>
+    <string name="log_clear_title">¿Borrar el historial?</string>
+    <string name="log_clear_text">Se borra lo de los últimos 7 días. No se puede deshacer.</string>
+    <string name="log_clear_confirm">Borrar</string>
+
+    <!-- Ajustes -->
+    <string name="group_protection">Protección</string>
+    <string name="set_care">Cuidado</string>
+    <string name="set_how">Cómo revisa</string>
+    <string name="care_help_strict">Tapa también lo dudoso. A veces tapará de más.</string>
+    <string name="care_help_normal">Un buen equilibrio. Recomendado.</string>
+    <string name="care_help_relaxed">Tapa solo lo claro. Puede dejar pasar algo.</string>
+    <string name="how_help_light">Gasta menos batería.</string>
+    <string name="how_help_balanced">Buen punto medio. Recomendado.</string>
+    <string name="how_help_thorough">Revisa más zonas. Usa más batería.</string>
+    <string name="how_help_precise">Tapa solo la parte exacta (beta).</string>
+    <string name="needs_android14">Necesita Android 14 o más nuevo</string>
+    <string name="group_mask">Máscara</string>
+    <string name="set_label">Texto en la máscara</string>
+    <string name="set_label_text">Un aviso pequeño sobre lo tapado</string>
+    <string name="set_peek">Revisar sin destapar</string>
+    <string name="set_peek_text">Evita que la pantalla parpadee al revisar. Necesita Máscara completa.</string>
+    <string name="group_security">Seguridad</string>
+    <string name="set_change_pin">Cambiar PIN</string>
+    <string name="set_change_pin_text">No se puede recuperar: guárdalo bien</string>
+    <string name="set_history">Historial</string>
+    <string name="set_history_text">Lo que se tapó esta semana</string>
+    <string name="group_privacy">Privacidad</string>
+    <string name="set_no_internet">Sin internet</string>
+    <string name="set_no_internet_text">Nada sale del teléfono. Las imágenes nunca se guardan.</string>
+    <string name="debug_title">Depuración</string>
+    <string name="debug_test_feed">Test Feed</string>
+    <string name="debug_benchmark">Benchmark</string>
+    <string name="debug_pill">Etiqueta de depuración</string>
+    <string name="debug_pill_text">La etiqueta de arriba con el modelo, el recuadro y los tiempos. Solo en versiones de depuración.</string>
+    <string name="debug_rerun_wizard">Repetir el asistente</string>
+    <string name="debug_rerun_wizard_text">Empieza en el paso 1. El PIN que crees ahí reemplaza el actual. Solo en versiones de depuración.</string>
+    <string name="debug_masks">Aspecto de la máscara</string>
+
+    <!-- Asistente -->
+    <string name="wiz_title">Configuración</string>
+    <string name="wiz_step">Paso %1$d de %2$d</string>
+    <string name="wiz_skip">Saltar</string>
+    <string name="wiz_app_info">Abrir info de la app</string>
+    <string name="wiz_overlay_text">Sophiel tapa lo que no debe verse con una máscara sobre las otras apps. Sin este permiso no puede funcionar.</string>
+    <string name="wiz_overlay_row">Busca Sophiel en la lista y activa el permiso</string>
+    <string name="wiz_service_text">Hace que la máscara sea totalmente opaca.</string>
+    <string name="wiz_open_accessibility">Abrir Accesibilidad</string>
+    <string name="wiz_service_row">Activa Sophiel en Accesibilidad</string>
+    <string name="wiz_service_row_text">Búscala en Apps instaladas o Apps descargadas y actívala</string>
+    <string name="wiz_service_skip">Si lo saltas, la máscara se verá algo transparente</string>
+    <string name="wiz_shortcut">Deja el atajo apagado</string>
+    <string name="wiz_shortcut_text">Si Android ofrece un atajo de accesibilidad para Sophiel, no lo actives: la máscara deja de ser opaca.</string>
+    <string name="wiz_grey">¿El interruptor está gris?</string>
+    <string name="wiz_grey_text">1. Tócalo y cierra el aviso «Ajuste restringido».\n2. Abre la info de la app, toca ⋮ y elige «Permitir ajustes restringidos». El teléfono pedirá su bloqueo de pantalla.\n3. Vuelve a Accesibilidad y activa Sophiel.</string>
+    <string name="wiz_awake_title">Mantener Sophiel despierta</string>
+    <string name="wiz_awake_text">Así Android no la cierra mientras protege.</string>
+    <string name="wiz_awake_battery">Batería sin restricciones</string>
+    <string name="wiz_awake_battery_text">Info de la app &gt; Batería &gt; Sin restricciones</string>
+    <string name="wiz_awake_samsung">Apps que nunca se suspenden</string>
+    <string name="wiz_awake_samsung_text">Ajustes &gt; Batería &gt; Límites de uso en segundo plano &gt; Apps que nunca se suspenden &gt; añade Sophiel</string>
+    <string name="wiz_awake_note">Sophiel no puede comprobar esto, así que hazlo ahora.</string>
+    <string name="wiz_notif_text">Te avisa cuando la protección se pausa, para volver a iniciarla.</string>
+    <string name="wiz_preset_title">¿Cómo debe proteger?</string>
+    <string name="wiz_preset_text">Podrás cambiarlo luego en Ajustes.</string>
+    <string name="wiz_how_balanced">Buen punto medio de calidad y batería.</string>
+    <string name="wiz_how_precise_disabled">Tapa solo la parte exacta · necesita Android 14 o más nuevo</string>
+    <string name="wiz_start_title">Todo listo</string>
+    <string name="wiz_start_text">Inicia la protección. Después verás el estado aquí.</string>
+    <string name="wiz_entire">Elige «Pantalla completa»</string>
+    <string name="wiz_entire_text">Si Android ofrece «Una sola app», elige «Pantalla completa» para que Sophiel vea todo.</string>
 </resources>

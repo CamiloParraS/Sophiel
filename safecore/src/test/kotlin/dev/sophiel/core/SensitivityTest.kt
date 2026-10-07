@@ -14,7 +14,7 @@ class SensitivityTest {
 
     @Test fun `suggestive stays at half the explicit threshold (D11)`() {
         for (level in Sensitivity.entries) {
-            val policy = PolicyEngine(explicitThreshold = level.threshold)
+            val policy = PolicyEngine(level.threshold)
             assertEquals(Severity.SUGGESTIVE, policy.classify(level.threshold / 2))
             assertEquals(Severity.SAFE, policy.classify(level.threshold / 2 - 0.01f))
         }

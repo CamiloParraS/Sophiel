@@ -929,7 +929,8 @@ Scope addition to SPEC §1.2 (human). Amends D28's alpha 0.79.
   takes effect on the next protection start. An accessibility overlay sits above system UI panels,
   so the rotate-suggestion button (auto-rotate off, gesture navigation) can hide under a mask; a tap
   there still reaches it. Leaving holes in the bottom corners was rejected: it would expose content.
-- **Amended 2026-10-04 (human): the accessibility window is the main path.** Release builds start
+- **Amended 2026-10-04 (human): the accessibility window is the main path. Its Start gate is
+  superseded by D46 (2026-10-06).** Release builds start
   protection only with the service on (Status and the M6 wizard gate Start); starting on the 0.79
   app overlay without it is a debug-build option. Reason: the app never ships to Play (school
   project), and opaque masks give better results. Turning the service off mid-session still moves
@@ -1061,3 +1062,272 @@ a calibration knob). Rejected: two SAFE probe frames to release (doubles every p
   the tile 8 of 15 / 7 of 16 times before, 8 of 18 / 8 of 18 after.
 - **Episode log (M6):** each fast re-mask is a CLEAR -> MASKED, so it logs as a new episode, as a
   flip already did.
+
+## D38 — PIN, unlock and gating: one door (2026-10-05, human decisions, `.scratch/m6-parent-app/` ticket 01)
+
+- **One door.** Status opens with no PIN (on/off, preset, Start, "Settings (parent)"). **Stop** and
+  **opening Settings** need the PIN; everything behind Settings is gated by being there: preset,
+  sensitivity, peek, show-label, Change PIN, Log, Clear log, debug menu. One rule, one V1 test.
+  Overrides D28's "show-label needs no PIN". Rejected: per-action gating by direction (stricter
+  passes, weaker prompts), a Settings screen where some controls prompt and others don't.
+- **Unlock** (in memory, held in `AppContainer`): ends 2 min after the last PIN-gated action, or
+  at once when `MainActivity` stops (background or screen off) unless `isChangingConfigurations`
+  (rotation recreates the activity), or when the process dies. Covers the Parent handing the phone
+  over. Leaving for a system Settings page from behind the door relocks; intended. The wizard runs
+  only while no PIN exists and does not depend on the unlock.
+- **Lockout:** 5 wrong attempts -> 30 s, doubling, capped at 1 h (no recovery, so no multi-day
+  lockouts). Count and lock-until persisted in SharedPreferences on `elapsedRealtime` +
+  `Settings.Global.BOOT_COUNT`; after a reboot the current lockout restarts at full length. Resets
+  only on a correct PIN. Rejected: in memory only (one force-stop would beat V1).
+- **Hash:** `PBKDF2WithHmacSHA256` (javax.crypto, API 26+), 16-byte SecureRandom salt, iteration
+  count fixed for ~150 ms per check on Device A, run on `Dispatchers.Default`. A 4-6 digit PIN
+  falls to brute force once the hash is read; the sandbox is the real protection, the hash meets
+  "never plaintext".
+- **PIN pad:** a Compose screen in `MainActivity`; `PinPromptActivity` is dropped (every gated
+  action is already in `MainActivity`). Typed digits are not kept in saved instance state.
+- **Debug menu:** 7 taps on the version label at the bottom of Settings, every build (the demo may
+  run a release build and Test Feed is its fallback). Holds Test Feed, Benchmark, mask look, debug
+  pill, model pick (D24), raw slider (in memory). The bottom-bar tabs go; preset, Precise and peek
+  move to Parent Settings. The notification loses Stop in every build. Debug-build-only stays:
+  starting without the accessibility service (D32).
+- **Change PIN** (human scope addition to SPEC §1.2): a Settings row reusing the wizard's create +
+  confirm screens.
+
+## D39 — The Log: per-screen masking episodes (2026-10-05, human decisions, `.scratch/m6-parent-app/` ticket 02)
+
+- **Masking episode is per screen, not per tile:** the screen going from no masks to at least one,
+  in every preset. Probing/peeking tiles count as masked, so probes and the rotation cover never
+  split it; masks that return within 3 s of the screen clearing (D37's `RECENT_RELEASE_MS`)
+  continue it. Judged on the tracker / box state, not what is drawn (a Sophiel screen hiding the
+  masks doesn't end it). A new session starts a new one. One entry, written at the start. Pure
+  logic, JVM test with a fake clock. Reason: per tile, one photo over three tiles was three entries
+  and a "masked" entry's tile count was always 1; Precise boxes have no identity; "N masks today"
+  should mean "N times something was hidden". Human: also keeps the Log independent of grid size
+  and of NudeNet. Supersedes D37's "Episode log" note: only a re-mask more than 3 s after the
+  screen cleared is a new episode. CONTEXT updated.
+- **Masked entry:** time, effective preset, tile or box count at the start, raw max score. The Log
+  screen draws bands at the sensitivity cut-offs (>= 0.85 "hidden even on Relaxed", 0.70-0.85,
+  0.55-0.70); none for Precise (NudeNet's scale). Raw score keeps bands redrawable.
+- **Unanalyzable:** one entry per protected stretch lasting >= 1 s, checked on the next frame or a
+  1 s timer (a still secure screen sends no frames, D18). Filters the mid-rotation black frames (D36).
+- **Off reasons:** user stop; screen off (`isInteractive` false at teardown); system ended (the
+  projection ended with the screen on). **Inferred gap:** a last-alive time written once a minute
+  while running; on the next start an ON with no OFF gets an OFF at that time, reason "phone
+  restarted" if the boot count changed, else "app was closed" (a Child's force-stop). ON is written
+  at `onProjectionAcquired`, so a failed start logs nothing. ON records preset and sensitivity;
+  mid-session settings changes are not logged.
+- **File:** `filesDir/log.csv`, one line per entry, wall clock. Appends drop lines older than 7 days;
+  reads filter by age too. "Today" is since local midnight. SPEC §7 item 7 notes the wall clock.
+
+## D40 — Settings changes apply through the cover path (2026-10-05, human decisions, `.scratch/m6-parent-app/` ticket 03)
+
+- **Sensitivity is a live threshold** read by `PolicyEngine`; the raw slider writes the same value.
+  `VerdictCache` stores scores and severity is recomputed every frame, so no detector rebuild or
+  cache clear.
+- **One rule for every judging change** (preset, sensitivity, raw slider, Precise falling back to
+  Balanced or coming back): with anything masked, take the cover path; with nothing masked, just
+  switch. Into tiles: D33's whole-screen cover, wait for a frame showing it (or 1 s), then every
+  tile PROBING. Into Precise: keep the cover, take a window shot at once, draw its boxes, drop the
+  cover (failed shot: after 1 s). Widens D29/D33's "a preset change takes the same path".
+  Changes land on the first frame after the Parent leaves Sophiel (frames are dropped meanwhile).
+- **Fixes a gap:** a judge switch (`wantedModel()` -> `judge.close()` -> `openJudge()`) cleared every
+  mask and the new judge started from nothing (a new tile loop needs 2 flagged frames, ~400-600 ms
+  on A plus model load), including Precise's fallback when the service is turned off mid-session.
+- Cost: one whole-screen probe per change (73-218 ms, D33); none with peek on or into Precise.
+  M6 V4 measures it. Rejected: cover only when loosening (a second branch to save a rare probe);
+  no cover for sensitivity (a hash-locked false positive stays masked until a neighbour changes, D25).
+- **Precise on screen:** disabled with "Android 14+" below API 34; when it falls back, Status shows
+  "Precise — running Balanced (accessibility off)". Sensitivity stays selectable with Precise picked
+  (it applies when Precise falls back).
+- **Plumbing:** `SettingsRepository` in memory, loaded once from SharedPreferences, write-through;
+  the session reads it per frame; Compose observes a `StateFlow`. Peek and show-label apply live with
+  no cover (show-label redraws when the Parent leaves). `livePreset`, `precise`, `peekUnderMask`
+  leave `AppContainer`; the debug `liveModel` stays there.
+
+## D41 — Restricted settings and accessibility service state (2026-10-05, research, `.scratch/m6-parent-app/` ticket 04)
+
+Facts from AOSP 13-16 source; One UI is closed source and unverified. Full findings:
+`.scratch/m6-parent-app/research/04-restricted-settings.md`. Corrects D32's wording.
+
+- **Only file-manager or browser installs are restricted** (package source `LOCAL_FILE` /
+  `DOWNLOADED_FILE`). `adb install` and Android Studio are not, on 13-16. D32's "a sideloaded APK
+  needs Allow restricted settings" holds only for those installs.
+- **Allowing it:** tap the greyed service first (its dialog arms the option), then App info > ⋮ >
+  "Allow restricted settings" (lock-screen check), then turn the service on. An already-enabled
+  service is never greyed out.
+- **The app can't detect it** (the app-op and Android 15+'s Enhanced Confirmation are system-only)
+  and can't deep-link to its own service page (`ACTION_ACCESSIBILITY_DETAILS_SETTINGS` is guarded).
+  Usable links: `ACTION_APPLICATION_DETAILS_SETTINGS`, `ACTION_ACCESSIBILITY_SETTINGS`.
+- **Enabled vs bound:** `Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES` = ticked;
+  `getEnabledAccessibilityServiceList()` = actually bound; `addAccessibilityServicesStateChangeListener`
+  (API 33) fires on bind.
+- **Force-stop un-ticks the service** (Settings or `am force-stop`): the Parent must turn it on
+  again. An update keeps it; uninstall clears it and the restricted-settings allowance. SPEC §7 item 6.
+
+## D42 — Setup wizard, live service check, masks follow the service (2026-10-05, human decisions + Device A run, `.scratch/m6-parent-app/` tickets 05 and 07)
+
+**Device A run (ticket 05, One UI 5, debug build, wireless adb).**
+
+- **D36's 0.79 start explained.** After an update the service stays ticked but unbound until ~1.8 s
+  after the app opens, and Status read `MaskWindowService.instance` only in `onResume`, before the
+  bind: the note "Accessibility off" stayed 25 s later. Debug builds start anyway (0.79); release
+  would keep Start disabled until the next resume. The test (bound) was right; reading it once was not.
+- Force-stop un-ticks the service (D41 confirmed). Enabling it in Settings binds at once. A Recents
+  swipe and screen-off keep it bound.
+- **The accessibility shortcut** (human used it) turns the service off in one tap, and the masks
+  then stayed at 0.79 for the rest of the session even after it came back (D32).
+- **Play Protect blocks file-manager installs** on A: developer verification passed (`[ADV]
+  VERIFICATION_ALLOW`), the local scan was clean, then a server verdict `response=11 ...
+  enable_ecm=true` rejected it ("App not installed", no override; likely enhanced fraud protection,
+  inferred). With scanning off it installs, and One UI's restricted flow matches AOSP: "Restricted
+  setting" dialog, App info > ⋮ > "Allow restricted settings" behind the lock screen, then the
+  switch enables. adb installs have neither problem. SPEC §7 item 20.
+- **Samsung sleeping apps:** "Put unused apps to sleep" is on by default. App info > Battery >
+  Unrestricted put Sophiel on the deviceidle allow list but **not** on "Never auto sleeping apps"
+  (count stayed 0). Both are needed. SPEC §7 item 21.
+- `uiautomator dump` briefly unbinds accessibility services: never use it during a measured run.
+
+**Wizard (ticket 07, human).**
+
+- Runs on launch whenever no PIN exists; ends by starting protection, then Status (a cancelled
+  consent lands on Status with setup complete).
+- Steps: PIN + confirm (no recovery) -> overlay (required: D32's fallback) -> accessibility ->
+  keep awake (Unrestricted + Never auto sleeping apps; text and an App info button, no new
+  permission) -> notifications (skippable, degraded) -> preset + sensitivity (Balanced + Normal;
+  Precise disabled below API 34, "experimental" above) -> start ("Entire screen" on Android 14
+  QPR2+, D21). Linear with Back; granted steps show done and move on by themselves.
+- Accessibility step: completes on **bound, checked live**; always-there collapsed help for a
+  greyed switch (undetectable, D41); tells the Parent to leave the shortcut off; "Skip (debug)".
+- After setup the wizard never re-runs: Status shows a "Needs attention" card per missing item
+  (overlay, service, notifications) with a fix button, no PIN. Release Start is disabled while the
+  service is unbound or overlay is missing, checked live. The battery item can't be detected, so
+  it is wizard-only.
+- **Masks follow the service (amends D32):** when the service binds again mid-session, the masks
+  move back to the opaque accessibility window, new window added before the old is removed.
+  Replaces D32's "takes effect on the next protection start". Reason: the run showed one shortcut
+  tap downgrades the whole session.
+- V3 is spelled out step by step in SPEC M6; it ends on `mask window: accessibility, alpha 1.0`.
+
+## D43 — Parent UI language and theme (2026-10-05, human decision, `.scratch/m6-parent-app/` ticket 06 inputs)
+
+Human scope addition to SPEC §1.2. All app text is bilingual, **Spanish first**: the default
+`values/strings.xml` is Spanish, English lives in `values-en/`, and every user-facing string goes
+through resources from the start. Material You dynamic colour (both devices are Android 12+, with a
+fixed fallback scheme below API 31), light theme only. Feel: approachable, calm and helpful. The
+look itself is settled by the ticket 06 prototype.
+
+## D44 — Parent screens look: concept E2 (2026-10-06, human decision, `.scratch/m6-parent-app/` ticket 06)
+
+The look of the Parent app is `.scratch/m6-parent-app/mockups/gnome2.html`. It settles the
+"look itself" that D43 left to the prototype.
+
+- **Shapes and layout:** libadwaita style. Flat grey header bar with a centred bold title, boxed
+  preference groups (12 dp corners), pill buttons (blue = suggested, red = destructive), round
+  switches, a status page with a big symbolic icon, a bottom sheet for the PIN. Light only.
+- **Colour:** only the accent follows Material You (`colorPrimary`); green, orange and red are fixed
+  state colours. Fixed blue fallback below API 31. This narrows D43: dynamic colour drives the
+  accent, not the whole palette.
+- **Status shows only what is wrong:** "Todo en orden" is a collapsed row; Revisión and Cuidado sit
+  in one summary row. Only the full mask (accessibility) blocks Start; notifications are listed
+  separately as "Recomendado". Lock icons on Ajustes and Detener say the PIN is needed.
+- **States in scope of the screens:** Starting (capture consent, busy button), Stopped by itself
+  (what happened, when, what is missing), Settings unlocked banner with the 2 min countdown and
+  "Bloquear ahora", empty Log, confirm dialog before "Borrar historial".
+- **PIN sheet:** 4-6 digit slots, Desbloquear button, wrong PIN shakes and says attempts left,
+  lockout shows a countdown (D40's doubling), "¿Olvidaste el PIN?" says there is no recovery and
+  that clearing app data also wipes the log.
+- **Log:** 7-day strip, per-day counters Tapados / Sin revisar / Apagadas, a word chip per mask
+  (Muy seguro / Seguro / Dudoso, none for Precise), rows expand to the technical detail, filter
+  Todo / Tapados / Otros, off events carry their reason.
+- **Copy (Spanish first):** Cuidado = Tapar más / Normal / Tapar menos (Strict / Normal / Relaxed);
+  Cómo revisa = Ahorro / Equilibrado / Detallado (Light / Balanced / Precise). A helper line under
+  each selector says the consequence. One word for the off state: "detenida" in the Log, "Sin
+  protección" on Status. Settings has a "Sin internet" privacy row.
+- **Motion:** sliding thumb on segmented controls, sheet rises from its trigger and leaves the same
+  way, collapse and cross-fades only on state changes; nothing animates when Status opens. Honour
+  reduced motion.
+
+Follow-up: SPEC M6 and CONTEXT.md still use the code names (Strict/Normal/Relaxed,
+Light/Balanced/Precise); the UI labels above map to them and live in `strings.xml`.
+
+
+## D45 — UI details the mockup leaves open (2026-10-06, human decisions, `.scratch/m6-parent-app/` ticket 14)
+
+- **Unanalyzable carries its length.** The entry is written when the protected stretch ends (the
+  first unprotected frame, or teardown) with its seconds, so the Log can say "· 4 s". Amends D39's
+  "one entry, written at the start" for this kind only. A stretch cut short by a process kill is
+  lost; rare, accepted.
+- **"Se detuvo" on Status:** shown when the last Log entry is an OFF whose reason isn't user stop
+  (screen off, system ended, app was closed, phone restarted), with that reason and time, until the
+  next successful start. Derived from the Log; no new state. Screen-off counts: protection did end.
+- **Typeface:** IBM Plex Sans, bundled (400 / 500 / 600 TTF in `res/font`, OFL licence shipped
+  with it), as in the D44 mockup.
+
+
+## D46 — Release can start without the accessibility service (2026-10-06, human decision, M6 ticket 17)
+
+Amends D32's 2026-10-04 amendment (release Start gated on `MaskWindowService`) and D42's "Release
+Start is disabled while the service is unbound".
+
+- **Rule:** protection starts in every build with only the overlay permission. Without the
+  accessibility service the mask is the app overlay at alpha 0.79, as D32 already described for a
+  service turned off mid-session. The opaque accessibility window stays the recommended path.
+- **Status:** "Mostrar la máscara" is the only item needed to start. "Máscara completa" moves to
+  "Recomendado" next to Avisos, with its fix button. When it is off, the page reads "Listo para
+  iniciar" with the line "Con la máscara algo transparente", and the note under Start says "Sin la
+  máscara completa, la máscara se verá algo transparente". Start is disabled only while the overlay
+  permission is missing. The debug-only "debug: máscara al 0.79" note is gone: every build says it.
+- **Cost, accepted:** about 21 % of masked content shows through (D28, SPEC section 7 item 14) in that
+  mode. Precise still needs the service for window shots (D35), so it falls back to Balanced as before.
+- **Wizard (ticket 20):** the accessibility step can be skipped in every build, not only debug, and
+  says what is lost. It is still offered first and checks the bound state live.
+
+
+## D47 — The debug pill has a switch in the debug menu (2026-10-06, human decision, M6 ticket 19)
+
+Settles ticket 19's "debug pill" item. "Texto en la máscara" (the "Hidden by Sophiel" chip) stays a
+Parent setting in Ajustes as D28 and D40 say.
+
+- **Rule:** the debug menu has a "Etiqueta de depuración" switch for the pill at the top of the
+  screen (model, tile, timings), shown only in debug-signed builds. Default on, in memory
+  (`AppContainer.debugPill`), applied live on the next frame: off removes the pill.
+- **Amended 2026-10-07 (human):** default off. Turn it on in the debug menu when needed; it
+  still resets to off with the process.
+- **Still debug-only:** the pill itself never shows in a release build (D15/D18).
+
+
+## D48 — Thorough preset: a 3x3 GantMan grid (2026-10-06, human decision, M6)
+
+Scope addition to SPEC §1.2, decided after a benchmark. Preset order is now Light, Balanced,
+Thorough, Precise, with the one-line help under each ("Revisa más zonas. Usa más batería.").
+
+- **What.** `Preset.THOROUGH(3, 3)`: Balanced's 2x3 plus one column, same GantMan model, skin gate,
+  cache and Sensitivity. Parent name "Reforzado" / "Thorough" ("Detallado" stays Precise's name).
+  Log and Status show it by name. Precise's fallback is still Balanced tiles.
+- **Why 3x3 and not 2x4.** Both add about 2-3 tiles; a column splits the width, where feed images
+  and thumbnails sit, and a phone is tall so rows are already tall enough. 3x3 costs ~10 % more.
+- **Benchmark** (`TileBenchmark.sweepCost`, 360x744 frames, skin gate on, sweep ms p50/p90):
+
+  | Preset | A (SM-A715F) | B (SM-S721B) |
+  | --- | --- | --- |
+  | Light | 53 / 63 | 38 / 39 |
+  | Balanced 2x3 | 253 / 314 | 190 / 230 |
+  | Thorough 3x3 | 304 / 454 | 227 / 340 |
+  | 2x4 (not shipped) | 303 / 404 | 228 / 318 |
+
+  Per classified tile ~51 ms on A, ~38 ms on B; the gate skips 43 % of tiles at 3x3. Gate off
+  (worst case) 3x3 is 453 ms on A, 340 ms on B: a little over the ~400 ms budget on A, accepted
+  for a preset sold as heavier.
+- **Not changed:** Balanced stays the recommended default.
+
+
+## D49 — Run the wizard again from the debug menu (2026-10-07, human request, M6)
+
+- **Rule:** debug-signed builds get a "Repetir el asistente" row in the debug menu, next to the
+  pill switch (D47). It opens the setup wizard (D42) at step 1, through the door like every
+  debug-menu action. The PIN made in step 1 replaces the current one; nothing else is cleared
+  (Log, settings, permissions stay). Back on step 1 leaves the app, and the next launch opens
+  Status with the old PIN still set.
+- **Why:** checking the wizard on device otherwise needs an uninstall, which also wipes the Log and
+  the accessibility grant.
+- **Release:** unchanged. The wizard runs only while no PIN exists.

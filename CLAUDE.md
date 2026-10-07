@@ -11,7 +11,7 @@ Agent entrypoint for **Sophiel**. Read this fully, then read `./docs/SPEC.md`.
 > **Update this block at the end of every work session. It is the first thing you and I both read.**
 
 ```
-CURRENT MILESTONE:  M6 — Parent app (not started). M5 done 2026-10-05 (D36).
+CURRENT MILESTONE:  M6 — Parent app (in progress, branch feat/parent-app). M5 done 2026-10-05 (D36).
 STATUS:             M5 verified on A and B (D36): V1-V5 pass; probe exposure median/worst
                     A 146/306 ms, B 85/188 ms; after rotation A 220/304, B 129/210.
                     Release Start gate checked on B only. M5 decisions: D27-D36.
@@ -20,8 +20,16 @@ STATUS:             M5 verified on A and B (D36): V1-V5 pass; probe exposure med
                     Ticket 12 also fixed VerdictCache caching dHash 0 (black tiles inherited
                     an EXPLICIT verdict).
 BLOCKED ON:         Nothing.
-NEXT:               M6 Parent app. Ticket 15 done (D37: fast re-mask within 3 s of a
-                    release; exposure per flip A 154/295 ms, B 135/204).
+NEXT:               M6 Parent app, map at .scratch/m6-parent-app/map.md (decisions D38-D45).
+                    Build tickets done: 09 settings, 10 cover path, 12 PinStore + unlock, 13 event log,
+                    15 theme/type/parts/strings (device check left), 16 PIN pad and the door, 17 Status
+                    (checked on A; B and the Precise fallback line left), 18 Log (checked on A; Status "Ver en Historial" opens it behind the door). 11 code done (device check on A
+                    left). D46: release starts without the accessibility service (0.79 overlay, Status
+                    warns). 19 done (checked on A and B). D47: debug-pill switch in the debug menu
+                    (pill still debug-signed only). D48: Thorough 3x3 preset ("Reforzado").
+                    20 wizard done (V3 passed on A and B). D49: debug builds can rerun the wizard
+                    from the debug menu; D47 amended: debug pill off by default. Next: 21 = M6
+                    verification (human, both devices).
                     FEATURE FREEZE end of week 3 (end of M6), then M7.
 ```
 

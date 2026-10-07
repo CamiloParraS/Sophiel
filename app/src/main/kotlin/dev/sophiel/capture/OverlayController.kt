@@ -26,9 +26,6 @@ import kotlin.math.floor
 // 0.79, not 0.8: margin under the cap, which the research could not pin to a source line.
 internal const val OVERLAY_ALPHA = 0.79f
 
-// The Parent show-label toggle (D28) is M6; until then the chip is always on.
-private const val SHOW_LABEL = true
-
 /**
  * The one full-screen, touch-through overlay window (D28): every tile mask, drawn with
  * [DebugMask]'s camo, plus the spike's NudeNet boxes in debug builds (D24, outlines only).
@@ -39,14 +36,14 @@ private const val SHOW_LABEL = true
  *
  * Plain [View] on a raw [WindowManager], per D4: no Compose in an overlay window.
  */
-class OverlayController(private val context: Context) {
+class OverlayController(private val context: Context, private val showLabel: () -> Boolean) {
     private val mainHandler = Handler(Looper.getMainLooper())
     private val windowManager = context.getSystemService(WindowManager::class.java)
-    private val view = TileMaskView(context, windowManager)
+    private var view = TileMaskView(context, windowManager, showLabel)
     private var host: WindowManager? = null
 
     fun show() = mainHandler.post {
-        MaskWindowService.onUnbound = { mainHandler.post(::fallBackToAppOverlay) }
+        MaskWindowService.onChange = { mainHandler.post(::followService) }
         attach()
     }
 
@@ -66,15 +63,40 @@ class OverlayController(private val context: Context) {
     }
 
     /**
-     * The service was turned off mid-session: its window goes with it, so the masks move to a plain
-     * overlay in every build. Otherwise one toggle in Settings would drop every mask.
+     * The service went off or came back mid-session. Off: its window goes with it, so the masks move
+     * to a plain overlay in every build, or one toggle would drop every mask. Back on (D42, amends
+     * D32): the masks move back to the opaque window, a new view added before the old one is removed
+     * (a view lives in one window), so no mask is down in between.
      */
-    private fun fallBackToAppOverlay() {
-        if (host == null || host === windowManager) return
-        // The system may already have removed the window along with the service's token.
-        runCatching { host?.removeViewImmediate(view) }
-        host = null
-        attach(fallback = true)
+    private fun followService() {
+        // Off and back on can both land before this runs: compare against the live service's window
+        // manager (one per service context), not just "not ours".
+        val a11yWm = MaskWindowService.instance?.getSystemService(WindowManager::class.java)
+        when {
+            host == null || host === a11yWm -> return // hidden (or nothing to move), or already there
+            host !== windowManager -> {
+                // A dead service's window: the system may already have removed it with the token.
+                runCatching { host?.removeViewImmediate(view) }
+                host = null
+                attach(fallback = true)
+            }
+            a11yWm != null -> {
+                val old = view
+                view = TileMaskView(context, windowManager, showLabel).apply {
+                    masks = old.masks
+                    cover = old.cover
+                    boxes = old.boxes
+                    visibility = old.visibility
+                }
+                host = null
+                // Bad token (gone again) or no window at all: put the old view back as the host.
+                runCatching { attach() }
+                when (host) {
+                    null -> { view = old; host = windowManager }
+                    else -> windowManager.removeView(old)
+                }
+            }
+        }
     }
 
     /** [rects] are fractions of the whole display, not of the frame. */
@@ -99,7 +121,10 @@ class OverlayController(private val context: Context) {
         view.invalidate()
     }
 
-    /** Ticket 09: our own screen is in front. Masks are kept, just not drawn. */
+    /**
+     * Ticket 09: our own screen is in front. Masks are kept, just not drawn. Showing again redraws,
+     * which picks up a show-label change made there (D40).
+     */
     fun setHidden(hidden: Boolean) = mainHandler.post {
         view.visibility = if (hidden) View.INVISIBLE else View.VISIBLE
     }
@@ -112,14 +137,14 @@ class OverlayController(private val context: Context) {
     }
 
     fun hide() = mainHandler.post {
-        MaskWindowService.onUnbound = null
+        MaskWindowService.onChange = null
         if (view.isAttachedToWindow) host?.removeView(view)
         host = null
     }
 }
 
 /** Draws [masks] and [boxes]; converts display fractions to pixels at draw time, so rotation needs no recompute. */
-private class TileMaskView(context: Context, private val windowManager: WindowManager) : View(context) {
+private class TileMaskView(context: Context, private val windowManager: WindowManager, private val showLabel: () -> Boolean) : View(context) {
     var masks: List<RectF> = emptyList()
     var cover: RectF? = null // drawn instead of [masks] while set
     var boxes: List<Detection> = emptyList()
@@ -149,10 +174,11 @@ private class TileMaskView(context: Context, private val windowManager: WindowMa
         val (w, h) = real.widthPixels to real.heightPixels
         anchor.setTranslate(-origin[0].toFloat(), -origin[1].toFloat())
         shader.setLocalMatrix(anchor)
+        val labelOn = showLabel() // D28 Parent setting
         for (m in cover?.let(::listOf) ?: masks) {
             val r = maskBounds(m.left, m.top, m.right, m.bottom, w, h, origin[0], origin[1])
             canvas.drawRect(r.left.toFloat(), r.top.toFloat(), r.right.toFloat(), r.bottom.toFloat(), noise)
-            if (SHOW_LABEL) drawChip(canvas, r)
+            if (labelOn) drawChip(canvas, r)
         }
         for (d in boxes) {
             stroke.color = if (d.unsafe) Color.RED else Color.YELLOW

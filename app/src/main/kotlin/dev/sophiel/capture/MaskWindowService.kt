@@ -11,6 +11,8 @@ import android.view.accessibility.AccessibilityWindowInfo
 import androidx.annotation.RequiresApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.asExecutor
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 
@@ -28,12 +30,13 @@ class MaskWindowService : AccessibilityService() {
         // Ticket 17: shots failed (error 1, ~2 s) after app switches, suspected a stale cached window
         // list: with no event types nothing may refresh it. Ask the system each time instead.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) setCacheEnabled(false)
-        instance = this
+        current.value = this
+        onChange?.invoke()
     }
 
     override fun onUnbind(intent: Intent?): Boolean {
-        instance = null
-        onUnbound?.invoke()
+        current.value = null
+        onChange?.invoke()
         return super.onUnbind(intent)
     }
 
@@ -78,12 +81,19 @@ class MaskWindowService : AccessibilityService() {
     }
 
     companion object {
-        /** Non-null while the Parent has it enabled in Accessibility settings. */
-        @Volatile var instance: MaskWindowService? = null
-            private set
+        private val current = MutableStateFlow<MaskWindowService?>(null)
 
-        /** Set by the live [OverlayController]: turning the service off mid-session must not drop the masks. */
-        @Volatile var onUnbound: (() -> Unit)? = null
+        /** Non-null while bound (D41: bound, not just ticked in Accessibility settings). */
+        val instance get() = current.value
+
+        /**
+         * [instance], live (D42): after an update the bind lands ~1.8 s after the app opens, so a
+         * one-time read on resume stays stale. Status's Start gate watches this.
+         */
+        val bound: StateFlow<MaskWindowService?> = current
+
+        /** Set by the live [OverlayController]: the masks follow the service off and back on (D32, D42). */
+        @Volatile var onChange: (() -> Unit)? = null
     }
 }
 

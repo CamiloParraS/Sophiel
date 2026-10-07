@@ -1,0 +1,223 @@
+<resources>
+    <string name="app_name">Sophiel</string>
+
+    <string name="mask_window_service_label">Sophiel opaque masks</string>
+    <string name="mask_window_service_description">Draws Sophiel\'s masks fully opaque. With \"Peek under mask\" on, it screenshots the app under a mask to check it, in memory only. Reads no text and receives no events.</string>
+
+    <!-- Status -->
+    <string name="status_idle">Not protecting</string>
+    <string name="status_starting">Starting…</string>
+    <string name="action_start">Start protection</string>
+    <string name="action_stop">Stop protection</string>
+
+    <!-- Notifications -->
+    <string name="notif_channel">Screen protection</string>
+    <string name="notif_running_title">Sophiel protection on</string>
+    <string name="notif_starting">Starting protection…</string>
+    <string name="notif_stop">Stop</string>
+    <string name="notif_paused_title">Sophiel protection paused</string>
+    <string name="notif_paused_text">The screen turned off. Tap to resume.</string>
+
+    <!-- PIN and door -->
+    <string name="pin_title">Enter the PIN</string>
+    <string name="pin_subtitle">Parents only</string>
+    <plurals name="pin_wrong">
+        <item quantity="one">Wrong PIN · %d attempt left</item>
+        <item quantity="other">Wrong PIN · %d attempts left</item>
+    </plurals>
+    <string name="pin_locked">Locked %1$s</string>
+    <string name="pin_try_again">You can try again now</string>
+    <string name="pin_unlocked">Unlocked for 2 min</string>
+    <string name="pin_unlock">Unlock</string>
+    <string name="pin_cancel">Cancel</string>
+    <string name="pin_delete">Delete</string>
+    <string name="pin_forgot">Forgot the PIN?</string>
+    <string name="pin_forgot_body">There is no way to recover it. Starting over means clearing the app\'s data in the phone\'s settings, which also wipes the Log.</string>
+    <string name="pin_create_title">Create a PIN</string>
+    <string name="pin_create_enter">Choose a PIN of 4 to 6 digits</string>
+    <string name="pin_create_confirm">Enter it again to confirm</string>
+    <string name="pin_create_mismatch">They don\'t match. Enter it again.</string>
+    <string name="pin_create_note">For parents only. It can\'t be recovered if forgotten.</string>
+    <string name="pin_continue">Continue</string>
+    <string name="pin_save">Save PIN</string>
+    <string name="door_footnote">Stopping and opening Settings ask for the PIN</string>
+    <string name="unlocked_banner">Settings unlocked · Locks in %1$s</string>
+    <string name="lock_now">Lock now</string>
+    <string name="settings_title">Settings</string>
+    <string name="back">Back</string>
+    <string name="version_label">Version %1$s</string>
+
+    <!-- Estado -->
+    <string name="status_protected">Protected</string>
+    <string name="status_protected_text">Covering this screen</string>
+    <plurals name="status_missing">
+        <item quantity="one">%d thing missing</item>
+        <item quantity="other">%d things missing</item>
+    </plurals>
+    <string name="status_ready">Ready to start</string>
+    <string name="status_ready_partial">With a slightly see-through mask</string>
+    <string name="status_ready_text">Everything is in order</string>
+    <string name="status_starting_text">Android will ask for permission to capture the screen</string>
+    <string name="status_what_will_happen">What will happen</string>
+    <string name="status_capture_permission">Capture permission</string>
+    <string name="status_capture_permission_text">You accept it every time you start. No image is kept.</string>
+    <string name="status_starting_note">If you close the prompt, protection does not start</string>
+    <string name="status_stopped">Stopped</string>
+    <string name="status_stopped_text">Protection turned itself off at %1$s</string>
+    <string name="status_what_happened">What happened</string>
+    <string name="stopped_screen_off">The screen turned off</string>
+    <string name="stopped_screen_off_text">Protection paused</string>
+    <string name="stopped_system">Android stopped protection</string>
+    <string name="stopped_system_text">The system ended the capture</string>
+    <string name="stopped_restarted">The phone restarted</string>
+    <string name="stopped_restarted_text">Protection does not come back by itself</string>
+    <string name="stopped_app_closed">The app was closed</string>
+    <string name="stopped_app_closed_text">Android stopped it</string>
+    <string name="status_see_log">See in History</string>
+    <string name="status_to_restart">To start again</string>
+    <string name="status_review">Review</string>
+    <string name="status_care">Care</string>
+    <string name="preset_light">Light</string>
+    <string name="preset_balanced">Balanced</string>
+    <string name="preset_thorough">Thorough</string>
+    <string name="preset_precise">Precise</string>
+    <string name="care_strict">Cover more</string>
+    <string name="care_normal">Normal</string>
+    <string name="care_relaxed">Cover less</string>
+    <string name="status_precise_using">Precise · using Balanced</string>
+    <string name="fallback_accessibility">Turn on the full mask to use Precise</string>
+    <string name="fallback_android">Precise needs Android 14 or newer</string>
+    <string name="health_ok">All good</string>
+    <string name="health_ok_text">Mask, notices and permissions</string>
+    <string name="need_overlay">Show the mask</string>
+    <string name="need_service">Full mask</string>
+    <string name="need_notifications">Notices</string>
+    <string name="tag_allowed">Allowed</string>
+    <string name="tag_working">Working</string>
+    <string name="tag_enabled">On</string>
+    <string name="need_overlay_missing">No permission: Android will not let the mask be drawn</string>
+    <string name="need_service_missing">Off: the mask will look slightly see-through</string>
+    <string name="need_service_forced">It turns off when the app is force-stopped</string>
+    <string name="need_notifications_missing">You will not see the notice when it pauses</string>
+    <string name="fix_allow">Allow</string>
+    <string name="fix_enable">Turn on</string>
+    <string name="group_required">To work</string>
+    <string name="group_recommended">Recommended</string>
+    <string name="note_overlay">Allow showing the mask to start</string>
+    <string name="note_partial">Without the full mask, the mask will look slightly see-through</string>
+
+    <!-- Log -->
+    <string name="log_title">Log</string>
+    <string name="log_today">TODAY</string>
+    <string name="log_today_title">Today · %1$s</string>
+    <plurals name="log_week">
+        <item quantity="one">This week · %d time</item>
+        <item quantity="other">This week · %d times</item>
+    </plurals>
+    <string name="log_stat_masked">Covered</string>
+    <string name="log_stat_unchecked">Unchecked</string>
+    <string name="log_stat_off">Stopped</string>
+    <string name="log_filter_all">All</string>
+    <string name="log_filter_masked">Covered</string>
+    <string name="log_filter_others">Other</string>
+    <string name="log_nothing_masked">Nothing was covered this day.</string>
+    <string name="log_nothing">Nothing to show.</string>
+    <string name="log_more">Show more (%d)</string>
+    <string name="log_masked">Something was covered</string>
+    <plurals name="log_parts">
+        <item quantity="one">%d part of the screen</item>
+        <item quantity="other">%d parts of the screen</item>
+    </plurals>
+    <plurals name="log_zones">
+        <item quantity="one">%d zone</item>
+        <item quantity="other">%d zones</item>
+    </plurals>
+    <string name="log_detail">Check: %1$s · score %2$s · %3$s</string>
+    <string name="log_detail_precise">Check: %1$s · %2$s</string>
+    <string name="log_band_high">Very sure</string>
+    <string name="log_band_mid">Sure</string>
+    <string name="log_band_low">Unsure</string>
+    <string name="log_unchecked">Couldn\'t be checked</string>
+    <string name="log_unchecked_text">The app protects its screen · %1$d s</string>
+    <string name="log_on">Protection turned on</string>
+    <string name="log_on_text">%1$s check · %2$s care</string>
+    <string name="log_off">Protection stopped</string>
+    <string name="log_off_user">You stopped it</string>
+    <string name="log_off_screen">The screen turned off</string>
+    <string name="log_off_system">The system closed it</string>
+    <string name="log_off_app">The app was closed</string>
+    <string name="log_off_restarted">The phone restarted</string>
+    <string name="log_empty">Nothing to show yet</string>
+    <string name="log_empty_text">The log stays on this phone and is deleted after 7 days.</string>
+    <string name="log_clear">Clear log</string>
+    <string name="log_clear_title">Clear the log?</string>
+    <string name="log_clear_text">This deletes the last 7 days. It can\'t be undone.</string>
+    <string name="log_clear_confirm">Clear</string>
+
+    <!-- Ajustes -->
+    <string name="group_protection">Protection</string>
+    <string name="set_care">Care</string>
+    <string name="set_how">How it checks</string>
+    <string name="care_help_strict">Covers doubtful things too. It may cover too much.</string>
+    <string name="care_help_normal">A good balance. Recommended.</string>
+    <string name="care_help_relaxed">Covers only the clear. It may let something through.</string>
+    <string name="how_help_light">Uses less battery.</string>
+    <string name="how_help_balanced">A good middle. Recommended.</string>
+    <string name="how_help_thorough">Checks more areas. Uses more battery.</string>
+    <string name="how_help_precise">Covers only the exact part (beta).</string>
+    <string name="needs_android14">Needs Android 14 or newer</string>
+    <string name="group_mask">Mask</string>
+    <string name="set_label">Text on the mask</string>
+    <string name="set_label_text">A small notice over what is covered</string>
+    <string name="set_peek">Check without uncovering</string>
+    <string name="set_peek_text">Stops the screen flickering while it checks. Needs Full mask.</string>
+    <string name="group_security">Security</string>
+    <string name="set_change_pin">Change PIN</string>
+    <string name="set_change_pin_text">It can\'t be recovered: keep it safe</string>
+    <string name="set_history">History</string>
+    <string name="set_history_text">What was covered this week</string>
+    <string name="group_privacy">Privacy</string>
+    <string name="set_no_internet">No internet</string>
+    <string name="set_no_internet_text">Nothing leaves the phone. Images are never saved.</string>
+    <string name="debug_title">Debug</string>
+    <string name="debug_test_feed">Test Feed</string>
+    <string name="debug_benchmark">Benchmark</string>
+    <string name="debug_pill">Debug tag</string>
+    <string name="debug_pill_text">The tag at the top with the model, the tile and the timings. Debug builds only.</string>
+    <string name="debug_rerun_wizard">Run the wizard again</string>
+    <string name="debug_rerun_wizard_text">Starts at step 1. The PIN you make there replaces the current one. Debug builds only.</string>
+    <string name="debug_masks">Mask look</string>
+
+    <!-- Setup wizard -->
+    <string name="wiz_title">Setup</string>
+    <string name="wiz_step">Step %1$d of %2$d</string>
+    <string name="wiz_skip">Skip</string>
+    <string name="wiz_app_info">Open App info</string>
+    <string name="wiz_overlay_text">Sophiel covers what shouldn\'t be seen with a mask over other apps. It can\'t work without this permission.</string>
+    <string name="wiz_overlay_row">Find Sophiel in the list and turn the permission on</string>
+    <string name="wiz_service_text">Makes the mask fully opaque.</string>
+    <string name="wiz_open_accessibility">Open Accessibility</string>
+    <string name="wiz_service_row">Turn Sophiel on in Accessibility</string>
+    <string name="wiz_service_row_text">Find it under Installed apps or Downloaded apps and turn it on</string>
+    <string name="wiz_service_skip">If you skip it, the mask will look slightly see-through</string>
+    <string name="wiz_shortcut">Leave the shortcut off</string>
+    <string name="wiz_shortcut_text">If Android offers an accessibility shortcut for Sophiel, don\'t turn it on: the mask stops being opaque.</string>
+    <string name="wiz_grey">Is the switch greyed out?</string>
+    <string name="wiz_grey_text">1. Tap it and close the \"Restricted setting\" message.\n2. Open App info, tap ⋮ and choose \"Allow restricted settings\". The phone asks for its screen lock.\n3. Go back to Accessibility and turn Sophiel on.</string>
+    <string name="wiz_awake_title">Keep Sophiel awake</string>
+    <string name="wiz_awake_text">So Android doesn\'t close it while it protects.</string>
+    <string name="wiz_awake_battery">Unrestricted battery</string>
+    <string name="wiz_awake_battery_text">App info &gt; Battery &gt; Unrestricted</string>
+    <string name="wiz_awake_samsung">Never auto sleeping apps</string>
+    <string name="wiz_awake_samsung_text">Settings &gt; Battery &gt; Background usage limits &gt; Never auto sleeping apps &gt; add Sophiel</string>
+    <string name="wiz_awake_note">Sophiel can\'t check this, so do it now.</string>
+    <string name="wiz_notif_text">Tells you when protection pauses, so you can start it again.</string>
+    <string name="wiz_preset_title">How should it protect?</string>
+    <string name="wiz_preset_text">You can change it later in Settings.</string>
+    <string name="wiz_how_balanced">A good middle of quality and battery.</string>
+    <string name="wiz_how_precise_disabled">Covers only the exact part · needs Android 14 or newer</string>
+    <string name="wiz_start_title">All set</string>
+    <string name="wiz_start_text">Start protection. You\'ll see its status here afterwards.</string>
+    <string name="wiz_entire">Pick \"Entire screen\"</string>
+    <string name="wiz_entire_text">If Android offers \"A single app\", pick \"Entire screen\" so Sophiel sees everything.</string>
+</resources>
