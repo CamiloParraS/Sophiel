@@ -5,7 +5,8 @@ package dev.sophiel.capture
  * frame per 80 ms; drop the rest"). Not thread-safe; call from a single frame-delivery thread.
  */
 class FrameThrottle(private val minIntervalMs: Long = 80L) {
-    private var lastProcessedMs: Long? = null
+    var lastProcessedMs: Long? = null
+        private set
 
     fun shouldProcess(nowMs: Long): Boolean {
         val last = lastProcessedMs

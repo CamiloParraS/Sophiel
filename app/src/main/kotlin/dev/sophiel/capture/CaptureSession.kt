@@ -138,9 +138,20 @@ class CaptureSession(
     }
 
     /** Called on the FrameSource thread before an Image is decoded; false drops it undecoded. */
-    private fun wantsFrame(): Boolean =
-        !closed && !container.ownScreens.showing.value && inFlight?.isActive != true &&
-            throttle.shouldProcess(SystemClock.elapsedRealtime())
+    private fun wantsFrame(): Boolean {
+        if (closed || container.ownScreens.showing.value) return false
+        val now = SystemClock.elapsedRealtime()
+        // Exposure check (2026-10-07): is the frame showing a lifted probe mask dropped here?
+        val busy = inFlight?.isActive == true
+        val since = now - (throttle.lastProcessedMs ?: now)
+        val take = !busy && throttle.shouldProcess(now)
+        if (probing) Log.d(TAG, "probe wait: frame ${if (take) "taken" else if (busy) "dropped by busy lane" else "dropped by throttle"} sinceLastMs=$since")
+        return take
+    }
+
+    // Written by TileLoop's publish (scope lane), read by wantsFrame (FrameSource thread). Diagnostic only.
+    @Volatile
+    private var probing = false
 
     // Ticket 09: on the lane, so the tracker is only touched there. Frames are dropped meanwhile (wantsFrame).
     init {
@@ -489,6 +500,7 @@ class CaptureSession(
             open = false
             coverSince = null // our 1 s timer must not take down a cover the next judge now owns
             masking = false
+            probing = false
             dueProbe?.cancel()
             overlay.updateMasks(emptyList())
             detector.close()
@@ -512,6 +524,7 @@ class CaptureSession(
             }
             shown = states
             masking = states.any { it != CLEAR }
+            probing = PROBING in states
             val (preset, w, h) = grid
             overlay.updateMasks(
                 states.indices.filter { states[it] == MASKED || states[it] == PEEKING }.map { i ->
