@@ -38,11 +38,26 @@ class FrameSource(
             try {
                 // Decide before decoding: the display pushes up to 60-120 frames/s, and copying
                 // each one into a Bitmap only for the throttle to drop it was most of the cost.
-                if (wantsFrame()) onFrame(image.toCroppedBitmap(crop), availableAt)
+                if (wantsFrame()) onFrame(toCroppedBitmap(image), availableAt)
             } finally {
                 image.close()
             }
         }, handler)
+    }
+
+    // Row-padded copy of the last image, reused: only the listener (this thread) touches it, and
+    // onFrame gets a cropped copy. Sized on the first image, since rowStride is only known then.
+    private var padded: Bitmap? = null
+
+    /** Applies the SPEC.md §4.5 rowStride crop, then [crop] (system bars, SPEC.md §4.6). Always a new bitmap. */
+    private fun toCroppedBitmap(image: Image): Bitmap {
+        val plane = image.planes[0]
+        val paddedWidth = image.width + (plane.rowStride - plane.pixelStride * image.width) / plane.pixelStride
+        val buffer = padded?.takeIf { it.width == paddedWidth && it.height == image.height }
+            ?: Bitmap.createBitmap(paddedWidth, image.height, Bitmap.Config.ARGB_8888).also { padded = it }
+        buffer.copyPixelsFromBuffer(plane.buffer)
+        // Copies even when the crop is the whole bitmap: a mutable source is never returned as-is.
+        return Bitmap.createBitmap(buffer, crop.left, crop.top, crop.width(), crop.height())
     }
 
     val surface: Surface get() = imageReader.surface
@@ -51,19 +66,10 @@ class FrameSource(
         // Close on the reader's own thread, after any in-progress listener call. Closing from
         // another thread mid-copyPixelsFromBuffer frees the buffer under the copy: SIGSEGV on
         // the FrameSource thread, or "Image is already closed" (Device B crash log, 2026-09-15).
-        handler.post { imageReader.close() }
+        handler.post {
+            imageReader.close()
+            padded?.recycle()
+        }
         thread.quitSafely()
     }
-}
-
-/** Applies the SPEC.md §4.5 rowStride crop, then [crop] (system bars, SPEC.md §4.6). */
-private fun Image.toCroppedBitmap(crop: Rect): Bitmap {
-    val plane = planes[0]
-    val rowPadding = plane.rowStride - plane.pixelStride * width
-    val padded = Bitmap.createBitmap(
-        width + rowPadding / plane.pixelStride, height, Bitmap.Config.ARGB_8888,
-    ).apply { copyPixelsFromBuffer(plane.buffer) }
-    if (crop.width() == padded.width && crop.height() == padded.height) return padded
-    return Bitmap.createBitmap(padded, crop.left, crop.top, crop.width(), crop.height())
-        .also { padded.recycle() }
 }

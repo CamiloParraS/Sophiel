@@ -16,18 +16,28 @@ object Preprocessor {
     const val INPUT_SIZE = 224
     private const val CHANNELS = 3
 
-    /** Resizes [bitmap] to [INPUT_SIZE] if needed and returns a ready-to-run float32 RGB buffer. */
-    fun toInputBuffer(bitmap: Bitmap): ByteBuffer {
+    /**
+     * Resizes [bitmap] to [INPUT_SIZE] if needed and returns a ready-to-run float32 RGB buffer.
+     * A caller on one thread can pass [pixels] and [buffer] to reuse them; [buffer] is overwritten and returned.
+     */
+    fun toInputBuffer(
+        bitmap: Bitmap,
+        pixels: IntArray = IntArray(INPUT_SIZE * INPUT_SIZE),
+        buffer: ByteBuffer = inputBuffer(INPUT_SIZE * INPUT_SIZE),
+    ): ByteBuffer {
         val scaled = if (bitmap.width == INPUT_SIZE && bitmap.height == INPUT_SIZE) {
             bitmap
         } else {
             Bitmap.createScaledBitmap(bitmap, INPUT_SIZE, INPUT_SIZE, true)
         }
-        val pixels = IntArray(INPUT_SIZE * INPUT_SIZE)
         scaled.getPixels(pixels, 0, INPUT_SIZE, 0, 0, INPUT_SIZE, INPUT_SIZE)
         if (scaled !== bitmap) scaled.recycle()
-        return packRgb(pixels)
+        return packRgb(pixels, buffer)
     }
+
+    /** A direct, native-order buffer for [pixelCount] RGB float32 pixels. */
+    fun inputBuffer(pixelCount: Int = INPUT_SIZE * INPUT_SIZE): ByteBuffer =
+        ByteBuffer.allocateDirect(pixelCount * CHANNELS * Float.SIZE_BYTES).order(ByteOrder.nativeOrder())
 
     /**
      * Packs ARGB_8888 pixels into NHWC float32 RGB in `[0,1]`, dropping alpha.
@@ -35,9 +45,8 @@ object Preprocessor {
      * `[0,1]` (divide by 255) matches GantMan/nsfw_model's own `predict.py`
      * (see docs/DECISIONS.md D12).
      */
-    internal fun packRgb(pixels: IntArray): ByteBuffer {
-        val buffer = ByteBuffer.allocateDirect(pixels.size * CHANNELS * Float.SIZE_BYTES)
-        buffer.order(ByteOrder.nativeOrder())
+    internal fun packRgb(pixels: IntArray, buffer: ByteBuffer = inputBuffer(pixels.size)): ByteBuffer {
+        buffer.clear()
         for (pixel in pixels) {
             buffer.putFloat(((pixel shr 16) and 0xFF) / 255f) // R
             buffer.putFloat(((pixel shr 8) and 0xFF) / 255f) // G
