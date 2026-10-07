@@ -25,7 +25,10 @@ NEXT:               M6 Parent app, map at .scratch/m6-parent-app/map.md (decisio
                     15 theme/type/parts/strings (device check left), 16 PIN pad and the door, 17 Status
                     (checked on A; B and the Precise fallback line left), 18 Log (checked on A; Status "Ver en Historial" opens it behind the door). 11 code done (device check on A
                     left). D46: release starts without the accessibility service (0.79 overlay, Status
-                    warns). 19 Settings/Change PIN/debug menu code done (device check on A and B left; no debug-pill toggle: the pill stays debug-build only); ready: 20 wizard; 21 = M6
+                    warns). 19 Settings/Change PIN/debug menu code done, HEAD debug installed on A and B
+                    2026-10-06 (device check on A and B left). D47: debug-pill switch in the debug
+                    menu (pill still debug-signed only). D48: Thorough 3x3 preset ("Reforzado").
+                    Ready: 20 wizard; 21 = M6
                     verification (human, both devices).
                     FEATURE FREEZE end of week 3 (end of M6), then M7.
 ```
