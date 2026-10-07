@@ -124,12 +124,7 @@ fun StatusScreen(model: StatusModel, door: Door, actions: StatusActions, modifie
                 }
                 Page.OFF, Page.READY -> {
                     Summary(model)
-                    PreferenceGroup(title = stringResource(R.string.group_required)) {
-                        StatusModel.REQUIRED.forEach { n -> item { NeedRow(n, n !in model.missing, actions.fix) } }
-                    }
-                    PreferenceGroup(title = stringResource(R.string.group_recommended)) {
-                        StatusModel.RECOMMENDED.forEach { n -> item { NeedRow(n, n !in model.missing, actions.fix) } }
-                    }
+                    Health(model, actions.fix, titled = true)
                 }
                 Page.STARTING -> PreferenceGroup(title = stringResource(R.string.status_what_will_happen)) {
                     item {
@@ -256,12 +251,20 @@ private fun Cell(label: String, value: String, modifier: Modifier) = Column(modi
     Text(value, style = MaterialTheme.typography.titleMedium)
 }
 
-/** Protected: failing items are rows with their fix; the rest fold into one "Todo en orden" row. */
+/**
+ * D44: failing items are rows with their fix; the rest fold into one "Todo en orden" row. Before Start
+ * ([titled]) the failing ones sit under Requerido / Recomendado, since only Requerido blocks Start.
+ */
 @Composable
-private fun Health(model: StatusModel, fix: (Need) -> Unit) {
+private fun Health(model: StatusModel, fix: (Need) -> Unit, titled: Boolean = false) {
     val failing = Need.entries.filter { it in model.missing }
     val healthy = Need.entries - failing.toSet()
-    if (failing.isNotEmpty()) PreferenceGroup { failing.forEach { n -> item { NeedRow(n, false, fix) } } }
+    if (titled) {
+        listOf(StatusModel.REQUIRED to R.string.group_required, StatusModel.RECOMMENDED to R.string.group_recommended).forEach { (needs, title) ->
+            val missing = needs.filter { it in model.missing }
+            if (missing.isNotEmpty()) PreferenceGroup(title = stringResource(title)) { missing.forEach { n -> item { NeedRow(n, false, fix) } } }
+        }
+    } else if (failing.isNotEmpty()) PreferenceGroup { failing.forEach { n -> item { NeedRow(n, false, fix) } } }
     if (healthy.isEmpty()) return
     var open by rememberSaveable { mutableStateOf(false) }
     val turn by animateFloatAsState(if (open) 90f else 0f, motion(tween(240, easing = Ease)), label = "chevron")
