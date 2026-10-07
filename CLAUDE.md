@@ -34,9 +34,10 @@ NEXT:               M6 Parent app, map at .scratch/m6-parent-app/map.md (decisio
                     no longer read the file (pruned at start), reused tile input buffer and padded frame
                     bitmap. Checked on B (same content, before/after): frameToMaskMs median/worst
                     101/303 -> 70/168 ms; probe exposure unchanged (median 123 -> 126, inference-bound).
-                    A PENDING (no access) - same before/after comparison.
+                    A (same content): frameToMaskMs worst 494 -> 335 ms, but n=6/8, inconclusive;
+                    exposure unchanged (103 -> 110). VerdictCache hit 60-66% of tiles on A: keep it.
                     Interpreter threads (TileBenchmark#threadCost, run with am instrument so the app
-                    is not uninstalled): B 38-39 ms/tile for default, 1, 2, 4 - no change. A PENDING.
+                    is not uninstalled): default, 1, 2, 4 all equal - B 38-39, A 50-51 ms/tile.
                     Crop+hash+gate is 0-1 ms/tile on B, so single-sampling tiles was dropped.
                     FEATURE FREEZE end of week 3 (end of M6), then M7.
 ```
