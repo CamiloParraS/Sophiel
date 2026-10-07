@@ -50,6 +50,16 @@ fun DebugMenu(container: AppContainer, door: Door, onBack: () -> Unit, open: (De
                     item { PrefRow(stringResource(page.title), onClick = { door.pass { open(page) } }, end = { SIcon(R.drawable.ic_chev) }) }
                 }
             }
+            PreferenceGroup {
+                item {
+                    val settings by container.settings.state.collectAsState()
+                    SwitchRow(
+                        stringResource(R.string.set_label), settings.showLabel,
+                        { v -> door.pass { container.settings.update { it.copy(showLabel = v) } } },
+                        description = stringResource(R.string.set_label_text), icon = R.drawable.ic_tag,
+                    )
+                }
+            }
             Switches(container)
         }
     }
