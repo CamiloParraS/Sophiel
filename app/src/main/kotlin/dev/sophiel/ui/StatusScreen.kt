@@ -168,22 +168,23 @@ fun StatusScreen(model: StatusModel, door: Door, actions: StatusActions, modifie
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            val buttonWidth = Modifier.widthIn(min = 200.dp)
+            // The screen's one action: full width up to 360 dp, so Start, Starting and Stop share one slot.
+            val buttonWidth = Modifier.widthIn(max = 360.dp).fillMaxWidth()
             when (model.page) {
                 Page.PROTECTED -> {
                     // D38: Stop goes through the door; the lock says so while it is shut.
                     PillButton(
-                        stringResource(R.string.action_stop), actions.stop, buttonWidth, style = PillStyle.Destructive, busy = model.stopBusy,
+                        stringResource(R.string.action_stop), actions.stop, buttonWidth, style = PillStyle.Destructive, busy = model.stopBusy, large = true,
                         icon = if (door.unlocked) R.drawable.ic_stop else R.drawable.ic_lock,
                     )
                     Note(R.string.door_footnote)
                 }
                 Page.STARTING -> {
-                    PillButton(stringResource(R.string.status_starting), {}, buttonWidth, style = PillStyle.Suggested, busy = true)
+                    PillButton(stringResource(R.string.status_starting), {}, buttonWidth, style = PillStyle.Suggested, busy = true, large = true)
                     Note(R.string.status_starting_note)
                 }
                 else -> {
-                    PillButton(stringResource(R.string.action_start), actions.start, buttonWidth, style = PillStyle.Suggested, enabled = model.startEnabled, icon = R.drawable.ic_play)
+                    PillButton(stringResource(R.string.action_start), actions.start, buttonWidth, style = PillStyle.Suggested, enabled = model.startEnabled, large = true, icon = R.drawable.ic_play)
                     when (model.note) {
                         StartNote.TURN_ON_OVERLAY -> Note(R.string.note_overlay)
                         StartNote.PARTIAL_MASK -> Note(R.string.note_partial)

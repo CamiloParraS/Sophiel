@@ -5,12 +5,12 @@ import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,6 +22,8 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
@@ -42,6 +44,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import dev.sophiel.R
@@ -135,7 +138,7 @@ private fun Content(model: LogModel, modifier: Modifier, onClear: () -> Unit) {
                 pluralStringResource(R.plurals.log_week, model.weekMasked, model.weekMasked),
                 Modifier.padding(start = 4.dp, bottom = 6.dp), style = MaterialTheme.typography.labelMedium, color = Palette.Dim,
             )
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+            Row(Modifier.fillMaxWidth().selectableGroup(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                 model.days.forEachIndexed { i, d -> DayCell(d, i == selected, Modifier.weight(1f)) { selected = i } }
             }
         }
@@ -170,21 +173,26 @@ private fun Content(model: LogModel, modifier: Modifier, onClear: () -> Unit) {
 private fun DayCell(day: LogDay, on: Boolean, modifier: Modifier, onClick: () -> Unit) {
     val primary = MaterialTheme.colorScheme.primary
     val shape = RoundedCornerShape(14.dp)
-    val ink = if (on) Color.White else Palette.Fg
+    val fade = motion<Color>(tween(150))
+    val fill by animateColorAsState(if (on) primary else Palette.Card, fade, label = "day")
+    val edge by animateColorAsState(if (on) Color.Transparent else Palette.Border, fade, label = "edge")
+    val ink by animateColorAsState(if (on) Color.White else Palette.Fg, fade, label = "ink")
+    val weekday by animateColorAsState(if (on) Color.White.copy(alpha = .8f) else Palette.Dim, fade, label = "weekday")
+    val bar by animateColorAsState(if (on) Color.White.copy(alpha = .85f) else day.top.color(), fade, label = "bar")
     Column(
-        modifier.clip(shape).background(if (on) primary else Palette.Card).border(1.dp, if (on) Color.Transparent else Palette.Border, shape)
-            .clickable(onClick = onClick).padding(vertical = 7.dp),
+        modifier.clip(shape).background(fill).border(1.dp, edge, shape)
+            .selectable(on, role = Role.Tab, onClick = onClick).padding(vertical = 7.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
             if (day.today) stringResource(R.string.log_today) else day.date.dayOfWeek.getDisplayName(TextStyle.NARROW, Locale.getDefault()).uppercase(),
-            style = MaterialTheme.typography.labelSmall, color = if (on) Color.White.copy(alpha = .8f) else Palette.Dim, maxLines = 1,
+            style = MaterialTheme.typography.labelSmall, color = weekday, maxLines = 1,
         )
         Text(day.date.dayOfMonth.toString(), style = MaterialTheme.typography.titleMedium, color = ink)
         Box(Modifier.height(18.dp).padding(top = 2.dp), contentAlignment = Alignment.BottomCenter) {
             // The bar grows with the day's masked count and takes the colour of its highest band (D44).
             val h = if (day.masked == 0) 3.dp else (4 + day.masked * 3.5f).coerceAtMost(16f).dp
-            Box(Modifier.width(14.dp).height(h).clip(RoundedCornerShape(3.dp)).background(if (on) Color.White.copy(alpha = .85f) else day.top.color()))
+            Box(Modifier.width(14.dp).height(h).clip(RoundedCornerShape(3.dp)).background(bar))
         }
     }
 }

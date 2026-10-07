@@ -9,7 +9,22 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animate
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.foundation.layout.offset
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.unit.IntOffset
+import kotlin.math.roundToInt
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -45,10 +60,15 @@ import dev.sophiel.ui.theme.motion
 /**
  * Bottom sheet over a dimmed scrim, drawn inside the screen (place it last in a full-size Box).
  * Rises on the drawer curve and leaves on a quicker one; reduced motion makes both a jump.
+ * Drags down 1:1 (up is resisted); let go past a quarter of its height, or with a downward flick, and it closes.
  */
 @Composable
 fun BoxScope.BottomSheet(visible: Boolean, onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
     BackHandler(enabled = visible, onBack = onDismiss)
+    var drag by remember { mutableFloatStateOf(0f) }
+    var height by remember { mutableIntStateOf(0) }
+    val settle = motion<Float>(spring(dampingRatio = 1f, stiffness = Spring.StiffnessMediumLow))
+    LaunchedEffect(visible) { if (visible) drag = 0f }
     AnimatedVisibility(visible, enter = fadeIn(motion(tween(240))), exit = fadeOut(motion(tween(240)))) {
         Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .4f)).clickable(remember { MutableInteractionSource() }, indication = null, onClick = onDismiss))
     }
@@ -60,6 +80,19 @@ fun BoxScope.BottomSheet(visible: Boolean, onDismiss: () -> Unit, content: @Comp
     ) {
         Column(
             Modifier
+                .offset { IntOffset(0, drag.roundToInt()) }
+                .onSizeChanged { height = it.height }
+                .draggable(
+                    rememberDraggableState { dy ->
+                        // Up past the rest point: a fraction of the finger, so it gives a little and stops.
+                        drag += if (drag + dy < 0) dy * .15f else dy
+                    },
+                    Orientation.Vertical,
+                    onDragStopped = { velocity ->
+                        if (drag > height / 4f || velocity > 1200f) onDismiss()
+                        else animate(drag, 0f, velocity, settle) { v, _ -> drag = v }
+                    },
+                )
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp))
                 .background(Palette.Win)

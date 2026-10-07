@@ -2,17 +2,23 @@ package dev.sophiel.ui
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.keyframes
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -25,8 +31,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
@@ -42,6 +50,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.pluralStringResource
@@ -49,6 +59,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -99,22 +110,57 @@ private fun PinSlots(length: Int, shake: Int) {
     }
 }
 
+/** One pad key: fills its row slot, scales down while pressed (like PillButton). */
 @Composable
-private fun PinKeys(enabled: Boolean, onDigit: (Char) -> Unit, onDelete: () -> Unit) {
+private fun RowScope.PinKey(
+    enabled: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier, bg: Color = Palette.Btn,
+    onLongClick: (() -> Unit)? = null, content: @Composable () -> Unit,
+) {
+    val source = remember { MutableInteractionSource() }
+    val pressed by source.collectIsPressedAsState()
+    val scale by animateFloatAsState(if (pressed) .96f else 1f, motion(tween(120, easing = Ease)), label = "key")
+    Box(
+        modifier.weight(1f).height(64.dp).scale(scale).clip(RoundedCornerShape(14.dp)).background(bg)
+            .combinedClickable(source, ripple(), enabled = enabled, role = Role.Button, onLongClick = onLongClick, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) { content() }
+}
+
+/**
+ * Number pad. [enabled] gates taps; [dim] greys it out (locked or done), so a quick verify doesn't flash it.
+ * [onConfirm], if given, fills the bottom-left slot with a ✓ key; [busy] shows a spinner there.
+ */
+@Composable
+private fun PinKeys(
+    enabled: Boolean, onDigit: (Char) -> Unit, onDelete: () -> Unit, onClear: () -> Unit, dim: Boolean = false,
+    onConfirm: (() -> Unit)? = null, canConfirm: Boolean = false, busy: Boolean = false,
+) {
+    val haptic = LocalHapticFeedback.current
     val deleteLabel = stringResource(R.string.pin_delete)
-    Column(Modifier.alpha(if (enabled) 1f else .35f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    val confirmLabel = stringResource(R.string.pin_unlock)
+    val tap = { haptic.performHapticFeedback(HapticFeedbackType.KeyboardTap) }
+    Column(Modifier.widthIn(max = 340.dp).fillMaxWidth().alpha(if (dim) .35f else 1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         listOf("123", "456", "789", " 0<").forEach { row ->
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 row.forEach { k ->
-                    val keyModifier = Modifier.size(76.dp, 48.dp).clip(RoundedCornerShape(12.dp))
                     when (k) {
-                        ' ' -> Box(keyModifier)
-                        '<' -> Box(
-                            keyModifier.background(Palette.Btn).clickable(enabled, role = Role.Button, onClick = onDelete).semantics { contentDescription = deleteLabel },
-                            contentAlignment = Alignment.Center,
-                        ) { SIcon(R.drawable.ic_del, Palette.Fg, 22.dp) }
-                        else -> Box(keyModifier.background(Palette.Btn).clickable(enabled, role = Role.Button) { onDigit(k) }, contentAlignment = Alignment.Center) {
-                            Text(k.toString(), style = MaterialTheme.typography.titleLarge)
+                        ' ' -> if (onConfirm == null) Spacer(Modifier.weight(1f)) else {
+                            val primary = MaterialTheme.colorScheme.primary
+                            val fg = MaterialTheme.colorScheme.onPrimary
+                            PinKey(
+                                enabled && canConfirm && !busy, onConfirm, Modifier.semantics { contentDescription = confirmLabel },
+                                bg = primary.copy(alpha = if (canConfirm || busy) 1f else .45f),
+                            ) {
+                                if (busy) CircularProgressIndicator(Modifier.size(20.dp), color = fg, trackColor = fg.copy(alpha = .4f), strokeWidth = 2.dp)
+                                else SIcon(R.drawable.ic_check, fg, 24.dp)
+                            }
+                        }
+                        '<' -> PinKey(
+                            enabled, { tap(); onDelete() }, Modifier.semantics { contentDescription = deleteLabel },
+                            onLongClick = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); onClear() },
+                        ) { SIcon(R.drawable.ic_del, Palette.Fg, 24.dp) }
+                        else -> PinKey(enabled, { tap(); onDigit(k) }) {
+                            Text(k.toString(), style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Normal))
                         }
                     }
                 }
@@ -126,7 +172,7 @@ private fun PinKeys(enabled: Boolean, onDigit: (Char) -> Unit, onDelete: () -> U
 private enum class Attempt { Idle, Wrong, Right }
 
 /**
- * The PIN sheet's content (D38, D44): slots, keys, Desbloquear. [onUnlocked] runs after a right PIN and a
+ * The PIN sheet's content (D38, D44): slots, keys (the ✓ key unlocks), Cancelar.[onUnlocked] runs after a right PIN and a
  * short "Desbloqueado" message; the caller extends the unlock and closes the sheet. Digits live in plain
  * `remember`, never in saved state.
  */
@@ -160,6 +206,7 @@ fun ColumnScope.PinPrompt(pin: PinStore, clock: () -> Long, onUnlocked: () -> Un
             busy = false
             when (result) {
                 PinResult.Ok -> {
+                    haptic.performHapticFeedback(HapticFeedbackType.Confirm)
                     attempt = Attempt.Right
                     delay(450)
                     onUnlocked()
@@ -186,17 +233,14 @@ fun ColumnScope.PinPrompt(pin: PinStore, clock: () -> Long, onUnlocked: () -> Un
     }
     Text(message, Modifier.heightIn(min = 20.dp), style = MaterialTheme.typography.bodyMedium, color = color, textAlign = TextAlign.Center)
     val keysOn = !busy && !locked && attempt != Attempt.Right
-    PinKeys(keysOn, { if (digits.length < MAX_DIGITS) digits += it }, { digits = digits.dropLast(1) })
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        PillButton(stringResource(R.string.pin_cancel), onCancel, Modifier.weight(1f))
-        PillButton(
-            stringResource(R.string.pin_unlock), ::submit, Modifier.weight(1f),
-            style = PillStyle.Suggested, busy = busy, enabled = keysOn && digits.length >= MIN_DIGITS,
-        )
-    }
+    PinKeys(
+        keysOn, { if (digits.length < MAX_DIGITS) digits += it }, { digits = digits.dropLast(1) }, { digits = "" },
+        dim = locked || attempt == Attempt.Right, onConfirm = ::submit, canConfirm = digits.length >= MIN_DIGITS, busy = busy,
+    )
+    PillButton(stringResource(R.string.pin_cancel), onCancel, Modifier.widthIn(min = 200.dp))
     Text(
         stringResource(R.string.pin_forgot),
-        Modifier.clip(RoundedCornerShape(8.dp)).clickable(role = Role.Button) { forgot = !forgot }.padding(horizontal = 8.dp, vertical = 4.dp),
+        Modifier.clip(RoundedCornerShape(8.dp)).clickable(role = Role.Button) { forgot = !forgot }.heightIn(min = 48.dp).padding(horizontal = 12.dp, vertical = 14.dp),
         style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary,
     )
     AnimatedVisibility(forgot, enter = expandVertically(motion(tween(240, easing = Ease))), exit = shrinkVertically(motion(tween(240, easing = Ease)))) {
@@ -236,7 +280,7 @@ fun CreatePinScreen(
                 if (state.mismatch) stringResource(R.string.pin_create_mismatch) else "",
                 Modifier.heightIn(min = 20.dp), style = MaterialTheme.typography.bodyMedium, color = Palette.RedFg, textAlign = TextAlign.Center,
             )
-            PinKeys(!busy, { if (digits.length < MAX_DIGITS) digits += it }, { digits = digits.dropLast(1) })
+            PinKeys(!busy, { if (digits.length < MAX_DIGITS) digits += it }, { digits = digits.dropLast(1) }, { digits = "" })
             PillButton(
                 stringResource(if (state.step == CreateStep.ENTER) R.string.pin_continue else R.string.pin_save),
                 {

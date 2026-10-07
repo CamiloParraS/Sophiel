@@ -9,6 +9,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -38,6 +39,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import dev.sophiel.ui.theme.Ease
 import dev.sophiel.ui.theme.Palette
 import dev.sophiel.ui.theme.motion
@@ -64,7 +66,7 @@ fun RoundSwitch(checked: Boolean, onChange: ((Boolean) -> Unit)?, modifier: Modi
 
 enum class PillStyle { Default, Suggested, Destructive }
 
-/** Pill button. While [busy] it shows a spinner and ignores taps. */
+/** Pill button. While [busy] it shows a spinner and ignores taps. [large] is a screen's one main action (Start, Stop). */
 @Composable
 fun PillButton(
     text: String,
@@ -74,6 +76,7 @@ fun PillButton(
     busy: Boolean = false,
     enabled: Boolean = true,
     small: Boolean = false,
+    large: Boolean = false,
     @androidx.annotation.DrawableRes icon: Int? = null,
 ) {
     val primary = MaterialTheme.colorScheme.primary
@@ -88,17 +91,21 @@ fun PillButton(
     Row(
         modifier
             .scale(scale)
-            .heightIn(min = if (small) 32.dp else 40.dp)
+            .heightIn(min = if (small) 32.dp else if (large) 56.dp else 40.dp)
             .clip(CircleShape)
             .background(bg.copy(alpha = bg.alpha * (if (!enabled) .45f else if (busy) .8f else 1f)))
             .clickable(source, indication = null, enabled = enabled && !busy, role = Role.Button, onClick = onClick)
-            .padding(horizontal = if (small) 14.dp else 20.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+            .padding(horizontal = if (small) 14.dp else if (large) 24.dp else 20.dp),
+        horizontalArrangement = Arrangement.spacedBy(if (large) 10.dp else 8.dp, Alignment.CenterHorizontally),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (busy) CircularProgressIndicator(Modifier.size(16.dp), color = fg, trackColor = fg.copy(alpha = .4f), strokeWidth = 2.dp)
-        if (icon != null && !busy) SIcon(icon, fg, 16.dp)
-        Text(text, style = MaterialTheme.typography.labelLarge, color = fg.copy(alpha = if (enabled) 1f else .45f), textAlign = TextAlign.Center)
+        val glyph = if (large) 20.dp else 16.dp
+        if (busy) CircularProgressIndicator(Modifier.size(glyph), color = fg, trackColor = fg.copy(alpha = .4f), strokeWidth = 2.dp)
+        if (icon != null && !busy) SIcon(icon, fg, glyph)
+        Text(
+            text, style = MaterialTheme.typography.labelLarge.let { if (large) it.copy(fontSize = 17.sp, lineHeight = 22.sp) else it },
+            color = fg.copy(alpha = if (enabled) 1f else .45f), textAlign = TextAlign.Center,
+        )
     }
 }
 
@@ -129,7 +136,11 @@ fun SegmentedControl(options: List<String>, selected: Int, onSelect: (Int) -> Un
                             .selectable(i == selected, enabled = i !in disabled, role = Role.RadioButton, onClick = { onSelect(i) }),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Text(label, style = MaterialTheme.typography.labelLarge, color = (if (i == selected) Palette.Fg else Palette.Dim).copy(alpha = if (i in disabled) .45f else 1f), textAlign = TextAlign.Center)
+                        Text(
+                            label, Modifier.padding(horizontal = 4.dp), style = MaterialTheme.typography.labelLarge,
+                            color = (if (i == selected) Palette.Fg else Palette.Dim).copy(alpha = if (i in disabled) .45f else 1f), textAlign = TextAlign.Center,
+                            maxLines = 1, autoSize = TextAutoSize.StepBased(minFontSize = 11.sp, maxFontSize = MaterialTheme.typography.labelLarge.fontSize),
+                        )
                     }
                 }
             }

@@ -36,6 +36,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -76,11 +78,11 @@ fun HeaderBar(
     }
 }
 
-/** Header button: icon only, 34 dp, no fill. */
+/** Header button: icon only, 34 dp visual, no fill, inside a 48 dp touch target. */
 @Composable
 fun FlatIconButton(@DrawableRes icon: Int, label: String, onClick: () -> Unit) {
     Box(
-        Modifier.size(34.dp).clip(RoundedCornerShape(8.dp)).clickable(role = Role.Button, onClickLabel = label, onClick = onClick),
+        Modifier.size(48.dp).clip(RoundedCornerShape(10.dp)).clickable(role = Role.Button, onClick = onClick).semantics { contentDescription = label },
         contentAlignment = Alignment.Center,
     ) { SIcon(icon, Palette.Fg) }
 }

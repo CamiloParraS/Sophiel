@@ -109,6 +109,6 @@ fun UnlockedBanner(door: Door, modifier: Modifier = Modifier) {
 fun GearButton(door: Door, onOpen: () -> Unit) {
     Box {
         FlatIconButton(R.drawable.ic_gear, stringResource(R.string.settings_title)) { door.pass(onOpen) }
-        if (!door.unlocked) SIcon(R.drawable.ic_lock, Palette.Dim, 11.dp, Modifier.align(Alignment.BottomEnd).padding(end = 2.dp, bottom = 2.dp))
+        if (!door.unlocked) SIcon(R.drawable.ic_lock, Palette.Dim, 11.dp, Modifier.align(Alignment.BottomEnd).padding(end = 9.dp, bottom = 9.dp))
     }
 }

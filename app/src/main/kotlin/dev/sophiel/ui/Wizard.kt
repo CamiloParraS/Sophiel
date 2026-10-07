@@ -6,12 +6,18 @@ import android.os.Build
 import android.provider.Settings
 import androidx.annotation.StringRes
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -21,6 +27,7 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -47,10 +54,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationManagerCompat
 import dev.sophiel.AppContainer
@@ -74,7 +84,17 @@ fun SetupWizard(container: AppContainer, resumes: Int, fix: (Need) -> Unit, star
     var step by rememberSaveable { mutableIntStateOf(1) }
     var forward by rememberSaveable { mutableStateOf(true) }
     BackHandler(step > 1) { forward = false; step-- }
-    Crossfade(step, animationSpec = motion(tween(160)), label = "step") { s ->
+    // Forward slides in from the right, Back from the left: a quarter width with a fade. Reduced motion jumps.
+    val slide = motion<IntOffset>(tween(240, easing = Ease))
+    val fade = motion<Float>(tween(160))
+    AnimatedContent(
+        step,
+        transitionSpec = {
+            val dir = if (targetState > initialState) 1 else -1
+            (slideInHorizontally(slide) { dir * it / 4 } + fadeIn(fade)) togetherWith (slideOutHorizontally(slide) { -dir * it / 4 } + fadeOut(fade))
+        },
+        label = "step",
+    ) { s ->
         // Absolute, not step++: the outgoing step stays composed during the fade and its auto-advance may still fire.
         val next = { forward = true; step = s + 1 }
         val back = { forward = false; step = s - 1 }
@@ -84,7 +104,7 @@ fun SetupWizard(container: AppContainer, resumes: Int, fix: (Need) -> Unit, star
                 title = stringResource(R.string.wiz_title), subtitle = stringResource(R.string.wiz_step, 1, STEPS),
                 top = { Dots(1, Modifier.padding(top = 18.dp)) },
             )
-            return@Crossfade
+            return@AnimatedContent
         }
         val context = LocalContext.current
         val appInfo = { context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}"))) }
@@ -145,7 +165,7 @@ fun SetupWizard(container: AppContainer, resumes: Int, fix: (Need) -> Unit, star
                 PresetStep(container)
             }
             else -> StepFrame(s, back, R.string.wiz_start_title, R.string.wiz_start_text, bottom = {
-                PillButton(stringResource(R.string.action_start), start, Modifier.widthIn(min = 200.dp), style = PillStyle.Suggested, icon = R.drawable.ic_play)
+                PillButton(stringResource(R.string.action_start), start, Modifier.widthIn(max = 360.dp).fillMaxWidth(), style = PillStyle.Suggested, large = true, icon = R.drawable.ic_play)
                 Text(stringResource(R.string.status_starting_note), style = MaterialTheme.typography.bodySmall, color = Palette.Dim, textAlign = TextAlign.Center)
             }) {
                 PreferenceGroup {
@@ -168,8 +188,10 @@ fun SetupWizard(container: AppContainer, resumes: Int, fix: (Need) -> Unit, star
 private fun advanceWhenGranted(granted: Boolean, forward: Boolean, next: () -> Unit) {
     var armed by rememberSaveable { mutableStateOf(forward) }
     if (!granted) armed = true
+    val haptic = LocalHapticFeedback.current
     LaunchedEffect(granted) {
         if (granted && armed) {
+            haptic.performHapticFeedback(HapticFeedbackType.Confirm) // with the done tag's fade
             delay(600) // long enough to see the done tag
             next()
         }
@@ -221,7 +243,7 @@ private fun PrimaryPill(@StringRes text: Int, onClick: () -> Unit) =
 private fun Skip(@StringRes lost: Int, onClick: () -> Unit) {
     Text(
         stringResource(R.string.wiz_skip),
-        Modifier.clip(RoundedCornerShape(8.dp)).clickable(role = Role.Button, onClick = onClick).padding(horizontal = 12.dp, vertical = 6.dp),
+        Modifier.clip(RoundedCornerShape(8.dp)).clickable(role = Role.Button, onClick = onClick).heightIn(min = 48.dp).padding(horizontal = 12.dp, vertical = 13.dp),
         style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary,
     )
     Text(stringResource(lost), style = MaterialTheme.typography.bodySmall, color = Palette.Dim, textAlign = TextAlign.Center)
