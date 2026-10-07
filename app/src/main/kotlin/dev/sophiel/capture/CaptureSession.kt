@@ -98,7 +98,7 @@ class CaptureSession(
     @Volatile
     private var closed = false
 
-    private var frameSource = FrameSource(size.width, size.height, size.crop, ::wantsFrame, ::onFrame)
+    private var frameSource = FrameSource(size.width, size.height, size.crop, ::decideFrame, ::onFrame)
     private val display = checkNotNull(
         projection.createVirtualDisplay(
             "SophielCapture",
@@ -128,7 +128,7 @@ class CaptureSession(
     /** Rotation must `resize()` + `setSurface()`, never recreate the display (SPEC.md §4.2). */
     fun resize(newSize: CaptureSize) {
         if (newSize == size) return // theme/locale/font changes also land here; nothing to do
-        val newSource = FrameSource(newSize.width, newSize.height, newSize.crop, ::wantsFrame, ::onFrame)
+        val newSource = FrameSource(newSize.width, newSize.height, newSize.crop, ::decideFrame, ::onFrame)
         display.resize(newSize.width, newSize.height, newSize.densityDpi)
         display.surface = newSource.surface
         frameSource.close()
@@ -140,29 +140,30 @@ class CaptureSession(
     }
 
     /**
-     * Called on the FrameSource thread before an Image is decoded ([held]: a kept frame offered again).
-     * A frame that can't run yet is dropped, unless a probe waits: then it is held, not lost. On a still
-     * screen the lifted mask brings one or two frames; dropping them timed out ~2/3 of timed-out probes
+     * Called on the FrameSource thread before an Image is decoded ([offeredAgain]: a held frame
+     * offered again). A frame that can't run yet is dropped, unless a probe or a tile flagged once
+     * (D51) waits: then it is held, not lost. On a still screen the lifted mask brings one or two
+     * frames; dropping them timed out ~2/3 of timed-out probes
      * (2026-10-07, both devices). A waiting probe also skips the [FRAME_INTERVAL_MS] floor: that
      * floor was most of what was left of probe exposure. One frame in flight still holds.
      */
-    private fun wantsFrame(held: Boolean): Want {
-        if (closed || container.ownScreens.showing.value) return Want.SKIP
+    private fun decideFrame(offeredAgain: Boolean): FrameDecision {
+        if (closed || container.ownScreens.showing.value) return FrameDecision.DROP
         val now = SystemClock.elapsedRealtime()
         val busy = inFlight?.isActive == true
         val since = now - (throttle.lastProcessedMs ?: now)
-        val want = when {
-            !busy && (probing || throttle.shouldProcess(now)) -> Want.TAKE
-            probing || engagePending -> Want.HOLD // D51: a pending tile must not lose its next frame either
-            else -> Want.SKIP
+        val decision = when {
+            !busy && (probing || throttle.shouldProcess(now)) -> FrameDecision.RUN
+            probing || engagePending -> FrameDecision.HOLD // D51: a pending tile must not lose its next frame either
+            else -> FrameDecision.DROP
         }
-        if (probing && (!held || want == Want.TAKE)) {
-            Log.d(TAG, "probe wait: ${if (held) "held " else ""}frame ${want.name.lowercase()}${if (busy) " (busy lane)" else ""} sinceLastMs=$since")
+        if (probing && (!offeredAgain || decision == FrameDecision.RUN)) {
+            Log.d(TAG, "probe wait: ${if (offeredAgain) "held " else ""}frame ${decision.name.lowercase()}${if (busy) " (busy lane)" else ""} sinceLastMs=$since")
         }
-        return want
+        return decision
     }
 
-    // Written by TileLoop's publish (scope lane), read by wantsFrame (FrameSource thread).
+    // Written by TileLoop's publish (scope lane), read by decideFrame (FrameSource thread).
     @Volatile
     private var probing = false
 
@@ -170,7 +171,7 @@ class CaptureSession(
     @Volatile
     private var engagePending = false
 
-    // Ticket 09: on the lane, so the tracker is only touched there. Frames are dropped meanwhile (wantsFrame).
+    // Ticket 09: on the lane, so the tracker is only touched there. Frames are dropped meanwhile (decideFrame).
     init {
         scope.launch {
             while (true) {

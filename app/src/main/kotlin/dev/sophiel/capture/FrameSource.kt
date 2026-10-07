@@ -13,9 +13,9 @@ import android.view.Surface
 /**
  * Wraps an [ImageReader] as a frame producer for a [android.media.projection.MediaProjection]'s
  * [android.media.projection.MediaProjection.createVirtualDisplay]. Delivers decoded [Bitmap]s,
- * cropped to [crop], on a private background thread via [onFrame] — but only when [wantsFrame]
- * says so, checked before decoding. A [Want.HOLD] frame is decoded and kept, then offered again
- * every [HOLD_RETRY_MS] until it is taken, skipped, or replaced by a newer image.
+ * cropped to [crop], on a private background thread via [onFrame] — but only when [decideFrame]
+ * says so, checked before decoding. A [FrameDecision.HOLD] frame is decoded and kept, then offered again
+ * every [HOLD_RETRY_MS] until it runs, is dropped, or is replaced by a newer image.
  *
  * Handles both SPEC.md §4.5 traps: `rowStride` padding (cropped away before [onFrame] sees the
  * bitmap) and closing every acquired [Image] — a leaked one stalls the reader after [maxImages]
@@ -25,7 +25,7 @@ class FrameSource(
     val width: Int,
     val height: Int,
     private val crop: Rect,
-    private val wantsFrame: (held: Boolean) -> Want,
+    private val decideFrame: (offeredAgain: Boolean) -> FrameDecision,
     private val onFrame: (bitmap: Bitmap, availableAtMs: Long) -> Unit,
 ) {
     private val maxImages = 2
@@ -41,10 +41,10 @@ class FrameSource(
                 // each one into a Bitmap only for the throttle to drop it was most of the cost.
                 // A newer image always replaces a held one.
                 dropHeld()
-                when (wantsFrame(false)) {
-                    Want.TAKE -> onFrame(toCroppedBitmap(image), availableAt)
-                    Want.HOLD -> hold(toCroppedBitmap(image), availableAt)
-                    Want.SKIP -> Unit
+                when (decideFrame(false)) {
+                    FrameDecision.RUN -> onFrame(toCroppedBitmap(image), availableAt)
+                    FrameDecision.HOLD -> hold(toCroppedBitmap(image), availableAt)
+                    FrameDecision.DROP -> Unit
                 }
             } finally {
                 image.close()
@@ -67,7 +67,8 @@ class FrameSource(
         return Bitmap.createBitmap(buffer, crop.left, crop.top, crop.width(), crop.height())
     }
 
-    // A frame [wantsFrame] can't take yet but must not lose (a probe waits for it). Only this thread touches it.
+    // A frame [decideFrame] can't run yet but must not lose (a probe or a pending tile waits for it).
+    // Only this thread touches it.
     private var held: Pair<Bitmap, Long>? = null
 
     // One retry task: re-posting it replaces the pending one, so a newer held image never adds a loop.
@@ -81,13 +82,13 @@ class FrameSource(
 
     private fun offerHeld() {
         val (bitmap, availableAt) = held ?: return
-        when (wantsFrame(true)) {
-            Want.TAKE -> {
+        when (decideFrame(true)) {
+            FrameDecision.RUN -> {
                 held = null
                 onFrame(bitmap, availableAt)
             }
-            Want.HOLD -> handler.postDelayed(offerHeldTask, HOLD_RETRY_MS)
-            Want.SKIP -> dropHeld()
+            FrameDecision.HOLD -> handler.postDelayed(offerHeldTask, HOLD_RETRY_MS)
+            FrameDecision.DROP -> dropHeld()
         }
     }
 
@@ -111,7 +112,7 @@ class FrameSource(
     }
 }
 
-/** What [FrameSource] does with an image: decode it for onFrame, decode and keep it to offer again, or drop it. */
-enum class Want { TAKE, HOLD, SKIP }
+/** What [FrameSource] does with an image: decode it and run it (onFrame), decode and hold it to offer again, or drop it undecoded. */
+enum class FrameDecision { RUN, HOLD, DROP }
 
 private const val HOLD_RETRY_MS = 10L
