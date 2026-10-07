@@ -142,7 +142,8 @@ class CaptureSession(
      * Called on the FrameSource thread before an Image is decoded ([held]: a kept frame offered again).
      * A frame that can't run yet is dropped, unless a probe waits: then it is held, not lost. On a still
      * screen the lifted mask brings one or two frames; dropping them timed out ~2/3 of timed-out probes
-     * (2026-10-07, both devices). Held frames still keep to one frame per [FRAME_INTERVAL_MS].
+     * (2026-10-07, both devices). A waiting probe also skips the [FRAME_INTERVAL_MS] floor: that
+     * floor was most of what was left of probe exposure. One frame in flight still holds.
      */
     private fun wantsFrame(held: Boolean): Want {
         if (closed || container.ownScreens.showing.value) return Want.SKIP
@@ -150,7 +151,7 @@ class CaptureSession(
         val busy = inFlight?.isActive == true
         val since = now - (throttle.lastProcessedMs ?: now)
         val want = when {
-            !busy && throttle.shouldProcess(now) -> Want.TAKE
+            !busy && (probing || throttle.shouldProcess(now)) -> Want.TAKE
             probing -> Want.HOLD
             else -> Want.SKIP
         }
