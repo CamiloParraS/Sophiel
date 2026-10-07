@@ -35,7 +35,11 @@ NEXT:               M6 Parent app, map at .scratch/m6-parent-app/map.md (decisio
                     bitmap. Checked on B (same content, before/after): frameToMaskMs median/worst
                     101/303 -> 70/168 ms; probe exposure unchanged (median 123 -> 126). NOT
                     inference-bound: on A a probe tile judges in 4-6 ms (mostly cache hits); ~75-80 ms
-                    of exposure is waiting for a frame. Suspect FrameThrottle (80 ms) drops the lift frame.
+                    of exposure is waiting for a frame: throttle/busy lane dropped the lift frame.
+                    Fixed by holding frames while a probe waits (same content, both devices):
+                    probe timeouts A 21/53 -> 0/44, B 25/66 -> 0/51; exposure median A 246 -> 90,
+                    B 163 -> 81 ms; worst A 310 -> 252, B 359 -> 229. Next candidates: stop judging
+                    CLEAR tiles once a probe starts mid-frame; skip inference on probe tiles still masked.
                     A (same content): frameToMaskMs worst 494 -> 335 ms, but n=6/8, inconclusive;
                     exposure unchanged (103 -> 110). VerdictCache hit 60-66% of tiles on A: keep it.
                     Interpreter threads (TileBenchmark#threadCost, run with am instrument so the app
