@@ -186,9 +186,7 @@ fun StatusScreen(model: StatusModel, door: Door, actions: StatusActions, modifie
                     PillButton(stringResource(R.string.action_start), actions.start, buttonWidth, style = PillStyle.Suggested, enabled = model.startEnabled, icon = R.drawable.ic_play)
                     when (model.note) {
                         StartNote.TURN_ON_OVERLAY -> Note(R.string.note_overlay)
-                        StartNote.TURN_ON_SERVICE -> Note(R.string.note_service)
-                        StartNote.TURN_ON_BOTH -> Note(R.string.note_both)
-                        StartNote.DEBUG_ALPHA -> Text("debug: máscara al 0.79", style = MaterialTheme.typography.bodySmall, color = Palette.Dim)
+                        StartNote.PARTIAL_MASK -> Note(R.string.note_partial)
                         null -> Unit
                     }
                 }
@@ -207,7 +205,10 @@ private fun Hero(model: StatusModel, stoppedAt: String) {
     when (model.page) {
         Page.PROTECTED -> StatusPage(R.drawable.ic_shield_ok, stringResource(R.string.status_protected), stringResource(R.string.status_protected_text), Tone.Ok)
         Page.OFF -> StatusPage(R.drawable.ic_shield_off, stringResource(R.string.status_idle), pluralStringResource(R.plurals.status_missing, blocking, blocking), Tone.Off)
-        Page.READY -> StatusPage(R.drawable.ic_shield, stringResource(R.string.status_ready), stringResource(R.string.status_ready_text), Tone.Ready)
+        Page.READY -> StatusPage(
+            R.drawable.ic_shield, stringResource(R.string.status_ready),
+            stringResource(if (Need.SERVICE in model.missing) R.string.status_ready_partial else R.string.status_ready_text), Tone.Ready,
+        )
         Page.STARTING -> StatusPage(R.drawable.ic_shield, stringResource(R.string.status_starting), stringResource(R.string.status_starting_text), Tone.Ready, spinner = true)
         Page.STOPPED -> StatusPage(R.drawable.ic_shield_off, stringResource(R.string.status_stopped), stringResource(R.string.status_stopped_text, stoppedAt), Tone.Warn)
     }

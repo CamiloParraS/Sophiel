@@ -6,7 +6,7 @@ import dev.sophiel.log.Entry
 import dev.sophiel.log.OffReason
 import dev.sophiel.settings.ParentPreset
 
-/** The three things Status checks live (D42). Overlay and the service are needed to start; notifications are only recommended. */
+/** The three things Status checks live (D42). Only the overlay is needed to start (D46); the service and notifications are recommended. */
 enum class Need { OVERLAY, SERVICE, NOTIFICATIONS }
 
 enum class Page { PROTECTED, OFF, READY, STARTING, STOPPED }
@@ -15,7 +15,7 @@ enum class Page { PROTECTED, OFF, READY, STARTING, STOPPED }
 enum class Fallback { ACCESSIBILITY_OFF, ANDROID_BELOW_14 }
 
 /** The line under Start. */
-enum class StartNote { TURN_ON_OVERLAY, TURN_ON_SERVICE, TURN_ON_BOTH, DEBUG_ALPHA }
+enum class StartNote { TURN_ON_OVERLAY, PARTIAL_MASK }
 
 class StatusInput(
     val phase: ControllerPhase,
@@ -25,7 +25,6 @@ class StatusInput(
     val last: Entry?, // the newest Log entry (ticket 13)
     val preset: ParentPreset,
     val sensitivity: Sensitivity,
-    val debug: Boolean,
     val sdk: Int,
 )
 
@@ -42,8 +41,8 @@ class StatusModel(
     val stopBusy: Boolean,
 ) {
     companion object {
-        val REQUIRED = listOf(Need.OVERLAY, Need.SERVICE)
-        val RECOMMENDED = listOf(Need.NOTIFICATIONS)
+        val REQUIRED = listOf(Need.OVERLAY)
+        val RECOMMENDED = listOf(Need.SERVICE, Need.NOTIFICATIONS)
 
         private val STARTING = setOf(
             ControllerPhase.NEED_NOTIFICATIONS, ControllerPhase.NEED_OVERLAY, ControllerPhase.NEED_CONSENT,
@@ -61,16 +60,14 @@ class StatusModel(
                 running -> Page.PROTECTED
                 i.phase in STARTING -> Page.STARTING
                 stopped != null -> Page.STOPPED
-                blocking.isNotEmpty() && !i.debug -> Page.OFF // debug builds start on the 0.79 overlay
+                blocking.isNotEmpty() -> Page.OFF
                 else -> Page.READY
             }
-            val startEnabled = i.debug || blocking.isEmpty()
+            val startEnabled = blocking.isEmpty()
             val note = when {
                 page == Page.PROTECTED || page == Page.STARTING -> null
-                i.debug -> if (Need.SERVICE in missing) StartNote.DEBUG_ALPHA else null
-                blocking.size == 2 -> StartNote.TURN_ON_BOTH
-                blocking == listOf(Need.OVERLAY) -> StartNote.TURN_ON_OVERLAY
-                blocking == listOf(Need.SERVICE) -> StartNote.TURN_ON_SERVICE
+                blocking.isNotEmpty() -> StartNote.TURN_ON_OVERLAY
+                Need.SERVICE in missing -> StartNote.PARTIAL_MASK // D46: starts anyway, on the 0.79 overlay
                 else -> null
             }
             val fallback = when {

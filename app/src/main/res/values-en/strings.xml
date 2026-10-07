@@ -55,6 +55,7 @@
         <item quantity="other">%d things missing</item>
     </plurals>
     <string name="status_ready">Ready to start</string>
+    <string name="status_ready_partial">With a slightly see-through mask</string>
     <string name="status_ready_text">Everything is in order</string>
     <string name="status_starting_text">Android will ask for permission to capture the screen</string>
     <string name="status_what_will_happen">What will happen</string>
@@ -102,6 +103,5 @@
     <string name="group_required">To work</string>
     <string name="group_recommended">Recommended</string>
     <string name="note_overlay">Allow showing the mask to start</string>
-    <string name="note_service">Turn on the full mask to start</string>
-    <string name="note_both">Turn on the full mask and its permission to start</string>
+    <string name="note_partial">Without the full mask, the mask will look slightly see-through</string>
 </resources>

@@ -19,9 +19,8 @@ class StatusModelTest {
         notifications: Boolean = true,
         last: Entry? = null,
         preset: ParentPreset = ParentPreset.BALANCED,
-        debug: Boolean = false,
         sdk: Int = 35,
-    ) = StatusModel.of(StatusInput(phase, bound, overlay, notifications, last, preset, Sensitivity.NORMAL, debug, sdk))
+    ) = StatusModel.of(StatusInput(phase, bound, overlay, notifications, last, preset, Sensitivity.NORMAL, sdk))
 
     private fun off(reason: String) = Entry(1_000, "OFF", listOf(reason))
 
@@ -36,30 +35,28 @@ class StatusModelTest {
     }
 
     @Test
-    fun releaseWithoutServiceCannotStartAndSaysWhy() {
+    fun withoutTheServiceItStillStartsAndWarnsOfThePartialMask() { // D46
         val m = model(bound = false)
+        assertEquals(Page.READY, m.page)
+        assertTrue(m.startEnabled)
+        assertEquals(StartNote.PARTIAL_MASK, m.note)
+        assertEquals(listOf(Need.SERVICE, Need.NOTIFICATIONS), model(bound = false, notifications = false).missing)
+        // Turning it on removes the warning.
+        assertNull(model(bound = true).note)
+    }
+
+    @Test
+    fun onlyTheOverlayBlocksStart() {
+        val m = model(overlay = false)
         assertEquals(Page.OFF, m.page)
         assertFalse(m.startEnabled)
-        assertEquals(StartNote.TURN_ON_SERVICE, m.note)
-        assertEquals(StartNote.TURN_ON_OVERLAY, model(overlay = false).note)
-        assertEquals(StartNote.TURN_ON_BOTH, model(bound = false, overlay = false).note)
-        assertEquals(listOf(Need.SERVICE, Need.NOTIFICATIONS), model(bound = false, notifications = false).missing)
-    }
-
-    @Test
-    fun turningTheServiceOnMakesItReady() {
-        val m = model(bound = true, notifications = false) // notifications are only recommended
-        assertEquals(Page.READY, m.page)
-        assertTrue(m.startEnabled)
-        assertNull(m.note)
-    }
-
-    @Test
-    fun debugStartsOnTheAlphaOverlay() {
-        val m = model(bound = false, debug = true)
-        assertEquals(Page.READY, m.page)
-        assertTrue(m.startEnabled)
-        assertEquals(StartNote.DEBUG_ALPHA, m.note)
+        assertEquals(StartNote.TURN_ON_OVERLAY, m.note)
+        assertEquals(StartNote.TURN_ON_OVERLAY, model(overlay = false, bound = false).note)
+        // Notifications are only recommended.
+        val n = model(notifications = false)
+        assertEquals(Page.READY, n.page)
+        assertTrue(n.startEnabled)
+        assertNull(n.note)
     }
 
     @Test
@@ -81,11 +78,12 @@ class StatusModelTest {
         assertEquals(Page.READY, model(last = off(OffReason.USER)).page)
         // The next start logs an ON, which ends it.
         assertEquals(Page.READY, model(last = Entry(2_000, "ON", listOf("BALANCED", "NORMAL"))).page)
-        // After a force-stop the service is un-ticked: stopped, and Start needs it back.
+        // After a force-stop the service is un-ticked: stopped, listed as missing, Start still works (D46).
         val forced = model(bound = false, last = off(OffReason.APP_CLOSED))
         assertEquals(Page.STOPPED, forced.page)
-        assertFalse(forced.startEnabled)
-        assertEquals(StartNote.TURN_ON_SERVICE, forced.note)
+        assertEquals(listOf(Need.SERVICE), forced.missing)
+        assertTrue(forced.startEnabled)
+        assertEquals(StartNote.PARTIAL_MASK, forced.note)
     }
 
     @Test

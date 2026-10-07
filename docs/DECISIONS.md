@@ -929,7 +929,8 @@ Scope addition to SPEC §1.2 (human). Amends D28's alpha 0.79.
   takes effect on the next protection start. An accessibility overlay sits above system UI panels,
   so the rotate-suggestion button (auto-rotate off, gesture navigation) can hide under a mask; a tap
   there still reaches it. Leaving holes in the bottom corners was rejected: it would expose content.
-- **Amended 2026-10-04 (human): the accessibility window is the main path.** Release builds start
+- **Amended 2026-10-04 (human): the accessibility window is the main path. Its Start gate is
+  superseded by D46 (2026-10-06).** Release builds start
   protection only with the service on (Status and the M6 wizard gate Start); starting on the 0.79
   app overlay without it is a debug-build option. Reason: the app never ships to Play (school
   project), and opaque masks give better results. Turning the service off mid-session still moves
@@ -1214,3 +1215,69 @@ Human scope addition to SPEC §1.2. All app text is bilingual, **Spanish first**
 through resources from the start. Material You dynamic colour (both devices are Android 12+, with a
 fixed fallback scheme below API 31), light theme only. Feel: approachable, calm and helpful. The
 look itself is settled by the ticket 06 prototype.
+
+## D44 — Parent screens look: concept E2 (2026-10-06, human decision, `.scratch/m6-parent-app/` ticket 06)
+
+The look of the Parent app is `.scratch/m6-parent-app/mockups/gnome2.html`. It settles the
+"look itself" that D43 left to the prototype.
+
+- **Shapes and layout:** libadwaita style. Flat grey header bar with a centred bold title, boxed
+  preference groups (12 dp corners), pill buttons (blue = suggested, red = destructive), round
+  switches, a status page with a big symbolic icon, a bottom sheet for the PIN. Light only.
+- **Colour:** only the accent follows Material You (`colorPrimary`); green, orange and red are fixed
+  state colours. Fixed blue fallback below API 31. This narrows D43: dynamic colour drives the
+  accent, not the whole palette.
+- **Status shows only what is wrong:** "Todo en orden" is a collapsed row; Revisión and Cuidado sit
+  in one summary row. Only the full mask (accessibility) blocks Start; notifications are listed
+  separately as "Recomendado". Lock icons on Ajustes and Detener say the PIN is needed.
+- **States in scope of the screens:** Starting (capture consent, busy button), Stopped by itself
+  (what happened, when, what is missing), Settings unlocked banner with the 2 min countdown and
+  "Bloquear ahora", empty Log, confirm dialog before "Borrar historial".
+- **PIN sheet:** 4-6 digit slots, Desbloquear button, wrong PIN shakes and says attempts left,
+  lockout shows a countdown (D40's doubling), "¿Olvidaste el PIN?" says there is no recovery and
+  that clearing app data also wipes the log.
+- **Log:** 7-day strip, per-day counters Tapados / Sin revisar / Apagadas, a word chip per mask
+  (Muy seguro / Seguro / Dudoso, none for Precise), rows expand to the technical detail, filter
+  Todo / Tapados / Otros, off events carry their reason.
+- **Copy (Spanish first):** Cuidado = Tapar más / Normal / Tapar menos (Strict / Normal / Relaxed);
+  Cómo revisa = Ahorro / Equilibrado / Detallado (Light / Balanced / Precise). A helper line under
+  each selector says the consequence. One word for the off state: "detenida" in the Log, "Sin
+  protección" on Status. Settings has a "Sin internet" privacy row.
+- **Motion:** sliding thumb on segmented controls, sheet rises from its trigger and leaves the same
+  way, collapse and cross-fades only on state changes; nothing animates when Status opens. Honour
+  reduced motion.
+
+Follow-up: SPEC M6 and CONTEXT.md still use the code names (Strict/Normal/Relaxed,
+Light/Balanced/Precise); the UI labels above map to them and live in `strings.xml`.
+
+
+## D45 — UI details the mockup leaves open (2026-10-06, human decisions, `.scratch/m6-parent-app/` ticket 14)
+
+- **Unanalyzable carries its length.** The entry is written when the protected stretch ends (the
+  first unprotected frame, or teardown) with its seconds, so the Log can say "· 4 s". Amends D39's
+  "one entry, written at the start" for this kind only. A stretch cut short by a process kill is
+  lost; rare, accepted.
+- **"Se detuvo" on Status:** shown when the last Log entry is an OFF whose reason isn't user stop
+  (screen off, system ended, app was closed, phone restarted), with that reason and time, until the
+  next successful start. Derived from the Log; no new state. Screen-off counts: protection did end.
+- **Typeface:** IBM Plex Sans, bundled (400 / 500 / 600 TTF in `res/font`, OFL licence shipped
+  with it), as in the D44 mockup.
+
+
+## D46 — Release can start without the accessibility service (2026-10-06, human decision, M6 ticket 17)
+
+Amends D32's 2026-10-04 amendment (release Start gated on `MaskWindowService`) and D42's "Release
+Start is disabled while the service is unbound".
+
+- **Rule:** protection starts in every build with only the overlay permission. Without the
+  accessibility service the mask is the app overlay at alpha 0.79, as D32 already described for a
+  service turned off mid-session. The opaque accessibility window stays the recommended path.
+- **Status:** "Mostrar la máscara" is the only item needed to start. "Máscara completa" moves to
+  "Recomendado" next to Avisos, with its fix button. When it is off, the page reads "Listo para
+  iniciar" with the line "Con la máscara algo transparente", and the note under Start says "Sin la
+  máscara completa, la máscara se verá algo transparente". Start is disabled only while the overlay
+  permission is missing. The debug-only "debug: máscara al 0.79" note is gone: every build says it.
+- **Cost, accepted:** about 21 % of masked content shows through (D28, SPEC section 7 item 14) in that
+  mode. Precise still needs the service for window shots (D35), so it falls back to Balanced as before.
+- **Wizard (ticket 20):** the accessibility step can be skipped in every build, not only debug, and
+  says what is lost. It is still offered first and checks the bound state live.

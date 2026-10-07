@@ -55,6 +55,7 @@
         <item quantity="other">Faltan %d cosas</item>
     </plurals>
     <string name="status_ready">Listo para iniciar</string>
+    <string name="status_ready_partial">Con la máscara algo transparente</string>
     <string name="status_ready_text">Todo está en orden</string>
     <string name="status_starting_text">Android te pedirá permiso para capturar la pantalla</string>
     <string name="status_what_will_happen">Qué va a pasar</string>
@@ -102,6 +103,5 @@
     <string name="group_required">Para funcionar</string>
     <string name="group_recommended">Recomendado</string>
     <string name="note_overlay">Permite mostrar la máscara para poder iniciar</string>
-    <string name="note_service">Activa la máscara completa para poder iniciar</string>
-    <string name="note_both">Activa la máscara completa y su permiso para poder iniciar</string>
+    <string name="note_partial">Sin la máscara completa, la máscara se verá algo transparente</string>
 </resources>

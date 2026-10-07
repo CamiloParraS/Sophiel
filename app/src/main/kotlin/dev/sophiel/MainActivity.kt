@@ -231,7 +231,7 @@ class MainActivity : ComponentActivity() {
     private fun consumeResume() {
         if (!resumeRequested || controller.effects == null) return
         resumeRequested = false
-        if (controller.state.value.phase == ControllerPhase.IDLE && canStart(MaskWindowService.instance != null)) controller.start()
+        if (controller.state.value.phase == ControllerPhase.IDLE) controller.start()
     }
 
     override fun onMultiWindowModeChanged(isInMultiWindowMode: Boolean, newConfig: Configuration) {
@@ -283,9 +283,6 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-/** D32: debug builds may start on the 0.79 app overlay; release needs the accessibility mask window. */
-private fun Context.canStart(maskWindowOn: Boolean) = isDebuggable || maskWindowOn
-
 /** Reads the live inputs (D42) into a [StatusModel] and draws it; the debug chips sit below the fold in debug builds. */
 @Composable
 private fun statusScreen(controller: ProjectionController, container: AppContainer, resumes: Int, door: Door, actions: StatusActions, modifier: Modifier = Modifier) {
@@ -299,7 +296,7 @@ private fun statusScreen(controller: ProjectionController, container: AppContain
     val last = remember(state.phase, resumes) { container.log.last() }
     val debug = context.isDebuggable
     val model = StatusModel.of(
-        StatusInput(state.phase, bound, overlay, notifications, last, settings.preset, settings.sensitivity, debug, Build.VERSION.SDK_INT),
+        StatusInput(state.phase, bound, overlay, notifications, last, settings.preset, settings.sensitivity, Build.VERSION.SDK_INT),
     )
     StatusScreen(model, door, actions, modifier, debug = if (debug) ({ debugChips(container) }) else null)
 }
