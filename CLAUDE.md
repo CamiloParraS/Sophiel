@@ -49,6 +49,8 @@ NEXT:               M6 Parent app, map at .scratch/m6-parent-app/map.md (decisio
                     exposed 3.7-7.8 s until a tap). Checked on A and B: masks ~210 ms after the sweep,
                     no tap; all 10 still-confirmed masks re-masked at their first probe (none false).
                     Last run added the test video, so its exposure numbers aren't comparable.
+                    Branch review (Standards + Spec) fixes in 700f827, checked on A and B: no timeouts,
+                    no crashes, Gallery masked without a tap, still-confirmed masks all correct.
                     A (same content): frameToMaskMs worst 494 -> 335 ms, but n=6/8, inconclusive;
                     exposure unchanged (103 -> 110). VerdictCache hit 60-66% of tiles on A: keep it.
                     Interpreter threads (TileBenchmark#threadCost, run with am instrument so the app
