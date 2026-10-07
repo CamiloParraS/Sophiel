@@ -115,11 +115,12 @@ fun GearButton(door: Door, onOpen: () -> Unit) {
 
 /** The Settings screen's frame; ticket 19 fills it. */
 @Composable
-fun SettingsFrame(onBack: () -> Unit) {
+fun SettingsFrame(door: Door, onBack: () -> Unit) {
     val context = LocalContext.current
     val version = context.packageManager.getPackageInfo(context.packageName, 0).versionName.orEmpty()
     Column(Modifier.fillMaxSize()) {
         HeaderBar(stringResource(R.string.settings_title), start = { FlatIconButton(R.drawable.ic_back, stringResource(R.string.back), onBack) })
+        UnlockedBanner(door)
         Box(Modifier.weight(1f))
         Text(
             stringResource(R.string.version_label, version),

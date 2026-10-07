@@ -42,6 +42,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -141,12 +142,12 @@ class MainActivity : ComponentActivity() {
     @Composable
     private fun appBody(container: AppContainer, door: Door) {
         var current by remember { mutableStateOf(Destination.Status) }
-        var settingsOpen by remember { mutableStateOf(false) }
+        var settingsOpen by rememberSaveable { mutableStateOf(false) } // rotation keeps it; the door relocks on stop
         // Locked again (timeout, Bloquear ahora, leaving the app): nothing behind the door stays open.
         LaunchedEffect(door.unlocked) { if (!door.unlocked) settingsOpen = false }
         BackHandler(settingsOpen) { settingsOpen = false }
         if (settingsOpen) {
-            SettingsFrame(onBack = { settingsOpen = false })
+            SettingsFrame(door, onBack = { settingsOpen = false })
             return
         }
         // D32: release builds start only with MaskWindowService bound; watched live (D42).
