@@ -1281,3 +1281,15 @@ Start is disabled while the service is unbound".
   mode. Precise still needs the service for window shots (D35), so it falls back to Balanced as before.
 - **Wizard (ticket 20):** the accessibility step can be skipped in every build, not only debug, and
   says what is lost. It is still offered first and checks the bound state live.
+
+
+## D47 — The text on the mask is a debug option (2026-10-06, human decision, M6 ticket 19)
+
+Amends D28 ("show-label is a Parent setting") and D40's list of Parent settings.
+
+- **Rule:** "Texto en la máscara" is a switch in the debug menu (seven taps on the version label), not
+  in Ajustes. Default stays on. It is still `ParentSettings.showLabel`, read live by the overlay.
+- **Why:** the label is a look experiment, not a choice a parent needs; Ajustes keeps only
+  Cuidado, Cómo revisa, Revisar sin destapar, Cambiar PIN and Historial.
+- **Fix with it:** after a Sophiel screen hid the masks, showing them again replayed the cached
+  drawing, so a label change made there did not show. `setHidden(false)` now invalidates.
