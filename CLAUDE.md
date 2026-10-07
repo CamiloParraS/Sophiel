@@ -35,6 +35,9 @@ NEXT:               M6 Parent app, map at .scratch/m6-parent-app/map.md (decisio
                     bitmap. Checked on B (same content, before/after): frameToMaskMs median/worst
                     101/303 -> 70/168 ms; probe exposure unchanged (median 123 -> 126, inference-bound).
                     A PENDING (no access) - same before/after comparison.
+                    Interpreter threads (TileBenchmark#threadCost, run with am instrument so the app
+                    is not uninstalled): B 38-39 ms/tile for default, 1, 2, 4 - no change. A PENDING.
+                    Crop+hash+gate is 0-1 ms/tile on B, so single-sampling tiles was dropped.
                     FEATURE FREEZE end of week 3 (end of M6), then M7.
 ```
 
