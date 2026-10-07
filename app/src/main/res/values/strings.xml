@@ -104,4 +104,51 @@
     <string name="group_recommended">Recomendado</string>
     <string name="note_overlay">Permite mostrar la máscara para poder iniciar</string>
     <string name="note_partial">Sin la máscara completa, la máscara se verá algo transparente</string>
+
+    <!-- Historial -->
+    <string name="log_title">Historial</string>
+    <string name="log_today">HOY</string>
+    <string name="log_today_title">Hoy · %1$s</string>
+    <plurals name="log_week">
+        <item quantity="one">Esta semana · %d vez</item>
+        <item quantity="other">Esta semana · %d veces</item>
+    </plurals>
+    <string name="log_stat_masked">Tapados</string>
+    <string name="log_stat_unchecked">Sin revisar</string>
+    <string name="log_stat_off">Detenidas</string>
+    <string name="log_filter_all">Todo</string>
+    <string name="log_filter_masked">Tapados</string>
+    <string name="log_filter_others">Otros</string>
+    <string name="log_nothing_masked">No se tapó nada este día.</string>
+    <string name="log_nothing">Nada que mostrar.</string>
+    <string name="log_masked">Se tapó algo</string>
+    <plurals name="log_parts">
+        <item quantity="one">%d parte de la pantalla</item>
+        <item quantity="other">%d partes de la pantalla</item>
+    </plurals>
+    <plurals name="log_zones">
+        <item quantity="one">%d zona</item>
+        <item quantity="other">%d zonas</item>
+    </plurals>
+    <string name="log_detail">Revisión: %1$s · puntuación %2$s · %3$s</string>
+    <string name="log_detail_precise">Revisión: %1$s · %2$s</string>
+    <string name="log_band_high">Muy seguro</string>
+    <string name="log_band_mid">Seguro</string>
+    <string name="log_band_low">Dudoso</string>
+    <string name="log_unchecked">No se pudo revisar</string>
+    <string name="log_unchecked_text">La app protege su pantalla · %1$d s</string>
+    <string name="log_on">Protección activada</string>
+    <string name="log_on_text">Revisión %1$s · cuidado %2$s</string>
+    <string name="log_off">Protección detenida</string>
+    <string name="log_off_user">La detuviste tú</string>
+    <string name="log_off_screen">La pantalla se apagó</string>
+    <string name="log_off_system">El sistema la cerró</string>
+    <string name="log_off_app">La app se cerró</string>
+    <string name="log_off_restarted">El teléfono se reinició</string>
+    <string name="log_empty">Nada que mostrar aún</string>
+    <string name="log_empty_text">El historial se queda en este teléfono y se borra a los 7 días.</string>
+    <string name="log_clear">Borrar historial</string>
+    <string name="log_clear_title">¿Borrar el historial?</string>
+    <string name="log_clear_text">Se borra lo de los últimos 7 días. No se puede deshacer.</string>
+    <string name="log_clear_confirm">Borrar</string>
 </resources>

@@ -104,4 +104,51 @@
     <string name="group_recommended">Recommended</string>
     <string name="note_overlay">Allow showing the mask to start</string>
     <string name="note_partial">Without the full mask, the mask will look slightly see-through</string>
+
+    <!-- Log -->
+    <string name="log_title">Log</string>
+    <string name="log_today">TODAY</string>
+    <string name="log_today_title">Today · %1$s</string>
+    <plurals name="log_week">
+        <item quantity="one">This week · %d time</item>
+        <item quantity="other">This week · %d times</item>
+    </plurals>
+    <string name="log_stat_masked">Covered</string>
+    <string name="log_stat_unchecked">Unchecked</string>
+    <string name="log_stat_off">Stopped</string>
+    <string name="log_filter_all">All</string>
+    <string name="log_filter_masked">Covered</string>
+    <string name="log_filter_others">Other</string>
+    <string name="log_nothing_masked">Nothing was covered this day.</string>
+    <string name="log_nothing">Nothing to show.</string>
+    <string name="log_masked">Something was covered</string>
+    <plurals name="log_parts">
+        <item quantity="one">%d part of the screen</item>
+        <item quantity="other">%d parts of the screen</item>
+    </plurals>
+    <plurals name="log_zones">
+        <item quantity="one">%d zone</item>
+        <item quantity="other">%d zones</item>
+    </plurals>
+    <string name="log_detail">Check: %1$s · score %2$s · %3$s</string>
+    <string name="log_detail_precise">Check: %1$s · %2$s</string>
+    <string name="log_band_high">Very sure</string>
+    <string name="log_band_mid">Sure</string>
+    <string name="log_band_low">Unsure</string>
+    <string name="log_unchecked">Couldn\'t be checked</string>
+    <string name="log_unchecked_text">The app protects its screen · %1$d s</string>
+    <string name="log_on">Protection turned on</string>
+    <string name="log_on_text">%1$s check · %2$s care</string>
+    <string name="log_off">Protection stopped</string>
+    <string name="log_off_user">You stopped it</string>
+    <string name="log_off_screen">The screen turned off</string>
+    <string name="log_off_system">The system closed it</string>
+    <string name="log_off_app">The app was closed</string>
+    <string name="log_off_restarted">The phone restarted</string>
+    <string name="log_empty">Nothing to show yet</string>
+    <string name="log_empty_text">The log stays on this phone and is deleted after 7 days.</string>
+    <string name="log_clear">Clear log</string>
+    <string name="log_clear_title">Clear the log?</string>
+    <string name="log_clear_text">This deletes the last 7 days. It can\'t be undone.</string>
+    <string name="log_clear_confirm">Clear</string>
 </resources>

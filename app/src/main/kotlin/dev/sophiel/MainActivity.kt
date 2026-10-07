@@ -74,6 +74,7 @@ import dev.sophiel.ui.Door
 import dev.sophiel.ui.DoorHost
 import dev.sophiel.ui.GearButton
 import dev.sophiel.ui.HeaderBar
+import dev.sophiel.ui.LogScreen
 import dev.sophiel.ui.PillButton
 import dev.sophiel.ui.PillStyle
 import dev.sophiel.ui.SettingsFrame
@@ -152,7 +153,13 @@ class MainActivity : ComponentActivity() {
         var settingsOpen by rememberSaveable { mutableStateOf(false) } // rotation keeps it; the door relocks on stop
         // Locked again (timeout, Bloquear ahora, leaving the app): nothing behind the door stays open.
         LaunchedEffect(door.unlocked) { if (!door.unlocked) settingsOpen = false }
-        BackHandler(settingsOpen) { settingsOpen = false }
+        var logOpen by rememberSaveable { mutableStateOf(false) } // behind the door like Settings (D38)
+        LaunchedEffect(door.unlocked) { if (!door.unlocked) logOpen = false }
+        BackHandler(settingsOpen || logOpen) { settingsOpen = false; logOpen = false }
+        if (logOpen) {
+            LogScreen(container.log, door, onBack = { logOpen = false })
+            return
+        }
         if (settingsOpen) {
             SettingsFrame(door, onBack = { settingsOpen = false })
             return
@@ -165,7 +172,7 @@ class MainActivity : ComponentActivity() {
                 stop = { door.pass(controller::stop) },
                 fix = ::fix,
                 openSettings = { settingsOpen = true },
-                seeLog = null, // ticket 18
+                seeLog = { door.pass { logOpen = true } },
             )
         }
         Scaffold(
