@@ -19,7 +19,8 @@ class PinStoreTest {
         val s = store()
         assertEquals(PinResult.Ok, runBlocking { s.verify("1234") })
         assertEquals(PinResult.Wrong, runBlocking { s.verify("1235") })
-        assertTrue(disk.values.none { "1234" in it })
+        // Not "1234" in it: the salt and hash are random hex and contain it ~0.14% of the time (flaky).
+        assertTrue(disk.values.none { it == "1234" || "31323334" in it }) // the PIN, as text or as its hex bytes
     }
 
     @Test fun `five failures lock 30 s, then 60 s, doubling to the 1 h cap`() {

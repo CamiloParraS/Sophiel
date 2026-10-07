@@ -43,8 +43,8 @@ class TileBenchmark {
         }
     }
 
-    private fun pipeline(gate: Boolean) = DetectionPipeline(
-        classifier = NsfwClassifier.load(context),
+    private fun pipeline(gate: Boolean, threads: Int? = null) = DetectionPipeline(
+        classifier = NsfwClassifier.load(context, threads),
         policy = PolicyEngine(Sensitivity.NORMAL.threshold),
         dispatcher = Executors.newSingleThreadExecutor().asCoroutineDispatcher(),
         gate = if (gate) SkinGate() else SkinGate(minRatio = 0f), // gate off = every tile classified
@@ -96,6 +96,36 @@ class TileBenchmark {
                     "gatedTileMs p50=${gated.p(50)} n=${gated.size} gatedShare=${gatedTiles * 100 / allTiles}% " +
                     "firstFlagMs p50=${firstFlag.p(50)} n=${firstFlag.size}",
             )
+        }
+        warmUp.recycle()
+    }
+
+    /**
+     * Classifier cost per tile by interpreter thread count (null = TFLite's default, what ships).
+     * Balanced, gate off, so every tile is classified; one warm-up sweep per pipeline.
+     * Default runs last: the first config runs on a cool device (B: default first read 29 ms, last 39).
+     */
+    @Test
+    fun threadCost() = runBlocking<Unit> {
+        val warmUp = Bitmap.createBitmap(W, H, Bitmap.Config.ARGB_8888).apply { eraseColor(Color.GRAY) }
+        for (threads in listOf(4, 2, 1, null)) {
+            val tileMs = mutableListOf<Long>()
+            repeat(RUNS) {
+                val p = pipeline(gate = false, threads = threads)
+                try {
+                    p.analyze(warmUp, Preset.BALANCED).toList()
+                    for ((_, frame) in frames) {
+                        var prev = 0L
+                        for (t in p.analyze(frame, Preset.BALANCED).toList()) {
+                            if (!t.cacheHit) tileMs += t.latencyMs - prev
+                            prev = t.latencyMs
+                        }
+                    }
+                } finally {
+                    p.close()
+                }
+            }
+            Log.i(TAG, "threads=${threads ?: "default"} classifiedTileMs p50=${tileMs.p(50)} p90=${tileMs.p(90)} max=${tileMs.max()} n=${tileMs.size}")
         }
         warmUp.recycle()
     }

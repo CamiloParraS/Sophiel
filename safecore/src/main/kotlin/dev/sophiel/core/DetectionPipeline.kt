@@ -33,6 +33,10 @@ class DetectionPipeline(
 
     @Volatile private var closed = false
 
+    // Reused by every classified tile: all work runs on the single [dispatcher] thread.
+    private val pixels = IntArray(Preprocessor.INPUT_SIZE * Preprocessor.INPUT_SIZE)
+    private val input = Preprocessor.inputBuffer()
+
     override fun analyze(frame: Bitmap, preset: Preset, only: List<Int>?): Flow<TileVerdict> = flow {
         val start = SystemClock.elapsedRealtime()
         for (index in only ?: (0 until preset.cols * preset.rows)) {
@@ -63,7 +67,7 @@ class DetectionPipeline(
     /** Gate + classifier only. Index/severity are placeholders, filled in by [judge]. */
     private fun score(tile: Bitmap, hash: Long): TileVerdict {
         val gated = !gate.shouldClassify(tile)
-        val score = if (gated) 0f else classifier.classify(Preprocessor.toInputBuffer(tile))
+        val score = if (gated) 0f else classifier.classify(Preprocessor.toInputBuffer(tile, pixels, input))
         return TileVerdict(0, Severity.SAFE, score, gated = gated, cacheHit = false, hash = hash)
     }
 
