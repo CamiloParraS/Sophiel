@@ -21,13 +21,12 @@ STATUS:             M5 verified on A and B (D36): V1-V5 pass; probe exposure med
                     an EXPLICIT verdict).
 BLOCKED ON:         Nothing.
 NEXT:               M6 Parent app, map at .scratch/m6-parent-app/map.md (decisions D38-D45).
-                    Build tickets done: 09 settings, 10 cover path (B: exposure per change median 83 /
-                    worst 175 ms, 0 with peek), 12 PinStore + unlock, 15 theme/type/parts/strings
-                    (device check left), 16 PIN pad, sheet and the door (checked on one device; second
-                    device left). 11 code done (device check on A left). Ready: 13 event log (non-UI),
-                    then UI 17 Status, 18 Log, 19 Settings/Change PIN/debug menu, 20 wizard; 21 = M6
-                    verification (human, both devices). M5 ticket 15 (D37): fast re-mask within 3 s of a
-                    release; exposure per flip A 154/295 ms, B 135/204.
+                    Build tickets done: 09 settings, 10 cover path, 12 PinStore + unlock, 13 event log,
+                    15 theme/type/parts/strings (device check left), 16 PIN pad and the door, 17 Status
+                    (checked on A; B and the Precise fallback line left). 11 code done (device check on A
+                    left). D46: release starts without the accessibility service (0.79 overlay, Status
+                    warns). Ready: 18 Log, 19 Settings/Change PIN/debug menu, 20 wizard; 21 = M6
+                    verification (human, both devices).
                     FEATURE FREEZE end of week 3 (end of M6), then M7.
 ```
 
