@@ -39,6 +39,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.takeWhile
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
@@ -342,16 +343,24 @@ class CaptureSession(
             // probe frame arrives ~165 ms sooner on Device A instead of after the 300 ms cap.
             val probes = (0 until tracker.size).filter { tracker[it] == PROBING }
             val clears = (0 until tracker.size).filter { tracker[it] == CLEAR }
-            var probeStillMasked = false
             val toScreen = frameToScreen()
-            detector.analyze(frame, preset, probes).collect { v ->
-                val pixels = DebugMask.sample(frame, preset.tileRect(v.index, frame.width, frame.height), toScreen)
-                val showsMask = DebugMask.looksMasked(pixels)
-                probeStillMasked = probeStillMasked || showsMask
-                Log.d(TAG, "probe frame tile=${v.index} showsMask=$showsMask ${DebugMask.describe(pixels)}")
-                apply(v, showsMask)
+            // A probe tile still showing the mask was captured before the lift: its verdict would be
+            // ignored (tracker), so it isn't judged. The pixel check costs far less than a tile.
+            val stillMasked = probes.filter { i ->
+                val pixels = DebugMask.sample(frame, preset.tileRect(i, frame.width, frame.height), toScreen)
+                DebugMask.looksMasked(pixels).also { Log.d(TAG, "probe frame tile=$i showsMask=$it ${DebugMask.describe(pixels)}") }
             }
-            if (!probeStillMasked) detector.analyze(frame, preset, clears).collect { apply(it, showsMask = false) }
+            val judged = probes - stillMasked.toSet()
+            detector.analyze(frame, preset, judged).collect { apply(it, showsMask = false) }
+            // A timer can lift a mask while this frame waits between tiles (dueProbe, expireLater):
+            // stop judging CLEAR tiles then, so the lift frame isn't held behind them. They wait one frame.
+            var cleared = 0
+            if (stillMasked.isEmpty()) {
+                detector.analyze(frame, preset, clears)
+                    .takeWhile { (0 until tracker.size).none { it !in probes && tracker[it] == PROBING } }
+                    .collect { apply(it, showsMask = false); cleared++ }
+                if (cleared < clears.size) Log.d(TAG, "clears stopped: a probe started mid-frame, judged $cleared of ${clears.size}")
+            }
             tracker.endFrame(now())
             publish()
             if (PROBING in shown) expireLater() // a screen that goes static once the mask is lifted sends no frame
@@ -359,7 +368,7 @@ class CaptureSession(
             // No latency here (it is in Logcat): the pill is captured too, and text that changes
             // every frame redraws it, which makes a static screen deliver frames forever.
             return "GantMan · $preset · ${shown.joinToString(" ") { it.name.take(1) }} · " +
-                "${probes.size + if (probeStillMasked) 0 else clears.size} analysed"
+                "${judged.size + cleared} analysed"
         }
 
         /** Ticket 12 (D29): a protected frame can't judge a probe, and none later will: release them. */
