@@ -23,8 +23,7 @@ BLOCKED ON:         Nothing.
 NEXT:               M6 Parent app, map at .scratch/m6-parent-app/map.md (decisions D38-D45).
                     Build tickets done: 09 settings, 10 cover path, 12 PinStore + unlock, 13 event log,
                     15 theme/type/parts/strings (device check left), 16 PIN pad and the door, 17 Status
-                    (checked on A; B and the Precise fallback line left), 18 Log (code done, device check
-                    on A left; Status "Ver en Historial" opens it behind the door). 11 code done (device check on A
+                    (checked on A; B and the Precise fallback line left), 18 Log (checked on A; Status "Ver en Historial" opens it behind the door). 11 code done (device check on A
                     left). D46: release starts without the accessibility service (0.79 overlay, Status
                     warns). Ready: 19 Settings/Change PIN/debug menu, 20 wizard; 21 = M6
                     verification (human, both devices).
