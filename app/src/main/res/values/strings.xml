@@ -26,4 +26,33 @@
     <string name="notif_stop">Detener</string>
     <string name="notif_paused_title">Protección de Sophiel en pausa</string>
     <string name="notif_paused_text">La pantalla se apagó. Toca para reanudar.</string>
+
+    <!-- PIN y puerta -->
+    <string name="pin_title">Escribe el PIN</string>
+    <string name="pin_subtitle">Solo para padres</string>
+    <plurals name="pin_wrong">
+        <item quantity="one">PIN incorrecto · te queda %d intento</item>
+        <item quantity="other">PIN incorrecto · te quedan %d intentos</item>
+    </plurals>
+    <string name="pin_locked">Bloqueado %1$s</string>
+    <string name="pin_try_again">Ya puedes intentarlo otra vez</string>
+    <string name="pin_unlocked">Desbloqueado durante 2 min</string>
+    <string name="pin_unlock">Desbloquear</string>
+    <string name="pin_cancel">Cancelar</string>
+    <string name="pin_delete">Borrar</string>
+    <string name="pin_forgot">¿Olvidaste el PIN?</string>
+    <string name="pin_forgot_body">No hay forma de recuperarlo. Para empezar de nuevo hay que borrar los datos de la app en los ajustes del teléfono, y eso también borra el historial.</string>
+    <string name="pin_create_title">Crea un PIN</string>
+    <string name="pin_create_enter">Elige un PIN de 4 a 6 dígitos</string>
+    <string name="pin_create_confirm">Escríbelo otra vez para confirmar</string>
+    <string name="pin_create_mismatch">No coinciden. Escríbelo otra vez.</string>
+    <string name="pin_create_note">Solo para padres. No se puede recuperar si se olvida.</string>
+    <string name="pin_continue">Continuar</string>
+    <string name="pin_save">Guardar PIN</string>
+    <string name="door_footnote">Detener y abrir Ajustes piden el PIN</string>
+    <string name="unlocked_banner">Ajustes desbloqueado · Se bloquea en %1$s</string>
+    <string name="lock_now">Bloquear ahora</string>
+    <string name="settings_title">Ajustes</string>
+    <string name="back">Atrás</string>
+    <string name="version_label">Versión %1$s</string>
 </resources>

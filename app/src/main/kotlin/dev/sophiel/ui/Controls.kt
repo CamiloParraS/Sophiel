@@ -74,6 +74,7 @@ fun PillButton(
     busy: Boolean = false,
     enabled: Boolean = true,
     small: Boolean = false,
+    @androidx.annotation.DrawableRes icon: Int? = null,
 ) {
     val primary = MaterialTheme.colorScheme.primary
     val (bg, fg) = when (style) {
@@ -96,6 +97,7 @@ fun PillButton(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (busy) CircularProgressIndicator(Modifier.size(16.dp), color = fg, trackColor = fg.copy(alpha = .4f), strokeWidth = 2.dp)
+        if (icon != null && !busy) SIcon(icon, fg, 16.dp)
         Text(text, style = MaterialTheme.typography.labelLarge, color = fg.copy(alpha = if (enabled) 1f else .45f), textAlign = TextAlign.Center)
     }
 }

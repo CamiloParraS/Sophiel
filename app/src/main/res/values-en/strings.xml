@@ -26,4 +26,33 @@
     <string name="notif_stop">Stop</string>
     <string name="notif_paused_title">Sophiel protection paused</string>
     <string name="notif_paused_text">The screen turned off. Tap to resume.</string>
+
+    <!-- PIN and door -->
+    <string name="pin_title">Enter the PIN</string>
+    <string name="pin_subtitle">Parents only</string>
+    <plurals name="pin_wrong">
+        <item quantity="one">Wrong PIN · %d attempt left</item>
+        <item quantity="other">Wrong PIN · %d attempts left</item>
+    </plurals>
+    <string name="pin_locked">Locked %1$s</string>
+    <string name="pin_try_again">You can try again now</string>
+    <string name="pin_unlocked">Unlocked for 2 min</string>
+    <string name="pin_unlock">Unlock</string>
+    <string name="pin_cancel">Cancel</string>
+    <string name="pin_delete">Delete</string>
+    <string name="pin_forgot">Forgot the PIN?</string>
+    <string name="pin_forgot_body">There is no way to recover it. Starting over means clearing the app\'s data in the phone\'s settings, which also wipes the Log.</string>
+    <string name="pin_create_title">Create a PIN</string>
+    <string name="pin_create_enter">Choose a PIN of 4 to 6 digits</string>
+    <string name="pin_create_confirm">Enter it again to confirm</string>
+    <string name="pin_create_mismatch">They don\'t match. Enter it again.</string>
+    <string name="pin_create_note">For parents only. It can\'t be recovered if forgotten.</string>
+    <string name="pin_continue">Continue</string>
+    <string name="pin_save">Save PIN</string>
+    <string name="door_footnote">Stopping and opening Settings ask for the PIN</string>
+    <string name="unlocked_banner">Settings unlocked · Locks in %1$s</string>
+    <string name="lock_now">Lock now</string>
+    <string name="settings_title">Settings</string>
+    <string name="back">Back</string>
+    <string name="version_label">Version %1$s</string>
 </resources>

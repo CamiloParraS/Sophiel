@@ -5,13 +5,16 @@ import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
+import android.graphics.Color
 import android.media.projection.MediaProjectionManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
+import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
@@ -34,6 +37,7 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -56,6 +60,16 @@ import dev.sophiel.feed.benchmarkScreen
 import dev.sophiel.feed.maskLookScreen
 import dev.sophiel.feed.testFeedScreen
 import dev.sophiel.settings.ParentPreset
+import dev.sophiel.ui.CreatePinScreen
+import dev.sophiel.ui.Door
+import dev.sophiel.ui.DoorHost
+import dev.sophiel.ui.GearButton
+import dev.sophiel.ui.HeaderBar
+import dev.sophiel.ui.PillButton
+import dev.sophiel.ui.PillStyle
+import dev.sophiel.ui.SettingsFrame
+import dev.sophiel.ui.UnlockedBanner
+import dev.sophiel.ui.theme.Palette
 import dev.sophiel.ui.theme.SophielTheme
 
 /** Status line for each phase. */
@@ -105,32 +119,57 @@ class MainActivity : ComponentActivity() {
                 controller.onConsentResult(result.resultCode == Activity.RESULT_OK && result.data != null)
             }
 
-        enableEdgeToEdge()
+        // Light-only theme (D43): dark system-bar icons whatever the system mode.
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT),
+        )
         setContent {
             SophielTheme {
-                var current by remember { mutableStateOf(Destination.Status) }
-                // D32: release builds start only with MaskWindowService bound; watched live (D42).
-                val maskWindowOn = MaskWindowService.bound.collectAsState().value != null
-                Scaffold(
-                    modifier = Modifier.fillMaxSize(),
-                    bottomBar = {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(10.dp),
-                            horizontalArrangement = Arrangement.SpaceEvenly,
-                        ) {
-                            Destination.entries.forEach { dest ->
-                                TextButton(onClick = { current = dest }) { Text(dest.name) }
-                            }
-                        }
-                    },
-                ) { padding ->
-                    when (current) {
-                        Destination.Status -> statusScreen(controller, (application as SophielApp).container, maskWindowOn, Modifier.padding(padding))
-                        Destination.TestFeed -> testFeedScreen(modifier = Modifier.padding(padding))
-                        Destination.Benchmark -> benchmarkScreen(modifier = Modifier.padding(padding))
-                        Destination.Masks -> maskLookScreen(modifier = Modifier.padding(padding))
+                val container = (application as SophielApp).container
+                var hasPin by remember { mutableStateOf(container.pin.exists()) }
+                if (!hasPin) {
+                    // D38: first launch makes the PIN before anything else. Digits never go into saved state.
+                    CreatePinScreen(onCreate = { container.pin.set(it); hasPin = true })
+                } else {
+                    DoorHost(container) { door -> appBody(container, door) }
+                }
+            }
+        }
+    }
+
+    @Composable
+    private fun appBody(container: AppContainer, door: Door) {
+        var current by remember { mutableStateOf(Destination.Status) }
+        var settingsOpen by remember { mutableStateOf(false) }
+        // Locked again (timeout, Bloquear ahora, leaving the app): nothing behind the door stays open.
+        LaunchedEffect(door.unlocked) { if (!door.unlocked) settingsOpen = false }
+        BackHandler(settingsOpen) { settingsOpen = false }
+        if (settingsOpen) {
+            SettingsFrame(onBack = { settingsOpen = false })
+            return
+        }
+        // D32: release builds start only with MaskWindowService bound; watched live (D42).
+        val maskWindowOn = MaskWindowService.bound.collectAsState().value != null
+        Scaffold(
+            modifier = Modifier.fillMaxSize(),
+            bottomBar = {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(10.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                ) {
+                    Destination.entries.forEach { dest ->
+                        TextButton(onClick = { current = dest }) { Text(dest.name) }
                     }
                 }
+            },
+        ) { padding ->
+            when (current) {
+                // The header bar owns the status bar inset, so Status only takes the bottom padding.
+                Destination.Status -> statusScreen(controller, container, maskWindowOn, door, { settingsOpen = true }, Modifier.padding(bottom = padding.calculateBottomPadding()))
+                Destination.TestFeed -> testFeedScreen(modifier = Modifier.padding(padding))
+                Destination.Benchmark -> benchmarkScreen(modifier = Modifier.padding(padding))
+                Destination.Masks -> maskLookScreen(modifier = Modifier.padding(padding))
             }
         }
     }
@@ -212,11 +251,14 @@ private fun Context.canStart(maskWindowOn: Boolean) = isDebuggable || maskWindow
  * PIN. The model, preset and peek chips are debug-only.
  */
 @Composable
-private fun statusScreen(controller: ProjectionController, container: AppContainer, maskWindowOn: Boolean, modifier: Modifier = Modifier) {
+private fun statusScreen(controller: ProjectionController, container: AppContainer, maskWindowOn: Boolean, door: Door, openSettings: () -> Unit, modifier: Modifier = Modifier) {
     val state by controller.state.collectAsState()
     val context = LocalContext.current
     val debug = context.isDebuggable
-    Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+    Column(modifier.fillMaxSize()) {
+        HeaderBar(stringResource(R.string.app_name), end = { GearButton(door, openSettings) })
+        UnlockedBanner(door)
+        Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
         // Scrolls so the largest font scale still reaches every button.
         Column(Modifier.verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
             Text(stringResource(state.phase.label()), style = MaterialTheme.typography.titleMedium)
@@ -240,11 +282,16 @@ private fun statusScreen(controller: ProjectionController, container: AppContain
                 }
             }
             when (state.phase) {
-                ControllerPhase.IDLE -> Button(onClick = controller::start, enabled = context.canStart(maskWindowOn)) { Text(stringResource(R.string.action_start)) }
-                ControllerPhase.RUNNING -> Button(onClick = controller::stop) { Text(stringResource(R.string.action_stop)) }
+                ControllerPhase.IDLE -> PillButton(stringResource(R.string.action_start), controller::start, style = PillStyle.Suggested, enabled = context.canStart(maskWindowOn))
+                ControllerPhase.RUNNING -> {
+                    // D38: Stop goes through the door; the lock says so while it is shut.
+                    PillButton(stringResource(R.string.action_stop), { door.pass(controller::stop) }, style = PillStyle.Destructive, icon = if (door.unlocked) null else R.drawable.ic_lock)
+                    Text(stringResource(R.string.door_footnote), Modifier.padding(top = 8.dp), style = MaterialTheme.typography.bodySmall, color = Palette.Dim)
+                }
                 ControllerPhase.BLOCKED -> Button(onClick = controller::recheckOverlay) { Text(stringResource(R.string.action_retry)) }
                 else -> Text(stringResource(R.string.status_starting), style = MaterialTheme.typography.bodySmall)
             }
+        }
         }
     }
 }
