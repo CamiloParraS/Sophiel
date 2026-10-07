@@ -139,7 +139,7 @@ private fun Content(model: LogModel, modifier: Modifier, onClear: () -> Unit) {
             }
         }
         Text(
-            if (day.today) stringResource(R.string.log_today_title, dayTitle.replaceFirstChar { it.lowercase(locale) }) else dayTitle,
+            if (day.today) stringResource(R.string.log_today_title, if (locale.language == "en") dayTitle else dayTitle.replaceFirstChar { it.lowercase(locale) }) else dayTitle,
             style = MaterialTheme.typography.titleMedium,
         )
         SegmentedControl(
