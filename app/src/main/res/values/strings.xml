@@ -79,6 +79,7 @@
     <string name="status_care">Cuidado</string>
     <string name="preset_light">Ahorro</string>
     <string name="preset_balanced">Equilibrado</string>
+    <string name="preset_thorough">Reforzado</string>
     <string name="preset_precise">Detallado</string>
     <string name="care_strict">Tapar más</string>
     <string name="care_normal">Normal</string>
@@ -161,6 +162,7 @@
     <string name="care_help_relaxed">Tapa solo lo claro. Puede dejar pasar algo.</string>
     <string name="how_help_light">Gasta menos batería.</string>
     <string name="how_help_balanced">Buen punto medio. Recomendado.</string>
+    <string name="how_help_thorough">Revisa más zonas. Usa más batería.</string>
     <string name="how_help_precise">Tapa solo la parte exacta (beta).</string>
     <string name="needs_android14">Necesita Android 14 o más nuevo</string>
     <string name="group_mask">Máscara</string>

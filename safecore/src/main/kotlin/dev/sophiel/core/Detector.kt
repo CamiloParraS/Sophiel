@@ -13,7 +13,7 @@ enum class Severity { SAFE, SUGGESTIVE, EXPLICIT }
  * How many tiles a frame is split into (SPEC.md §3.3), as portrait cols × rows.
  * Light is the whole frame. Use [grid] for the actual layout of a given frame.
  */
-enum class Preset(val cols: Int, val rows: Int) { LIGHT(1, 1), BALANCED(2, 3) }
+enum class Preset(val cols: Int, val rows: Int) { LIGHT(1, 1), BALANCED(2, 3), THOROUGH(3, 3) }
 
 /**
  * Parent-set sensitivity (SPEC.md §3.5): the unsafe-score cutoff for [Severity.EXPLICIT].

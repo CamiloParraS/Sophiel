@@ -67,6 +67,7 @@ private fun Band?.color() = when (this) {
 @StringRes
 private fun presetName(preset: String) = when (preset) {
     "LIGHT" -> R.string.preset_light
+    "THOROUGH" -> R.string.preset_thorough
     "PRECISE" -> R.string.preset_precise
     else -> R.string.preset_balanced
 }

@@ -1292,3 +1292,28 @@ Parent setting in Ajustes as D28 and D40 say.
   screen (model, tile, timings), shown only in debug-signed builds. Default on, in memory
   (`AppContainer.debugPill`), applied live on the next frame: off removes the pill.
 - **Still debug-only:** the pill itself never shows in a release build (D15/D18).
+
+
+## D48 — Thorough preset: a 3x3 GantMan grid (2026-10-06, human decision, M6)
+
+Scope addition to SPEC §1.2, decided after a benchmark. Preset order is now Light, Balanced,
+Thorough, Precise, with the one-line help under each ("Revisa más zonas. Usa más batería.").
+
+- **What.** `Preset.THOROUGH(3, 3)`: Balanced's 2x3 plus one column, same GantMan model, skin gate,
+  cache and Sensitivity. Parent name "Reforzado" / "Thorough" ("Detallado" stays Precise's name).
+  Log and Status show it by name. Precise's fallback is still Balanced tiles.
+- **Why 3x3 and not 2x4.** Both add about 2-3 tiles; a column splits the width, where feed images
+  and thumbnails sit, and a phone is tall so rows are already tall enough. 3x3 costs ~10 % more.
+- **Benchmark** (`TileBenchmark.sweepCost`, 360x744 frames, skin gate on, sweep ms p50/p90):
+
+  | Preset | A (SM-A715F) | B (SM-S721B) |
+  | --- | --- | --- |
+  | Light | 53 / 63 | 38 / 39 |
+  | Balanced 2x3 | 253 / 314 | 190 / 230 |
+  | Thorough 3x3 | 304 / 454 | 227 / 340 |
+  | 2x4 (not shipped) | 303 / 404 | 228 / 318 |
+
+  Per classified tile ~51 ms on A, ~38 ms on B; the gate skips 43 % of tiles at 3x3. Gate off
+  (worst case) 3x3 is 453 ms on A, 340 ms on B: a little over the ~400 ms budget on A, accepted
+  for a preset sold as heavier.
+- **Not changed:** Balanced stays the recommended default.

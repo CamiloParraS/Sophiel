@@ -222,6 +222,7 @@ private fun Summary(model: StatusModel) {
             model.fallback != null -> R.string.status_precise_using
             model.preset == ParentPreset.LIGHT -> R.string.preset_light
             model.preset == ParentPreset.BALANCED -> R.string.preset_balanced
+            model.preset == ParentPreset.THOROUGH -> R.string.preset_thorough
             else -> R.string.preset_precise
         },
     )

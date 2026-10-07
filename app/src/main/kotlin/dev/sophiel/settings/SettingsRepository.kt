@@ -9,7 +9,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.updateAndGet
 
 /** The Parent's preset (SPEC.md §3.5). Precise runs Balanced tiles where it can't run (D35). */
-enum class ParentPreset(val tiles: Preset) { LIGHT(Preset.LIGHT), BALANCED(Preset.BALANCED), PRECISE(Preset.BALANCED) }
+enum class ParentPreset(val tiles: Preset) { LIGHT(Preset.LIGHT), BALANCED(Preset.BALANCED), THOROUGH(Preset.THOROUGH), PRECISE(Preset.BALANCED) }
 
 data class ParentSettings(
     val preset: ParentPreset = ParentPreset.BALANCED,

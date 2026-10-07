@@ -197,7 +197,7 @@ PROBING ──hash differs──▶ classify ──≥ threshold──▶ MASKED
 
 ### 3.5 Sensitivity and presets
 
-Parent-facing: **Strict / Normal / Relaxed**, each mapped to a score threshold in code (values tuned in M4; Normal starts at the old 0.70). `PolicyEngine` is a stateless mapping (§3.3); its SUGGESTIVE cutoff already exists (D11) and is reserved for the stretch tier. Preset is a separate **Light / Balanced / Precise** choice with a one-line speed-vs-precision description. Sensitivity applies to Light and Balanced, including Precise when it falls back to Balanced; Precise masks NudeNet boxes scoring 0.3 or more (D35). The raw threshold slider exists only in the debug menu. A change applies mid-session through the rotation cover path (D40).
+Parent-facing: **Strict / Normal / Relaxed**, each mapped to a score threshold in code (values tuned in M4; Normal starts at the old 0.70). `PolicyEngine` is a stateless mapping (§3.3); its SUGGESTIVE cutoff already exists (D11) and is reserved for the stretch tier. Preset is a separate **Light / Balanced / Thorough / Precise** choice with a one-line speed-vs-precision description (D48). Sensitivity applies to Light, Balanced and Thorough, including Precise when it falls back to Balanced; Precise masks NudeNet boxes scoring 0.3 or more (D35). The raw threshold slider exists only in the debug menu. A change applies mid-session through the rotation cover path (D40).
 
 ### 3.6 Skin gate
 

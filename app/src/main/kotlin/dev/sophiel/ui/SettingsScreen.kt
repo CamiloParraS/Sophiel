@@ -76,10 +76,10 @@ fun SettingsScreen(container: AppContainer, door: Door, onBack: () -> Unit, onHi
                 item {
                     SettingRow(stringResource(R.string.set_how)) {
                         SegmentedControl(
-                            listOf(R.string.preset_light, R.string.preset_balanced, R.string.preset_precise).map { stringResource(it) },
+                            listOf(R.string.preset_light, R.string.preset_balanced, R.string.preset_thorough, R.string.preset_precise).map { stringResource(it) },
                             presets.indexOf(settings.preset),
                             { door.pass { container.settings.update { s -> s.copy(preset = presets[it]) } } },
-                            help = listOf(R.string.how_help_light, R.string.how_help_balanced, R.string.how_help_precise).map { stringResource(it) },
+                            help = listOf(R.string.how_help_light, R.string.how_help_balanced, R.string.how_help_thorough, R.string.how_help_precise).map { stringResource(it) },
                             disabled = if (canShoot) emptySet() else setOf(presets.indexOf(ParentPreset.PRECISE)),
                         )
                         if (!canShoot) Text(android14, style = MaterialTheme.typography.bodySmall, color = Palette.Dim)
