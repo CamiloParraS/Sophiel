@@ -23,6 +23,7 @@ import androidx.core.content.IntentCompat
 import dev.sophiel.MainActivity
 import dev.sophiel.R
 import dev.sophiel.SophielApp
+import dev.sophiel.log.OffReason
 
 /**
  * Foreground service owning the [MediaProjection] session (SPEC.md §4.4 STARTING_SERVICE
@@ -51,6 +52,7 @@ class ProjectionService : Service() {
     private val controller get() = (application as SophielApp).container.projectionController
     private var session: CaptureSession? = null
     private var isTornDown = false
+    private var logged = false // ON was written, so OFF must be
 
     // Tear down proactively on screen-off rather than depend on when/whether the OS revokes the
     // projection (varies by device; DECISIONS.md D18). The next Start needs fresh consent anyway.
@@ -70,10 +72,9 @@ class ProjectionService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        // From the notification's Stop action (the only status-bar stop on One UI 13, D17) or
-        // from MainActivity's stop().
+        // From MainActivity's stop(). The notification has no Stop (D38: stopping needs the PIN).
         if (intent?.action == ACTION_STOP) {
-            teardown()
+            teardown(userStop = true)
             return START_NOT_STICKY
         }
 
@@ -96,6 +97,10 @@ class ProjectionService : Service() {
             return START_NOT_STICKY
         }
         controller.onProjectionAcquired()
+        (application as SophielApp).container.let { c ->
+            logged = true
+            c.log.on(c.settings.value.preset.name, c.settings.value.sensitivity.name)
+        }
         projection.registerCallback(object : MediaProjection.Callback() {
             override fun onStop() = teardown()
         }, null)
@@ -110,16 +115,25 @@ class ProjectionService : Service() {
         session?.resize(captureSize(this))
     }
 
-    private fun teardown() {
+    private fun teardown(userStop: Boolean = false) {
         if (isTornDown) return
         isTornDown = true
         unregisterReceiver(screenOffReceiver)
-        session?.close()
+        session?.close() // writes an open unanalyzable stretch before the OFF
+        val interactive = getSystemService(PowerManager::class.java).isInteractive
+        if (logged) {
+            val reason = when {
+                userStop -> OffReason.USER
+                !interactive -> OffReason.SCREEN_OFF
+                else -> OffReason.SYSTEM
+            }
+            (application as SophielApp).container.log.off(reason)
+        }
         controller.onTeardownComplete()
         stopForeground(STOP_FOREGROUND_REMOVE)
         // Screen off means the OS or our receiver ended it, not the user: offer a one-tap restart.
         // Covers both orders D19 observed (projection onStop() first, or the receiver first).
-        if (!getSystemService(PowerManager::class.java).isInteractive) postResumeNotification()
+        if (!interactive) postResumeNotification()
         stopSelf()
     }
 
@@ -161,10 +175,6 @@ class ProjectionService : Service() {
     }
 
     private fun buildNotification(text: String): Notification {
-        val stopIntent = Intent(this, ProjectionService::class.java).setAction(ACTION_STOP)
-        val stopPendingIntent = PendingIntent.getService(
-            this, 0, stopIntent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-        )
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setCategory(Notification.CATEGORY_SERVICE)
             .setContentTitle(getString(R.string.notif_running_title))
@@ -173,7 +183,6 @@ class ProjectionService : Service() {
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))
-            .addAction(0, getString(R.string.notif_stop), stopPendingIntent)
             .build()
     }
 

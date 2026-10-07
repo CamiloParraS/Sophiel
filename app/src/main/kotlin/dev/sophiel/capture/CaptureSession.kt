@@ -31,6 +31,8 @@ import dev.sophiel.feed.Detection
 import dev.sophiel.feed.NudeNet
 import dev.sophiel.feed.SpikeModel
 import dev.sophiel.feed.unsafeScore
+import dev.sophiel.log.Episodes
+import dev.sophiel.log.Stretches
 import dev.sophiel.settings.ParentPreset
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -51,6 +53,7 @@ private const val SHOT_INTERVAL_MS = 400L // ticket 16: one shot per 333 ms, tim
 private const val SHOT_TIMEOUT_MS = 500L // ticket 16: worst success 132 ms on B; failures took ~2 s
 private const val BOX_MASK_SCORE = 0.3f // ticket 17 calibration knob: NudeNet box score that masks
 private const val BOX_PAD = 0.1f // ticket 17 calibration knob: mask margin per side, fraction of the box
+private const val HEARTBEAT_MS = 60_000L // D39: last-alive time for the inferred-gap OFF
 private const val BOX_HOLD_MS = 2_000L // ticket 17: longest masks are held through failed shots
 
 /**
@@ -96,6 +99,19 @@ class CaptureSession(
         ),
     ) { "createVirtualDisplay() returned null" }
 
+    // D39: one per session, so a session always starts a new episode. Both used on the scope lane (and close()).
+    private val episodes = Episodes()
+    private val stretches = Stretches()
+
+    /** D39: [anyMasked] is the tracker / box state (probing and peeking count), not what is drawn. */
+    private fun reportMasked(anyMasked: Boolean, preset: String, count: Int, score: Float) {
+        if (episodes.update(anyMasked, SystemClock.elapsedRealtime())) container.log.masked(preset, count, score)
+    }
+
+    private fun logStretch(done: Stretches.Done?) {
+        if (done != null) container.log.unanalyzable(System.currentTimeMillis() - done.startedAgoMs, done.seconds)
+    }
+
     // Written by TileLoop's publish (scope lane), read by resize (main thread).
     @Volatile
     private var masking = false
@@ -122,6 +138,12 @@ class CaptureSession(
     // Ticket 09: on the lane, so the tracker is only touched there. Frames are dropped meanwhile (wantsFrame).
     init {
         scope.launch {
+            while (true) {
+                container.log.heartbeat()
+                delay(HEARTBEAT_MS)
+            }
+        }
+        scope.launch {
             container.ownScreens.showing.collect { own ->
                 overlay.setHidden(own)
                 judge?.ownScreen?.invoke(own)
@@ -137,7 +159,9 @@ class CaptureSession(
         frameAvailableAt = availableAtMs
         inFlight = scope.launch {
             try {
-                val status = if (isProtected(bitmap)) {
+                val protectedFrame = isProtected(bitmap)
+                logStretch(stretches.frame(protectedFrame, SystemClock.elapsedRealtime()))
+                val status = if (protectedFrame) {
                     Log.d(TAG, "protected content (mostly-black frame, likely FLAG_SECURE)")
                     overlay.updateBoxes(emptyList())
                     judge?.protectedFrame?.invoke()
@@ -166,6 +190,7 @@ class CaptureSession(
 
     fun close() {
         closed = true
+        logStretch(stretches.end(SystemClock.elapsedRealtime()))
         debugPill?.hide()
         overlay.hide()
         display.release()
@@ -247,6 +272,7 @@ class CaptureSession(
         private var ownInFront = false // ticket 09
         private var peeking = false // ticket 16: a window shot or its verdicts in flight
         private var lastShotAt = 0L
+        private var peak = 0f // highest raw score judged since the last report: the masked entry's score
 
         suspend fun run(frame: Bitmap): String {
             val preset = settings.preset.tiles
@@ -434,6 +460,7 @@ class CaptureSession(
         }
 
         private fun apply(v: TileVerdict, showsMask: Boolean) {
+            peak = maxOf(peak, v.score)
             if (tracker.onTile(now(), v, showsMask)) {
                 Log.i(TAG, "mask episode tile=${v.index} frameToMaskMs=${now() - frameAvailableAt}")
             }
@@ -478,6 +505,8 @@ class CaptureSession(
             }
             shown = states
             masking = states.any { it != CLEAR }
+            reportMasked(masking, grid.preset.name, states.count { it != CLEAR }, peak)
+            peak = 0f
             val (preset, w, h) = grid
             overlay.updateMasks(
                 states.indices.filter { states[it] == MASKED || states[it] == PEEKING }.map { i ->
@@ -517,6 +546,7 @@ class CaptureSession(
         private var drawn = emptyList<RectF>()
         private var coverUp = covered
         private var confirmedAt = 0L // last good shot, or when masking started
+        private var score = 0f // raw max NudeNet score of the last detection, for the masked entry
         private val shots = scope.launch { // same lane as frames, so NudeNet never runs twice at once
             if (covered) { // D40: a shot sees under the cover; its boxes replace it
                 val start = SystemClock.elapsedRealtime()
@@ -537,6 +567,7 @@ class CaptureSession(
             val detections = nudeNet.detect(frame)
             val ms = SystemClock.elapsedRealtime() - start
             overlay.updateBoxes(detections.map { it.copy(box = toDisplayFraction(it.box)) })
+            score = detections.unsafeScore()
             if (canShoot()) {
                 frameBoxes = frameBoxes + masksOf(detections)
             } else {
@@ -573,6 +604,7 @@ class CaptureSession(
             val frame = shotToFrame(shot, bounds, size.crop.width(), size.crop.height())
             shot.recycle()
             val detections = try { nudeNet.detect(frame) } finally { frame.recycle() }
+            score = detections.unsafeScore()
             shotBoxes = masksOf(detections)
             frameBoxes = emptyList()
             draw()
@@ -590,6 +622,7 @@ class CaptureSession(
         // Only on change: a redraw is captured, and a static screen would then send frames forever (D18).
         private fun draw() {
             val rects = shotBoxes + frameBoxes
+            reportMasked(rects.isNotEmpty(), "PRECISE", rects.size, score)
             if (rects == drawn) return
             if (drawn.isEmpty()) confirmedAt = SystemClock.elapsedRealtime() // a fresh mask starts its hold
             drawn = rects

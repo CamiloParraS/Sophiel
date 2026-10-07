@@ -7,9 +7,11 @@ import dev.sophiel.core.Sensitivity
 import android.os.SystemClock
 import android.provider.Settings
 import dev.sophiel.feed.SpikeModel
+import dev.sophiel.log.EventLog
 import dev.sophiel.pin.PinStore
 import dev.sophiel.pin.Unlock
 import dev.sophiel.settings.SettingsRepository
+import java.io.File
 
 /**
  * Manual DI (SPEC.md §2.4/D2): two modules and a handful of app-scoped singletons don't
@@ -30,6 +32,17 @@ class AppContainer(context: Context) {
         bootCount = { Settings.Global.getInt(context.contentResolver, Settings.Global.BOOT_COUNT, 0) },
     )
     val unlock = Unlock(SystemClock::elapsedRealtime)
+
+    private val logPrefs = context.getSharedPreferences("log", Context.MODE_PRIVATE)
+
+    /** D39: the Parent's Log. An ON left open by a dead process is closed here, before any session. */
+    val log = EventLog(
+        file = File(context.filesDir, "log.csv"),
+        wall = System::currentTimeMillis,
+        read = { logPrefs.getString(it, null) },
+        write = { m -> logPrefs.edit().apply { m.forEach { (k, v) -> if (v == null) remove(k) else putString(k, v) } }.apply() },
+        bootCount = { Settings.Global.getInt(context.contentResolver, Settings.Global.BOOT_COUNT, 0) },
+    ).also { it.recoverGap() }
 
     val projectionController = ProjectionController()
 
