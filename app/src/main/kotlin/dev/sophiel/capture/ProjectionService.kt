@@ -59,7 +59,7 @@ class ProjectionService : Service() {
     private val screenOffReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             Log.d(TAG, "screen off; ending capture session")
-            teardown()
+            teardown(screenOff = true) // the broadcast is the proof: isInteractive can still read true here
         }
     }
 
@@ -115,7 +115,7 @@ class ProjectionService : Service() {
         session?.resize(captureSize(this))
     }
 
-    private fun teardown(userStop: Boolean = false) {
+    private fun teardown(userStop: Boolean = false, screenOff: Boolean = false) {
         if (isTornDown) return
         isTornDown = true
         unregisterReceiver(screenOffReceiver)
@@ -124,7 +124,7 @@ class ProjectionService : Service() {
         if (logged) {
             val reason = when {
                 userStop -> OffReason.USER
-                !interactive -> OffReason.SCREEN_OFF
+                screenOff || !interactive -> OffReason.SCREEN_OFF
                 else -> OffReason.SYSTEM
             }
             (application as SophielApp).container.log.off(reason)
