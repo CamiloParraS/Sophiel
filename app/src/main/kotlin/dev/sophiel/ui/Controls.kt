@@ -115,7 +115,7 @@ fun SegmentedControl(options: List<String>, selected: Int, onSelect: (Int) -> Un
             Box(
                 Modifier
                     .matchParentSize()
-                    .padding(start = (thumbWidth + 2.dp) * pos, end = maxWidth - thumbWidth - (thumbWidth + 2.dp) * pos)
+                    .padding(start = (thumbWidth + 2.dp) * pos, end = (maxWidth - thumbWidth - (thumbWidth + 2.dp) * pos).coerceAtLeast(0.dp))
                     .shadow(1.dp, CircleShape)
                     .background(Color.White, CircleShape),
             )
