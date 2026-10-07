@@ -61,7 +61,7 @@ class StatusActions(
 )
 
 @DrawableRes
-private fun Need.icon() = when (this) {
+internal fun Need.icon() = when (this) {
     Need.OVERLAY -> R.drawable.ic_layers
     Need.SERVICE -> R.drawable.ic_access
     Need.NOTIFICATIONS -> R.drawable.ic_bell
@@ -75,7 +75,7 @@ private fun Need.title() = when (this) {
 }
 
 @StringRes
-private fun Need.okTag() = when (this) {
+internal fun Need.okTag() = when (this) {
     Need.OVERLAY -> R.string.tag_allowed
     Need.SERVICE -> R.string.tag_working
     Need.NOTIFICATIONS -> R.string.tag_enabled

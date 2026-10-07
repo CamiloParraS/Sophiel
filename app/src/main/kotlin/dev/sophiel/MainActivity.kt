@@ -62,7 +62,7 @@ import dev.sophiel.capture.ProjectionService
 import dev.sophiel.feed.benchmarkScreen
 import dev.sophiel.feed.maskLookScreen
 import dev.sophiel.feed.testFeedScreen
-import dev.sophiel.ui.CreatePinScreen
+import dev.sophiel.ui.SetupWizard
 import dev.sophiel.ui.Need
 import dev.sophiel.ui.StatusActions
 import dev.sophiel.ui.StatusInput
@@ -134,10 +134,11 @@ class MainActivity : ComponentActivity() {
         setContent {
             SophielTheme {
                 val container = (application as SophielApp).container
-                var hasPin by remember { mutableStateOf(container.pin.exists()) }
-                if (!hasPin) {
-                    // D38: first launch makes the PIN before anything else. Digits never go into saved state.
-                    CreatePinScreen(onCreate = { container.pin.set(it); hasPin = true })
+                // D42: the wizard runs while no PIN exists. Saved, so it survives rotation once step 1 has made the PIN;
+                // a wizard swiped away after that opens on Status next time.
+                var setup by rememberSaveable { mutableStateOf(!container.pin.exists()) }
+                if (setup) {
+                    SetupWizard(container, resumes.intValue, ::fix, start = { setup = false; controller.start() })
                 } else {
                     DoorHost(container) { door -> appBody(container, door) }
                 }

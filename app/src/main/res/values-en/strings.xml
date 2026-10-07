@@ -184,4 +184,37 @@
     <string name="debug_pill">Debug tag</string>
     <string name="debug_pill_text">The tag at the top with the model, the tile and the timings. Debug builds only.</string>
     <string name="debug_masks">Mask look</string>
+
+    <!-- Setup wizard -->
+    <string name="wiz_title">Setup</string>
+    <string name="wiz_step">Step %1$d of %2$d</string>
+    <string name="wiz_skip">Skip</string>
+    <string name="wiz_app_info">Open App info</string>
+    <string name="wiz_overlay_text">Sophiel covers what shouldn\'t be seen with a mask over other apps. It can\'t work without this permission.</string>
+    <string name="wiz_overlay_row">Find Sophiel in the list and turn the permission on</string>
+    <string name="wiz_service_text">Makes the mask fully opaque.</string>
+    <string name="wiz_open_accessibility">Open Accessibility</string>
+    <string name="wiz_service_row">Turn Sophiel on in Accessibility</string>
+    <string name="wiz_service_row_text">Find it under Installed apps or Downloaded apps and turn it on</string>
+    <string name="wiz_service_skip">If you skip it, the mask will look slightly see-through</string>
+    <string name="wiz_shortcut">Leave the shortcut off</string>
+    <string name="wiz_shortcut_text">If Android offers an accessibility shortcut for Sophiel, don\'t turn it on: the mask stops being opaque.</string>
+    <string name="wiz_grey">Is the switch greyed out?</string>
+    <string name="wiz_grey_text">1. Tap it and close the \"Restricted setting\" message.\n2. Open App info, tap ⋮ and choose \"Allow restricted settings\". The phone asks for its screen lock.\n3. Go back to Accessibility and turn Sophiel on.</string>
+    <string name="wiz_awake_title">Keep Sophiel awake</string>
+    <string name="wiz_awake_text">So Android doesn\'t close it while it protects.</string>
+    <string name="wiz_awake_battery">Unrestricted battery</string>
+    <string name="wiz_awake_battery_text">App info &gt; Battery &gt; Unrestricted</string>
+    <string name="wiz_awake_samsung">Never auto sleeping apps</string>
+    <string name="wiz_awake_samsung_text">Settings &gt; Battery &gt; Background usage limits &gt; Never auto sleeping apps &gt; add Sophiel</string>
+    <string name="wiz_awake_note">Sophiel can\'t check this, so do it now.</string>
+    <string name="wiz_notif_text">Tells you when protection pauses, so you can start it again.</string>
+    <string name="wiz_preset_title">How should it protect?</string>
+    <string name="wiz_preset_text">You can change it later in Settings.</string>
+    <string name="wiz_how_balanced">A good middle of quality and battery.</string>
+    <string name="wiz_how_precise_disabled">Covers only the exact part · needs Android 14 or newer</string>
+    <string name="wiz_start_title">All set</string>
+    <string name="wiz_start_text">Start protection. You\'ll see its status here afterwards.</string>
+    <string name="wiz_entire">Pick \"Entire screen\"</string>
+    <string name="wiz_entire_text">If Android offers \"A single app\", pick \"Entire screen\" so Sophiel sees everything.</string>
 </resources>

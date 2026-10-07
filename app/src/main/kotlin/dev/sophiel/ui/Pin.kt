@@ -206,10 +206,13 @@ fun ColumnScope.PinPrompt(pin: PinStore, clock: () -> Long, onUnlocked: () -> Un
 
 /**
  * Create + confirm (D38): enter, enter again, a mismatch asks for the confirm again. [onCreate] saves the
- * PIN (off-main, in PinStore). Ticket 20 wraps it as wizard step 1, ticket 19 reuses it for Cambiar PIN.
+ * PIN (off-main, in PinStore). The wizard's step 1 passes [subtitle] and [top] (its step and dots); Cambiar PIN reuses it.
  */
 @Composable
-fun CreatePinScreen(onCreate: suspend (String) -> Unit, modifier: Modifier = Modifier, title: String = stringResource(R.string.pin_create_title), onBack: (() -> Unit)? = null) {
+fun CreatePinScreen(
+    onCreate: suspend (String) -> Unit, modifier: Modifier = Modifier, title: String = stringResource(R.string.pin_create_title),
+    subtitle: String? = null, onBack: (() -> Unit)? = null, top: @Composable () -> Unit = {},
+) {
     val scope = rememberCoroutineScope()
     val haptic = LocalHapticFeedback.current
     var state by remember { mutableStateOf(CreateState()) }
@@ -217,7 +220,8 @@ fun CreatePinScreen(onCreate: suspend (String) -> Unit, modifier: Modifier = Mod
     var busy by remember { mutableStateOf(false) }
     var shake by remember { mutableIntStateOf(0) }
     Column(modifier.fillMaxSize()) {
-        HeaderBar(title, start = { if (onBack != null) FlatIconButton(R.drawable.ic_back, stringResource(R.string.back), onBack) })
+        HeaderBar(title, subtitle = subtitle, start = { if (onBack != null) FlatIconButton(R.drawable.ic_back, stringResource(R.string.back), onBack) })
+        top()
         Column(
             Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 18.dp),
             horizontalAlignment = Alignment.CenterHorizontally,

@@ -65,12 +65,7 @@ fun SettingsScreen(container: AppContainer, door: Door, onBack: () -> Unit, onHi
             PreferenceGroup(title = stringResource(R.string.group_protection)) {
                 item {
                     SettingRow(stringResource(R.string.set_care)) {
-                        SegmentedControl(
-                            listOf(R.string.care_strict, R.string.care_normal, R.string.care_relaxed).map { stringResource(it) },
-                            Sensitivity.entries.indexOf(settings.sensitivity),
-                            { door.pass { container.pickSensitivity(Sensitivity.entries[it]) } },
-                            help = listOf(R.string.care_help_strict, R.string.care_help_normal, R.string.care_help_relaxed).map { stringResource(it) },
-                        )
+                        CareControl(settings.sensitivity) { door.pass { container.pickSensitivity(it) } }
                     }
                 }
                 item {
@@ -134,6 +129,16 @@ fun SettingsScreen(container: AppContainer, door: Door, onBack: () -> Unit, onHi
         )
     }
 }
+
+/** Cuidado: Tapar más / Normal / Tapar menos with its helper line. Ajustes and the wizard's step 6. */
+@Composable
+fun CareControl(selected: Sensitivity, onPick: (Sensitivity) -> Unit) =
+    SegmentedControl(
+        listOf(R.string.care_strict, R.string.care_normal, R.string.care_relaxed).map { stringResource(it) },
+        Sensitivity.entries.indexOf(selected),
+        { onPick(Sensitivity.entries[it]) },
+        help = listOf(R.string.care_help_strict, R.string.care_help_normal, R.string.care_help_relaxed).map { stringResource(it) },
+    )
 
 /** A title over a control, filling one row of a group. */
 @Composable

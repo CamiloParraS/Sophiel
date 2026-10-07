@@ -184,4 +184,37 @@
     <string name="debug_pill">Etiqueta de depuración</string>
     <string name="debug_pill_text">La etiqueta de arriba con el modelo, el recuadro y los tiempos. Solo en versiones de depuración.</string>
     <string name="debug_masks">Aspecto de la máscara</string>
+
+    <!-- Asistente -->
+    <string name="wiz_title">Configuración</string>
+    <string name="wiz_step">Paso %1$d de %2$d</string>
+    <string name="wiz_skip">Saltar</string>
+    <string name="wiz_app_info">Abrir info de la app</string>
+    <string name="wiz_overlay_text">Sophiel tapa lo que no debe verse con una máscara sobre las otras apps. Sin este permiso no puede funcionar.</string>
+    <string name="wiz_overlay_row">Busca Sophiel en la lista y activa el permiso</string>
+    <string name="wiz_service_text">Hace que la máscara sea totalmente opaca.</string>
+    <string name="wiz_open_accessibility">Abrir Accesibilidad</string>
+    <string name="wiz_service_row">Activa Sophiel en Accesibilidad</string>
+    <string name="wiz_service_row_text">Búscala en Apps instaladas o Apps descargadas y actívala</string>
+    <string name="wiz_service_skip">Si lo saltas, la máscara se verá algo transparente</string>
+    <string name="wiz_shortcut">Deja el atajo apagado</string>
+    <string name="wiz_shortcut_text">Si Android ofrece un atajo de accesibilidad para Sophiel, no lo actives: la máscara deja de ser opaca.</string>
+    <string name="wiz_grey">¿El interruptor está gris?</string>
+    <string name="wiz_grey_text">1. Tócalo y cierra el aviso «Ajuste restringido».\n2. Abre la info de la app, toca ⋮ y elige «Permitir ajustes restringidos». El teléfono pedirá su bloqueo de pantalla.\n3. Vuelve a Accesibilidad y activa Sophiel.</string>
+    <string name="wiz_awake_title">Mantener Sophiel despierta</string>
+    <string name="wiz_awake_text">Así Android no la cierra mientras protege.</string>
+    <string name="wiz_awake_battery">Batería sin restricciones</string>
+    <string name="wiz_awake_battery_text">Info de la app &gt; Batería &gt; Sin restricciones</string>
+    <string name="wiz_awake_samsung">Apps que nunca se suspenden</string>
+    <string name="wiz_awake_samsung_text">Ajustes &gt; Batería &gt; Límites de uso en segundo plano &gt; Apps que nunca se suspenden &gt; añade Sophiel</string>
+    <string name="wiz_awake_note">Sophiel no puede comprobar esto, así que hazlo ahora.</string>
+    <string name="wiz_notif_text">Te avisa cuando la protección se pausa, para volver a iniciarla.</string>
+    <string name="wiz_preset_title">¿Cómo debe proteger?</string>
+    <string name="wiz_preset_text">Podrás cambiarlo luego en Ajustes.</string>
+    <string name="wiz_how_balanced">Buen punto medio de calidad y batería.</string>
+    <string name="wiz_how_precise_disabled">Tapa solo la parte exacta · necesita Android 14 o más nuevo</string>
+    <string name="wiz_start_title">Todo listo</string>
+    <string name="wiz_start_text">Inicia la protección. Después verás el estado aquí.</string>
+    <string name="wiz_entire">Elige «Pantalla completa»</string>
+    <string name="wiz_entire_text">Si Android ofrece «Una sola app», elige «Pantalla completa» para que Sophiel vea todo.</string>
 </resources>
