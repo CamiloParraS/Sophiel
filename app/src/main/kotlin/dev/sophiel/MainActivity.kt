@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -53,17 +54,14 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.Lifecycle
+import dev.sophiel.R
 import dev.sophiel.capture.ControllerPhase
 import dev.sophiel.capture.MaskWindowService
 import dev.sophiel.capture.ProjectionController
 import dev.sophiel.capture.ProjectionService
-import dev.sophiel.capture.isDebuggable
-import dev.sophiel.core.Sensitivity
-import dev.sophiel.feed.SpikeModel
 import dev.sophiel.feed.benchmarkScreen
 import dev.sophiel.feed.maskLookScreen
 import dev.sophiel.feed.testFeedScreen
-import dev.sophiel.settings.ParentPreset
 import dev.sophiel.ui.CreatePinScreen
 import dev.sophiel.ui.Need
 import dev.sophiel.ui.StatusActions
@@ -72,18 +70,18 @@ import dev.sophiel.ui.StatusModel
 import dev.sophiel.ui.StatusScreen
 import dev.sophiel.ui.Door
 import dev.sophiel.ui.DoorHost
+import dev.sophiel.ui.FlatIconButton
 import dev.sophiel.ui.GearButton
 import dev.sophiel.ui.HeaderBar
+import dev.sophiel.ui.DebugMenu
+import dev.sophiel.ui.DebugPage
 import dev.sophiel.ui.LogScreen
+import dev.sophiel.ui.SettingsScreen
 import dev.sophiel.ui.PillButton
 import dev.sophiel.ui.PillStyle
-import dev.sophiel.ui.SettingsFrame
 import dev.sophiel.ui.UnlockedBanner
 import dev.sophiel.ui.theme.Palette
 import dev.sophiel.ui.theme.SophielTheme
-
-/** Top-level app destinations. Benchmark is the heavy-model spike (branch spike/heavy-models). */
-private enum class Destination { Status, TestFeed, Benchmark, Masks }
 
 class MainActivity : ComponentActivity() {
     companion object {
@@ -149,23 +147,47 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     private fun appBody(container: AppContainer, door: Door) {
-        var current by remember { mutableStateOf(Destination.Status) }
-        var settingsOpen by rememberSaveable { mutableStateOf(false) } // rotation keeps it; the door relocks on stop
-        // Locked again (timeout, Bloquear ahora, leaving the app): nothing behind the door stays open.
-        LaunchedEffect(door.unlocked) { if (!door.unlocked) settingsOpen = false }
-        var logOpen by rememberSaveable { mutableStateOf(false) } // behind the door like Settings (D38)
-        LaunchedEffect(door.unlocked) { if (!door.unlocked) logOpen = false }
-        BackHandler(settingsOpen || logOpen) { settingsOpen = false; logOpen = false }
+        // Behind the door: rotation keeps them, a relock closes them all (D38).
+        var logOpen by rememberSaveable { mutableStateOf(false) }
+        var settingsOpen by rememberSaveable { mutableStateOf(false) }
+        var debugOpen by rememberSaveable { mutableStateOf(false) }
+        var debugPage by rememberSaveable { mutableStateOf<DebugPage?>(null) }
+        LaunchedEffect(door.unlocked) {
+            if (!door.unlocked) { logOpen = false; settingsOpen = false; debugOpen = false; debugPage = null }
+        }
+        BackHandler(logOpen || settingsOpen || debugOpen) {
+            when {
+                debugPage != null -> debugPage = null
+                debugOpen -> debugOpen = false
+                logOpen -> logOpen = false
+                else -> settingsOpen = false
+            }
+        }
+        if (debugOpen) {
+            val page = debugPage
+            if (page == null) {
+                DebugMenu(container, door, onBack = { debugOpen = false }, open = { debugPage = it })
+            } else {
+                Column(Modifier.fillMaxSize()) {
+                    HeaderBar(stringResource(page.title), start = { FlatIconButton(R.drawable.ic_back, stringResource(R.string.back), { debugPage = null }) })
+                    val pageModifier = Modifier.weight(1f).navigationBarsPadding()
+                    when (page) {
+                        DebugPage.TestFeed -> testFeedScreen(pageModifier)
+                        DebugPage.Benchmark -> benchmarkScreen(pageModifier)
+                        DebugPage.Masks -> maskLookScreen(pageModifier)
+                    }
+                }
+            }
+            return
+        }
         if (logOpen) {
             LogScreen(container.log, door, onBack = { logOpen = false })
             return
         }
         if (settingsOpen) {
-            SettingsFrame(door, onBack = { settingsOpen = false })
+            SettingsScreen(container, door, onBack = { settingsOpen = false }, onHistory = { logOpen = true }, onDebug = { debugOpen = true })
             return
         }
-        // D32: release builds start only with MaskWindowService bound; watched live (D42).
-        val maskWindowOn = MaskWindowService.bound.collectAsState().value != null
         val actions = remember {
             StatusActions(
                 start = { if (controller.state.value.phase == ControllerPhase.BLOCKED) controller.recheckOverlay() else controller.start() },
@@ -175,27 +197,7 @@ class MainActivity : ComponentActivity() {
                 seeLog = { door.pass { logOpen = true } },
             )
         }
-        Scaffold(
-            modifier = Modifier.fillMaxSize(),
-            bottomBar = {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(10.dp),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                ) {
-                    Destination.entries.forEach { dest ->
-                        TextButton(onClick = { current = dest }) { Text(dest.name) }
-                    }
-                }
-            },
-        ) { padding ->
-            when (current) {
-                // The header bar owns the status bar inset, so Status only takes the bottom padding.
-                Destination.Status -> statusScreen(controller, container, resumes.intValue, door, actions, Modifier.padding(bottom = padding.calculateBottomPadding()))
-                Destination.TestFeed -> testFeedScreen(modifier = Modifier.padding(padding))
-                Destination.Benchmark -> benchmarkScreen(modifier = Modifier.padding(padding))
-                Destination.Masks -> maskLookScreen(modifier = Modifier.padding(padding))
-            }
-        }
+        statusScreen(controller, container, resumes.intValue, door, actions)
     }
 
     override fun onResume() {
@@ -301,75 +303,8 @@ private fun statusScreen(controller: ProjectionController, container: AppContain
     val notifications = remember(resumes) { NotificationManagerCompat.from(context).areNotificationsEnabled() }
     // The Log is written at ON / OFF, which coincide with phase changes.
     val last = remember(state.phase, resumes) { container.log.last() }
-    val debug = context.isDebuggable
     val model = StatusModel.of(
         StatusInput(state.phase, bound, overlay, notifications, last, settings.preset, settings.sensitivity, Build.VERSION.SDK_INT),
     )
-    StatusScreen(model, door, actions, modifier, debug = if (debug) ({ debugChips(container) }) else null)
-}
-
-/** Spike and experiment switches (D24, D34, D35) and the Parent settings (D40), live between frames. Move to M6's debug menu and Settings. */
-@Composable
-private fun debugChips(container: AppContainer) {
-    val settings by container.settings.state.collectAsState()
-    var liveModel by remember { mutableStateOf(container.liveModel) }
-    var override by remember { mutableStateOf(container.thresholdOverride) }
-    val precise = settings.preset == ParentPreset.PRECISE
-    // Window shots (D34) need Android 14+; the accessibility service is checked live by the session.
-    val canShoot = Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        // Spike (D24): switches the live model between frames, no restart needed. Precise picks its own.
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            SpikeModel.entries.forEach { m ->
-                FilterChip(
-                    selected = m == liveModel,
-                    onClick = { liveModel = m; container.liveModel = m },
-                    enabled = !precise,
-                    label = { Text(m.label) },
-                )
-            }
-        }
-        // D35: where shots stop working mid-session (service off), Precise runs Balanced tiles.
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            ParentPreset.entries.forEach { p ->
-                val available = p != ParentPreset.PRECISE || canShoot
-                FilterChip(
-                    selected = p == settings.preset,
-                    onClick = { container.settings.update { it.copy(preset = p) } },
-                    enabled = available,
-                    label = { Text(if (available) p.name else "${p.name} (Android 14+)") },
-                )
-            }
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Sensitivity.entries.forEach { s ->
-                FilterChip(
-                    selected = override == null && s == settings.sensitivity,
-                    onClick = { override = null; container.pickSensitivity(s) },
-                    label = { Text(s.name) },
-                )
-            }
-        }
-        // D40: raw cutoff, in memory only; picking a sensitivity clears it.
-        Text("Threshold %.2f%s".format(container.threshold(), if (override != null) " (raw)" else ""), style = MaterialTheme.typography.bodySmall)
-        Slider(
-            value = container.threshold(),
-            onValueChange = { override = it; container.thresholdOverride = it },
-            modifier = Modifier.fillMaxWidth(0.8f),
-        )
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            // Ticket 16: needs the accessibility service on as well.
-            FilterChip(
-                selected = settings.peekUnderMask && canShoot,
-                onClick = { container.settings.update { it.copy(peekUnderMask = !it.peekUnderMask) } },
-                enabled = canShoot,
-                label = { Text(if (canShoot) "Peek under mask" else "Peek under mask (Android 14+)") },
-            )
-            FilterChip(
-                selected = settings.showLabel,
-                onClick = { container.settings.update { it.copy(showLabel = !it.showLabel) } },
-                label = { Text("Show label") },
-            )
-        }
-    }
+    StatusScreen(model, door, actions, modifier)
 }

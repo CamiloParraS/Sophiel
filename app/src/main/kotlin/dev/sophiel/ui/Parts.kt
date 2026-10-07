@@ -29,6 +29,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
@@ -137,10 +138,13 @@ fun PrefRow(
 
 /** A switch row toggles from anywhere on it. */
 @Composable
-fun SwitchRow(title: String, checked: Boolean, onChange: (Boolean) -> Unit, modifier: Modifier = Modifier, description: String? = null, @DrawableRes icon: Int? = null) =
+fun SwitchRow(
+    title: String, checked: Boolean, onChange: (Boolean) -> Unit, modifier: Modifier = Modifier, description: String? = null,
+    @DrawableRes icon: Int? = null, enabled: Boolean = true,
+) =
     PrefRow(
         title,
-        modifier.toggleable(checked, role = Role.Switch, onValueChange = onChange),
+        modifier.alpha(if (enabled) 1f else .5f).toggleable(checked, enabled = enabled, role = Role.Switch, onValueChange = onChange),
         description,
         icon,
         end = { RoundSwitch(checked, onChange = null) },

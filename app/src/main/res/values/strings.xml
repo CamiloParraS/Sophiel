@@ -151,4 +151,33 @@
     <string name="log_clear_title">¿Borrar el historial?</string>
     <string name="log_clear_text">Se borra lo de los últimos 7 días. No se puede deshacer.</string>
     <string name="log_clear_confirm">Borrar</string>
+
+    <!-- Ajustes -->
+    <string name="group_protection">Protección</string>
+    <string name="set_care">Cuidado</string>
+    <string name="set_how">Cómo revisa</string>
+    <string name="care_help_strict">Tapa también lo dudoso. A veces tapará de más.</string>
+    <string name="care_help_normal">Un buen equilibrio. Recomendado.</string>
+    <string name="care_help_relaxed">Tapa solo lo claro. Puede dejar pasar algo.</string>
+    <string name="how_help_light">Gasta menos batería.</string>
+    <string name="how_help_balanced">Buen punto medio. Recomendado.</string>
+    <string name="how_help_precise">Tapa solo la parte exacta (beta).</string>
+    <string name="needs_android14">Necesita Android 14 o más nuevo</string>
+    <string name="group_mask">Máscara</string>
+    <string name="set_label">Texto en la máscara</string>
+    <string name="set_label_text">Un aviso pequeño sobre lo tapado</string>
+    <string name="set_peek">Revisar sin destapar</string>
+    <string name="set_peek_text">Evita que la pantalla parpadee al revisar. Necesita Máscara completa.</string>
+    <string name="group_security">Seguridad</string>
+    <string name="set_change_pin">Cambiar PIN</string>
+    <string name="set_change_pin_text">No se puede recuperar: guárdalo bien</string>
+    <string name="set_history">Historial</string>
+    <string name="set_history_text">Lo que se tapó esta semana</string>
+    <string name="group_privacy">Privacidad</string>
+    <string name="set_no_internet">Sin internet</string>
+    <string name="set_no_internet_text">Nada sale del teléfono. Las imágenes nunca se guardan.</string>
+    <string name="debug_title">Depuración</string>
+    <string name="debug_test_feed">Test Feed</string>
+    <string name="debug_benchmark">Benchmark</string>
+    <string name="debug_masks">Aspecto de la máscara</string>
 </resources>

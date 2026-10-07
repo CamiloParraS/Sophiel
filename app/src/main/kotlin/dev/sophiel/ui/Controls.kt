@@ -104,10 +104,10 @@ fun PillButton(
 
 /**
  * Segmented control with a sliding thumb. [help], if given, is one line per option, shown under the
- * control and cross-faded with the choice.
+ * control and cross-faded with the choice. Options in [disabled] are dimmed and can't be picked.
  */
 @Composable
-fun SegmentedControl(options: List<String>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier, help: List<String>? = null) {
+fun SegmentedControl(options: List<String>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier, help: List<String>? = null, disabled: Set<Int> = emptySet()) {
     Column(modifier) {
         BoxWithConstraints(Modifier.fillMaxWidth().clip(CircleShape).background(Palette.Btn).padding(3.dp).selectableGroup()) {
             val thumbWidth = (maxWidth - 2.dp * (options.size - 1)) / options.size
@@ -126,10 +126,10 @@ fun SegmentedControl(options: List<String>, selected: Int, onSelect: (Int) -> Un
                             .weight(1f)
                             .heightIn(min = 32.dp)
                             .clip(CircleShape)
-                            .selectable(i == selected, role = Role.RadioButton, onClick = { onSelect(i) }),
+                            .selectable(i == selected, enabled = i !in disabled, role = Role.RadioButton, onClick = { onSelect(i) }),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Text(label, style = MaterialTheme.typography.labelLarge, color = if (i == selected) Palette.Fg else Palette.Dim, textAlign = TextAlign.Center)
+                        Text(label, style = MaterialTheme.typography.labelLarge, color = (if (i == selected) Palette.Fg else Palette.Dim).copy(alpha = if (i in disabled) .45f else 1f), textAlign = TextAlign.Center)
                     }
                 }
             }

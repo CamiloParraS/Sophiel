@@ -103,11 +103,10 @@ private fun reasonText(reason: String) = when (reason) {
 
 /**
  * Status (D42, D44, D45): draws a [StatusModel]. Shows only what is wrong; nothing animates when it
- * opens, only state changes (fixing a row, starting, stopping) cross-fade. [debug] is the debug chips,
- * below the fold until ticket 19 moves them.
+ * opens, only state changes (fixing a row, starting, stopping) cross-fade.
  */
 @Composable
-fun StatusScreen(model: StatusModel, door: Door, actions: StatusActions, modifier: Modifier = Modifier, debug: (@Composable ColumnScope.() -> Unit)? = null) {
+fun StatusScreen(model: StatusModel, door: Door, actions: StatusActions, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val time = remember { DateFormat.getTimeFormat(context) }
     val stoppedReason = model.stopped?.fields?.firstOrNull().orEmpty()
@@ -161,7 +160,6 @@ fun StatusScreen(model: StatusModel, door: Door, actions: StatusActions, modifie
                     }
                 }
             }
-            if (debug != null) debug()
         }
         Column(
             Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 14.dp, vertical = 12.dp),

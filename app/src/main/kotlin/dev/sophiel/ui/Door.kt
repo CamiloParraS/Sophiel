@@ -112,20 +112,3 @@ fun GearButton(door: Door, onOpen: () -> Unit) {
         if (!door.unlocked) SIcon(R.drawable.ic_lock, Palette.Dim, 11.dp, Modifier.align(Alignment.BottomEnd).padding(end = 2.dp, bottom = 2.dp))
     }
 }
-
-/** The Settings screen's frame; ticket 19 fills it. */
-@Composable
-fun SettingsFrame(door: Door, onBack: () -> Unit) {
-    val context = LocalContext.current
-    val version = context.packageManager.getPackageInfo(context.packageName, 0).versionName.orEmpty()
-    Column(Modifier.fillMaxSize()) {
-        HeaderBar(stringResource(R.string.settings_title), start = { FlatIconButton(R.drawable.ic_back, stringResource(R.string.back), onBack) })
-        UnlockedBanner(door)
-        Box(Modifier.weight(1f))
-        Text(
-            stringResource(R.string.version_label, version),
-            Modifier.fillMaxWidth().navigationBarsPadding().padding(12.dp),
-            style = MaterialTheme.typography.bodySmall, color = Palette.Dim, textAlign = TextAlign.Center,
-        )
-    }
-}

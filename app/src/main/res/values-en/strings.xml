@@ -151,4 +151,33 @@
     <string name="log_clear_title">Clear the log?</string>
     <string name="log_clear_text">This deletes the last 7 days. It can\'t be undone.</string>
     <string name="log_clear_confirm">Clear</string>
+
+    <!-- Ajustes -->
+    <string name="group_protection">Protection</string>
+    <string name="set_care">Care</string>
+    <string name="set_how">How it checks</string>
+    <string name="care_help_strict">Covers doubtful things too. It may cover too much.</string>
+    <string name="care_help_normal">A good balance. Recommended.</string>
+    <string name="care_help_relaxed">Covers only the clear. It may let something through.</string>
+    <string name="how_help_light">Uses less battery.</string>
+    <string name="how_help_balanced">A good middle. Recommended.</string>
+    <string name="how_help_precise">Covers only the exact part (beta).</string>
+    <string name="needs_android14">Needs Android 14 or newer</string>
+    <string name="group_mask">Mask</string>
+    <string name="set_label">Text on the mask</string>
+    <string name="set_label_text">A small notice over what is covered</string>
+    <string name="set_peek">Check without uncovering</string>
+    <string name="set_peek_text">Stops the screen flickering while it checks. Needs Full mask.</string>
+    <string name="group_security">Security</string>
+    <string name="set_change_pin">Change PIN</string>
+    <string name="set_change_pin_text">It can\'t be recovered: keep it safe</string>
+    <string name="set_history">History</string>
+    <string name="set_history_text">What was covered this week</string>
+    <string name="group_privacy">Privacy</string>
+    <string name="set_no_internet">No internet</string>
+    <string name="set_no_internet_text">Nothing leaves the phone. Images are never saved.</string>
+    <string name="debug_title">Debug</string>
+    <string name="debug_test_feed">Test Feed</string>
+    <string name="debug_benchmark">Benchmark</string>
+    <string name="debug_masks">Mask look</string>
 </resources>
