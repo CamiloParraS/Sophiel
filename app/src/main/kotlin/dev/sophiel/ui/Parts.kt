@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -165,7 +166,7 @@ enum class Tone { Ok, Off, Ready, Warn }
 
 /** AdwStatusPage: big symbolic icon in a disc, title, one line. Colours and icon cross-fade when the state changes. */
 @Composable
-fun StatusPage(@DrawableRes icon: Int, title: String, text: String, tone: Tone, modifier: Modifier = Modifier) {
+fun StatusPage(@DrawableRes icon: Int, title: String, text: String, tone: Tone, modifier: Modifier = Modifier, spinner: Boolean = false) {
     val primary = MaterialTheme.colorScheme.primary
     val (bg, fg) = when (tone) {
         Tone.Ok -> Palette.tint(Palette.Green) to Palette.GreenFg
@@ -182,9 +183,14 @@ fun StatusPage(@DrawableRes icon: Int, title: String, text: String, tone: Tone, 
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         Box(Modifier.size(96.dp).clip(CircleShape).background(disc), contentAlignment = Alignment.Center) {
-            Crossfade(icon, animationSpec = motion(tween(200)), label = "icon") { SIcon(it, glyph, 48.dp) }
+            if (spinner) CircularProgressIndicator(Modifier.size(40.dp), color = glyph, strokeWidth = 3.dp)
+            else Crossfade(icon, animationSpec = motion(tween(200)), label = "icon") { SIcon(it, glyph, 48.dp) }
         }
-        Text(title, style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center)
-        Text(text, Modifier.widthIn(max = 280.dp), style = MaterialTheme.typography.bodyLarge, color = Palette.Dim, textAlign = TextAlign.Center)
+        Crossfade(title to text, animationSpec = motion(tween(120)), label = "headline") { (t, d) ->
+            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(t, style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center)
+                Text(d, Modifier.widthIn(max = 280.dp), style = MaterialTheme.typography.bodyLarge, color = Palette.Dim, textAlign = TextAlign.Center)
+            }
+        }
     }
 }

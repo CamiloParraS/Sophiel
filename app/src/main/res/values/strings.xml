@@ -6,18 +6,9 @@
 
     <!-- Estado -->
     <string name="status_idle">Sin protección</string>
-    <string name="status_running">Protección activa</string>
     <string name="status_starting">Iniciando…</string>
-    <string name="status_stopping">Deteniendo…</string>
-    <string name="status_blocked">Protección bloqueada</string>
-    <string name="status_notifications_denied">Notificaciones denegadas: el estado solo aparece en logcat.</string>
-    <string name="status_overlay_required">Hace falta el permiso para mostrarse sobre otras apps.</string>
-    <string name="status_settings_summary">Equilibrado · Normal</string>
-    <string name="status_enable_accessibility">Activa Sophiel en los ajustes de Accesibilidad para empezar.</string>
-    <string name="status_open_accessibility">Abrir ajustes de Accesibilidad</string>
     <string name="action_start">Iniciar protección</string>
     <string name="action_stop">Detener protección</string>
-    <string name="action_retry">Reintentar</string>
 
     <!-- Notificaciones -->
     <string name="notif_channel">Protección de pantalla</string>
@@ -55,4 +46,62 @@
     <string name="settings_title">Ajustes</string>
     <string name="back">Atrás</string>
     <string name="version_label">Versión %1$s</string>
+
+    <!-- Estado -->
+    <string name="status_protected">Protegido</string>
+    <string name="status_protected_text">Cubriendo esta pantalla</string>
+    <plurals name="status_missing">
+        <item quantity="one">Falta %d cosa</item>
+        <item quantity="other">Faltan %d cosas</item>
+    </plurals>
+    <string name="status_ready">Listo para iniciar</string>
+    <string name="status_ready_text">Todo está en orden</string>
+    <string name="status_starting_text">Android te pedirá permiso para capturar la pantalla</string>
+    <string name="status_what_will_happen">Qué va a pasar</string>
+    <string name="status_capture_permission">Permiso de captura</string>
+    <string name="status_capture_permission_text">Hay que aceptarlo cada vez que inicias. No se guarda ninguna imagen.</string>
+    <string name="status_starting_note">Si cierras el permiso, la protección no se inicia</string>
+    <string name="status_stopped">Se detuvo</string>
+    <string name="status_stopped_text">La protección se apagó sola a las %1$s</string>
+    <string name="status_what_happened">Qué pasó</string>
+    <string name="stopped_screen_off">La pantalla se apagó</string>
+    <string name="stopped_screen_off_text">La protección se pausó</string>
+    <string name="stopped_system">Android detuvo la protección</string>
+    <string name="stopped_system_text">El sistema terminó la captura</string>
+    <string name="stopped_restarted">El teléfono se reinició</string>
+    <string name="stopped_restarted_text">La protección no vuelve sola</string>
+    <string name="stopped_app_closed">La app se cerró</string>
+    <string name="stopped_app_closed_text">Android la detuvo</string>
+    <string name="status_see_log">Ver en Historial</string>
+    <string name="status_to_restart">Para volver a iniciar</string>
+    <string name="status_review">Revisión</string>
+    <string name="status_care">Cuidado</string>
+    <string name="preset_light">Ahorro</string>
+    <string name="preset_balanced">Equilibrado</string>
+    <string name="preset_precise">Detallado</string>
+    <string name="care_strict">Tapar más</string>
+    <string name="care_normal">Normal</string>
+    <string name="care_relaxed">Tapar menos</string>
+    <string name="status_precise_using">Detallado · usando Equilibrado</string>
+    <string name="fallback_accessibility">Activa la máscara completa para usar Detallado</string>
+    <string name="fallback_android">Detallado necesita Android 14 o más nuevo</string>
+    <string name="health_ok">Todo en orden</string>
+    <string name="health_ok_text">Máscara, avisos y permisos</string>
+    <string name="need_overlay">Mostrar la máscara</string>
+    <string name="need_service">Máscara completa</string>
+    <string name="need_notifications">Avisos</string>
+    <string name="tag_allowed">Permitido</string>
+    <string name="tag_working">Funcionando</string>
+    <string name="tag_enabled">Activados</string>
+    <string name="need_overlay_missing">Sin permiso: Android no deja dibujar la máscara</string>
+    <string name="need_service_missing">Apagada: la máscara se verá algo transparente</string>
+    <string name="need_service_forced">Se apaga cuando la app se cierra a la fuerza</string>
+    <string name="need_notifications_missing">No verás el aviso cuando se pause</string>
+    <string name="fix_allow">Permitir</string>
+    <string name="fix_enable">Activar</string>
+    <string name="group_required">Para funcionar</string>
+    <string name="group_recommended">Recomendado</string>
+    <string name="note_overlay">Permite mostrar la máscara para poder iniciar</string>
+    <string name="note_service">Activa la máscara completa para poder iniciar</string>
+    <string name="note_both">Activa la máscara completa y su permiso para poder iniciar</string>
 </resources>

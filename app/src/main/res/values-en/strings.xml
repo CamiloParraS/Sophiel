@@ -6,18 +6,9 @@
 
     <!-- Status -->
     <string name="status_idle">Not protecting</string>
-    <string name="status_running">Protection on</string>
     <string name="status_starting">Starting…</string>
-    <string name="status_stopping">Stopping…</string>
-    <string name="status_blocked">Protection blocked</string>
-    <string name="status_notifications_denied">Notifications denied: status shows in logcat only.</string>
-    <string name="status_overlay_required">Permission to display over other apps is required.</string>
-    <string name="status_settings_summary">Balanced · Normal</string>
-    <string name="status_enable_accessibility">Turn on Sophiel in Accessibility settings to start.</string>
-    <string name="status_open_accessibility">Open Accessibility settings</string>
     <string name="action_start">Start protection</string>
     <string name="action_stop">Stop protection</string>
-    <string name="action_retry">Retry</string>
 
     <!-- Notifications -->
     <string name="notif_channel">Screen protection</string>
@@ -55,4 +46,62 @@
     <string name="settings_title">Settings</string>
     <string name="back">Back</string>
     <string name="version_label">Version %1$s</string>
+
+    <!-- Estado -->
+    <string name="status_protected">Protected</string>
+    <string name="status_protected_text">Covering this screen</string>
+    <plurals name="status_missing">
+        <item quantity="one">%d thing missing</item>
+        <item quantity="other">%d things missing</item>
+    </plurals>
+    <string name="status_ready">Ready to start</string>
+    <string name="status_ready_text">Everything is in order</string>
+    <string name="status_starting_text">Android will ask for permission to capture the screen</string>
+    <string name="status_what_will_happen">What will happen</string>
+    <string name="status_capture_permission">Capture permission</string>
+    <string name="status_capture_permission_text">You accept it every time you start. No image is kept.</string>
+    <string name="status_starting_note">If you close the prompt, protection does not start</string>
+    <string name="status_stopped">Stopped</string>
+    <string name="status_stopped_text">Protection turned itself off at %1$s</string>
+    <string name="status_what_happened">What happened</string>
+    <string name="stopped_screen_off">The screen turned off</string>
+    <string name="stopped_screen_off_text">Protection paused</string>
+    <string name="stopped_system">Android stopped protection</string>
+    <string name="stopped_system_text">The system ended the capture</string>
+    <string name="stopped_restarted">The phone restarted</string>
+    <string name="stopped_restarted_text">Protection does not come back by itself</string>
+    <string name="stopped_app_closed">The app was closed</string>
+    <string name="stopped_app_closed_text">Android stopped it</string>
+    <string name="status_see_log">See in History</string>
+    <string name="status_to_restart">To start again</string>
+    <string name="status_review">Review</string>
+    <string name="status_care">Care</string>
+    <string name="preset_light">Light</string>
+    <string name="preset_balanced">Balanced</string>
+    <string name="preset_precise">Precise</string>
+    <string name="care_strict">Cover more</string>
+    <string name="care_normal">Normal</string>
+    <string name="care_relaxed">Cover less</string>
+    <string name="status_precise_using">Precise · using Balanced</string>
+    <string name="fallback_accessibility">Turn on the full mask to use Precise</string>
+    <string name="fallback_android">Precise needs Android 14 or newer</string>
+    <string name="health_ok">All good</string>
+    <string name="health_ok_text">Mask, notices and permissions</string>
+    <string name="need_overlay">Show the mask</string>
+    <string name="need_service">Full mask</string>
+    <string name="need_notifications">Notices</string>
+    <string name="tag_allowed">Allowed</string>
+    <string name="tag_working">Working</string>
+    <string name="tag_enabled">On</string>
+    <string name="need_overlay_missing">No permission: Android will not let the mask be drawn</string>
+    <string name="need_service_missing">Off: the mask will look slightly see-through</string>
+    <string name="need_service_forced">It turns off when the app is force-stopped</string>
+    <string name="need_notifications_missing">You will not see the notice when it pauses</string>
+    <string name="fix_allow">Allow</string>
+    <string name="fix_enable">Turn on</string>
+    <string name="group_required">To work</string>
+    <string name="group_recommended">Recommended</string>
+    <string name="note_overlay">Allow showing the mask to start</string>
+    <string name="note_service">Turn on the full mask to start</string>
+    <string name="note_both">Turn on the full mask and its permission to start</string>
 </resources>

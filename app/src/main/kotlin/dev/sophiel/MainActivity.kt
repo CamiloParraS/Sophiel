@@ -10,6 +10,7 @@ import android.media.projection.MediaProjectionManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.SystemClock
 import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
@@ -40,6 +41,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -49,6 +51,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.Lifecycle
 import dev.sophiel.capture.ControllerPhase
 import dev.sophiel.capture.MaskWindowService
@@ -62,6 +65,11 @@ import dev.sophiel.feed.maskLookScreen
 import dev.sophiel.feed.testFeedScreen
 import dev.sophiel.settings.ParentPreset
 import dev.sophiel.ui.CreatePinScreen
+import dev.sophiel.ui.Need
+import dev.sophiel.ui.StatusActions
+import dev.sophiel.ui.StatusInput
+import dev.sophiel.ui.StatusModel
+import dev.sophiel.ui.StatusScreen
 import dev.sophiel.ui.Door
 import dev.sophiel.ui.DoorHost
 import dev.sophiel.ui.GearButton
@@ -72,15 +80,6 @@ import dev.sophiel.ui.SettingsFrame
 import dev.sophiel.ui.UnlockedBanner
 import dev.sophiel.ui.theme.Palette
 import dev.sophiel.ui.theme.SophielTheme
-
-/** Status line for each phase. */
-private fun ControllerPhase.label() = when (this) {
-    ControllerPhase.IDLE -> R.string.status_idle
-    ControllerPhase.RUNNING -> R.string.status_running
-    ControllerPhase.STOPPING -> R.string.status_stopping
-    ControllerPhase.BLOCKED -> R.string.status_blocked
-    else -> R.string.status_starting
-}
 
 /** Top-level app destinations. Benchmark is the heavy-model spike (branch spike/heavy-models). */
 private enum class Destination { Status, TestFeed, Benchmark, Masks }
@@ -93,6 +92,10 @@ class MainActivity : ComponentActivity() {
 
     // Consumed once effects are attached, so start() can run its phase effects.
     private var resumeRequested = false
+
+    // Status re-reads overlay and notifications whenever this changes (D42): every resume, and a permission result.
+    private val resumes = mutableIntStateOf(0)
+    private var fixAskedAt = 0L // when a Status "Permitir" asked for notifications, to tell a shown dialog from a silent denial
 
     private val controller: ProjectionController
         get() = (application as SophielApp).container.projectionController
@@ -111,7 +114,11 @@ class MainActivity : ComponentActivity() {
 
         notificationPermissionLauncher =
             registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-                controller.onNotificationsResult(granted)
+                controller.onNotificationsResult(granted) // ignored outside the start flow
+                // Android stopped showing the dialog (denied twice): it returns at once, so open the settings page instead.
+                if (!granted && fixAskedAt != 0L && SystemClock.elapsedRealtime() - fixAskedAt < 400) openNotificationSettings()
+                fixAskedAt = 0
+                resumes.intValue++
             }
         consentLauncher =
             registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -152,6 +159,15 @@ class MainActivity : ComponentActivity() {
         }
         // D32: release builds start only with MaskWindowService bound; watched live (D42).
         val maskWindowOn = MaskWindowService.bound.collectAsState().value != null
+        val actions = remember {
+            StatusActions(
+                start = { if (controller.state.value.phase == ControllerPhase.BLOCKED) controller.recheckOverlay() else controller.start() },
+                stop = { door.pass(controller::stop) },
+                fix = ::fix,
+                openSettings = { settingsOpen = true },
+                seeLog = null, // ticket 18
+            )
+        }
         Scaffold(
             modifier = Modifier.fillMaxSize(),
             bottomBar = {
@@ -167,13 +183,36 @@ class MainActivity : ComponentActivity() {
         ) { padding ->
             when (current) {
                 // The header bar owns the status bar inset, so Status only takes the bottom padding.
-                Destination.Status -> statusScreen(controller, container, maskWindowOn, door, { settingsOpen = true }, Modifier.padding(bottom = padding.calculateBottomPadding()))
+                Destination.Status -> statusScreen(controller, container, resumes.intValue, door, actions, Modifier.padding(bottom = padding.calculateBottomPadding()))
                 Destination.TestFeed -> testFeedScreen(modifier = Modifier.padding(padding))
                 Destination.Benchmark -> benchmarkScreen(modifier = Modifier.padding(padding))
                 Destination.Masks -> maskLookScreen(modifier = Modifier.padding(padding))
             }
         }
     }
+
+    override fun onResume() {
+        super.onResume()
+        resumes.intValue++
+    }
+
+    /** Status fix buttons (D41, D42): no PIN, each opens the one place that fixes it. */
+    private fun fix(need: Need) {
+        when (need) {
+            Need.OVERLAY -> startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
+            Need.SERVICE -> startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+            Need.NOTIFICATIONS ->
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    fixAskedAt = SystemClock.elapsedRealtime()
+                    notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                } else {
+                    openNotificationSettings()
+                }
+        }
+    }
+
+    private fun openNotificationSettings() =
+        startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, packageName))
 
     override fun onStart() {
         super.onStart()
@@ -247,54 +286,22 @@ class MainActivity : ComponentActivity() {
 /** D32: debug builds may start on the 0.79 app overlay; release needs the accessibility mask window. */
 private fun Context.canStart(maskWindowOn: Boolean) = isDebuggable || maskWindowOn
 
-/**
- * Ticket 10: on/off on hard-coded settings (Balanced, Normal) until M6's Settings. Starting needs no
- * PIN. The model, preset and peek chips are debug-only.
- */
+/** Reads the live inputs (D42) into a [StatusModel] and draws it; the debug chips sit below the fold in debug builds. */
 @Composable
-private fun statusScreen(controller: ProjectionController, container: AppContainer, maskWindowOn: Boolean, door: Door, openSettings: () -> Unit, modifier: Modifier = Modifier) {
+private fun statusScreen(controller: ProjectionController, container: AppContainer, resumes: Int, door: Door, actions: StatusActions, modifier: Modifier = Modifier) {
     val state by controller.state.collectAsState()
+    val settings by container.settings.state.collectAsState()
+    val bound = MaskWindowService.bound.collectAsState().value != null
     val context = LocalContext.current
+    val overlay = remember(resumes) { Settings.canDrawOverlays(context) }
+    val notifications = remember(resumes) { NotificationManagerCompat.from(context).areNotificationsEnabled() }
+    // The Log is written at ON / OFF, which coincide with phase changes.
+    val last = remember(state.phase, resumes) { container.log.last() }
     val debug = context.isDebuggable
-    Column(modifier.fillMaxSize()) {
-        HeaderBar(stringResource(R.string.app_name), end = { GearButton(door, openSettings) })
-        UnlockedBanner(door)
-        Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-        // Scrolls so the largest font scale still reaches every button.
-        Column(Modifier.verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(stringResource(state.phase.label()), style = MaterialTheme.typography.titleMedium)
-            if (state.degraded) {
-                Text(stringResource(R.string.status_notifications_denied), style = MaterialTheme.typography.bodySmall)
-            }
-            if (state.phase == ControllerPhase.BLOCKED) {
-                Text(stringResource(R.string.status_overlay_required), style = MaterialTheme.typography.bodySmall)
-            }
-            Spacer(Modifier.height(16.dp))
-            // Release: the hard-coded settings. Debug: the chips show what is picked.
-            if (debug) debugChips(container) else Text(stringResource(R.string.status_settings_summary), style = MaterialTheme.typography.bodySmall)
-            Spacer(Modifier.height(16.dp))
-            if (!maskWindowOn && state.phase == ControllerPhase.IDLE) {
-                Text(
-                    if (debug) "Accessibility off: masks draw at 0.79 (debug only)" else stringResource(R.string.status_enable_accessibility),
-                    style = MaterialTheme.typography.bodySmall,
-                )
-                TextButton(onClick = { context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }) {
-                    Text(stringResource(R.string.status_open_accessibility))
-                }
-            }
-            when (state.phase) {
-                ControllerPhase.IDLE -> PillButton(stringResource(R.string.action_start), controller::start, style = PillStyle.Suggested, enabled = context.canStart(maskWindowOn))
-                ControllerPhase.RUNNING -> {
-                    // D38: Stop goes through the door; the lock says so while it is shut.
-                    PillButton(stringResource(R.string.action_stop), { door.pass(controller::stop) }, style = PillStyle.Destructive, icon = if (door.unlocked) null else R.drawable.ic_lock)
-                    Text(stringResource(R.string.door_footnote), Modifier.padding(top = 8.dp), style = MaterialTheme.typography.bodySmall, color = Palette.Dim)
-                }
-                ControllerPhase.BLOCKED -> Button(onClick = controller::recheckOverlay) { Text(stringResource(R.string.action_retry)) }
-                else -> Text(stringResource(R.string.status_starting), style = MaterialTheme.typography.bodySmall)
-            }
-        }
-        }
-    }
+    val model = StatusModel.of(
+        StatusInput(state.phase, bound, overlay, notifications, last, settings.preset, settings.sensitivity, debug, Build.VERSION.SDK_INT),
+    )
+    StatusScreen(model, door, actions, modifier, debug = if (debug) ({ debugChips(container) }) else null)
 }
 
 /** Spike and experiment switches (D24, D34, D35) and the Parent settings (D40), live between frames. Move to M6's debug menu and Settings. */
