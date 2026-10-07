@@ -79,6 +79,13 @@ class CaptureSession(
     // One lane: frame jobs and probe timeouts both touch the tile tracker, which is not thread-safe.
     private val scope = CoroutineScope(Dispatchers.Default.limitedParallelism(1) + Job())
     private val debugPill = if (context.isDebuggable) DebugPillOverlay(context).also { it.show() } else null
+
+    /** The debug pill follows its switch (debug menu) live: shown with text while on, removed while off. */
+    private fun pill(text: String) {
+        val p = debugPill ?: return
+        if (container.debugPill) { p.show(); p.update(text) } else p.hide()
+    }
+
     private val overlay = OverlayController(context) { settings.showLabel }.also { it.show() }
 
     // Frame being analysed, if any. New frames are dropped while it runs (SPEC.md §4.5): the
@@ -175,13 +182,13 @@ class CaptureSession(
                         if (covered) coverScreen() else overlay.uncover()
                         judge?.close?.invoke()
                         overlay.updateBoxes(emptyList())
-                        debugPill?.update("${want.label}: loading…")
+                        pill("${want.label}: loading…")
                         openJudge(want, covered).also { judge = it }
                     }
                     current.run(bitmap)
                 }
                 onStatus(status)
-                debugPill?.update(status)
+                pill(status)
             } finally {
                 bitmap.recycle()
             }

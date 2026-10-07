@@ -179,5 +179,7 @@
     <string name="debug_title">Debug</string>
     <string name="debug_test_feed">Test Feed</string>
     <string name="debug_benchmark">Benchmark</string>
+    <string name="debug_pill">Debug tag</string>
+    <string name="debug_pill_text">The tag at the top with the model, the tile and the timings. Debug builds only.</string>
     <string name="debug_masks">Mask look</string>
 </resources>

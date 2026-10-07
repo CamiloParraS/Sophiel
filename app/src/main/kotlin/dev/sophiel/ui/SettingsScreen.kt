@@ -89,6 +89,13 @@ fun SettingsScreen(container: AppContainer, door: Door, onBack: () -> Unit, onHi
             PreferenceGroup(title = stringResource(R.string.group_mask)) {
                 item {
                     SwitchRow(
+                        stringResource(R.string.set_label), settings.showLabel,
+                        { v -> door.pass { container.settings.update { it.copy(showLabel = v) } } },
+                        description = stringResource(R.string.set_label_text), icon = R.drawable.ic_tag,
+                    )
+                }
+                item {
+                    SwitchRow(
                         stringResource(R.string.set_peek), settings.peekUnderMask && canShoot,
                         { v -> door.pass { container.settings.update { it.copy(peekUnderMask = v) } } },
                         description = stringResource(R.string.set_peek_text) + if (canShoot) "" else "\n$android14",

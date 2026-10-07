@@ -127,7 +127,6 @@ class OverlayController(private val context: Context, private val showLabel: () 
      */
     fun setHidden(hidden: Boolean) = mainHandler.post {
         view.visibility = if (hidden) View.INVISIBLE else View.VISIBLE
-        if (!hidden) view.invalidate() // a made-visible view replays its cached drawing, which still has the old label
     }
 
     /** Debug builds only. [detections] boxes must already be fractions of the whole display. */

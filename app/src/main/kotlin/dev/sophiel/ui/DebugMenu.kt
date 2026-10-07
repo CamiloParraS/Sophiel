@@ -19,10 +19,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.foundation.layout.Row
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.sophiel.AppContainer
 import dev.sophiel.R
+import dev.sophiel.capture.isDebuggable
 import dev.sophiel.core.Sensitivity
 import dev.sophiel.feed.SpikeModel
 import dev.sophiel.settings.ParentPreset
@@ -50,14 +52,16 @@ fun DebugMenu(container: AppContainer, door: Door, onBack: () -> Unit, open: (De
                     item { PrefRow(stringResource(page.title), onClick = { door.pass { open(page) } }, end = { SIcon(R.drawable.ic_chev) }) }
                 }
             }
-            PreferenceGroup {
-                item {
-                    val settings by container.settings.state.collectAsState()
-                    SwitchRow(
-                        stringResource(R.string.set_label), settings.showLabel,
-                        { v -> door.pass { container.settings.update { it.copy(showLabel = v) } } },
-                        description = stringResource(R.string.set_label_text), icon = R.drawable.ic_tag,
-                    )
+            if (LocalContext.current.isDebuggable) {
+                PreferenceGroup {
+                    item {
+                        var on by remember { mutableStateOf(container.debugPill) }
+                        SwitchRow(
+                            stringResource(R.string.debug_pill), on,
+                            { v -> door.pass { on = v; container.debugPill = v } },
+                            description = stringResource(R.string.debug_pill_text),
+                        )
+                    }
                 }
             }
             Switches(container)

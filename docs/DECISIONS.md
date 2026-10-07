@@ -1283,13 +1283,12 @@ Start is disabled while the service is unbound".
   says what is lost. It is still offered first and checks the bound state live.
 
 
-## D47 — The text on the mask is a debug option (2026-10-06, human decision, M6 ticket 19)
+## D47 — The debug pill has a switch in the debug menu (2026-10-06, human decision, M6 ticket 19)
 
-Amends D28 ("show-label is a Parent setting") and D40's list of Parent settings.
+Settles ticket 19's "debug pill" item. "Texto en la máscara" (the "Hidden by Sophiel" chip) stays a
+Parent setting in Ajustes as D28 and D40 say.
 
-- **Rule:** "Texto en la máscara" is a switch in the debug menu (seven taps on the version label), not
-  in Ajustes. Default stays on. It is still `ParentSettings.showLabel`, read live by the overlay.
-- **Why:** the label is a look experiment, not a choice a parent needs; Ajustes keeps only
-  Cuidado, Cómo revisa, Revisar sin destapar, Cambiar PIN and Historial.
-- **Fix with it:** after a Sophiel screen hid the masks, showing them again replayed the cached
-  drawing, so a label change made there did not show. `setHidden(false)` now invalidates.
+- **Rule:** the debug menu has a "Etiqueta de depuración" switch for the pill at the top of the
+  screen (model, tile, timings), shown only in debug-signed builds. Default on, in memory
+  (`AppContainer.debugPill`), applied live on the next frame: off removes the pill.
+- **Still debug-only:** the pill itself never shows in a release build (D15/D18).

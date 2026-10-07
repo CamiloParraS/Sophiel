@@ -53,6 +53,10 @@ class AppContainer(context: Context) {
     @Volatile
     var liveModel = SpikeModel.GANTMAN
 
+    /** The debug pill (model, tile, timings), toggled in the debug menu. Debug-signed builds only; in memory. */
+    @Volatile
+    var debugPill = true
+
     /** Debug raw cutoff (D40), in memory: cleared by [pickSensitivity] or process death. */
     @Volatile
     var thresholdOverride: Float? = null
