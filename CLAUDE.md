@@ -38,8 +38,12 @@ NEXT:               M6 Parent app, map at .scratch/m6-parent-app/map.md (decisio
                     of exposure is waiting for a frame: throttle/busy lane dropped the lift frame.
                     Fixed by holding frames while a probe waits (same content, both devices):
                     probe timeouts A 21/53 -> 0/44, B 25/66 -> 0/51; exposure median A 246 -> 90,
-                    B 163 -> 81 ms; worst A 310 -> 252, B 359 -> 229. Next candidates: stop judging
-                    CLEAR tiles once a probe starts mid-frame; skip inference on probe tiles still masked.
+                    B 163 -> 81 ms; worst A 310 -> 252, B 359 -> 229. Then (35bcd28) skip inference on
+                    probe tiles still masked + stop CLEAR tiles when a probe starts mid-frame: A probe
+                    judging p90 107 -> 57 ms; B run not comparable (its tiles hit the model ~9x more);
+                    mid-frame stop fired 1x (A), 3x (B). No timeouts, no crashes. Remaining wait before
+                    judging (~75-87 ms median) is the 80 ms throttle window (SPEC M3) - only a SPEC
+                    change moves it.
                     A (same content): frameToMaskMs worst 494 -> 335 ms, but n=6/8, inconclusive;
                     exposure unchanged (103 -> 110). VerdictCache hit 60-66% of tiles on A: keep it.
                     Interpreter threads (TileBenchmark#threadCost, run with am instrument so the app
