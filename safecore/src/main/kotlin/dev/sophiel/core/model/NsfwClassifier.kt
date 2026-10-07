@@ -46,15 +46,19 @@ class NsfwClassifier private constructor(private val interpreter: Interpreter) {
         internal fun unsafeScore(probabilities: FloatArray): Float =
             probabilities[HENTAI] + probabilities[PORN] + SEXY_WEIGHT * probabilities[SEXY]
 
-        /** Loads and memory-maps `nsfw.tflite` from assets. Throws if the asset is missing or compressed. */
-        fun load(context: Context): NsfwClassifier {
+        /**
+         * Loads and memory-maps `nsfw.tflite` from assets. Throws if the asset is missing or compressed.
+         * @param threads interpreter threads; null keeps TFLite's default
+         */
+        fun load(context: Context, threads: Int? = null): NsfwClassifier {
             val assetFd = context.assets.openFd(MODEL_ASSET)
             val model = assetFd.createInputStream().channel.map(
                 FileChannel.MapMode.READ_ONLY,
                 assetFd.startOffset,
                 assetFd.declaredLength,
             )
-            return NsfwClassifier(Interpreter(model))
+            val options = Interpreter.Options().apply { threads?.let(::setNumThreads) }
+            return NsfwClassifier(Interpreter(model, options))
         }
     }
 }
