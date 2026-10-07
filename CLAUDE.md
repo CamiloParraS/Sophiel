@@ -40,7 +40,8 @@ NEXT:               M6 Parent app, map at .scratch/m6-parent-app/map.md (decisio
                     probe timeouts A 21/53 -> 0/44, B 25/66 -> 0/51; exposure median A 246 -> 90,
                     B 163 -> 81 ms; worst A 310 -> 252, B 359 -> 229. Then (35bcd28) skip inference on
                     probe tiles still masked + stop CLEAR tiles when a probe starts mid-frame: A probe
-                    judging p90 107 -> 57 ms; B run not comparable (its tiles hit the model ~9x more);
+                    judging p90 107 -> 57 ms; B (same content) exposure med 81 -> 107, wait med 71 -> 87, cause
+                    not found (same model load; more probes and EXPLICIT verdicts in less time);
                     mid-frame stop fired 1x (A), 3x (B). No timeouts, no crashes. Remaining wait before
                     judging (~75-87 ms median) is the 80 ms throttle window (SPEC M3) - only a SPEC
                     change moves it.
