@@ -53,12 +53,18 @@ import dev.sophiel.log.OffReason
 import dev.sophiel.ui.theme.Ease
 import dev.sophiel.ui.theme.Palette
 import dev.sophiel.ui.theme.motion
+import java.time.Instant
 import java.time.ZoneId
+import java.time.temporal.ChronoUnit
+import java.util.Date
 import java.time.format.TextStyle
 import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+
+/** Log rows shown per page (and added per "Mostrar más"). */
+private const val PAGE = 20
 
 private fun Band?.color() = when (this) {
     Band.HIGH -> Palette.Red
@@ -110,7 +116,7 @@ fun LogScreen(log: EventLog, door: Door, onBack: () -> Unit) {
             m.empty -> Column(Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.Center) {
                 StatusPage(R.drawable.ic_list, stringResource(R.string.log_empty), stringResource(R.string.log_empty_text), Tone.Off)
             }
-            else -> Content(m, Modifier.weight(1f), onClear = { confirm = true })
+            else -> Content(m, zone, Modifier.weight(1f), onClear = { confirm = true })
         }
     }
     if (confirm) ConfirmDialog(
@@ -121,8 +127,10 @@ fun LogScreen(log: EventLog, door: Door, onBack: () -> Unit) {
 }
 
 @Composable
-private fun Content(model: LogModel, modifier: Modifier, onClear: () -> Unit) {
+private fun Content(model: LogModel, zone: ZoneId, modifier: Modifier, onClear: () -> Unit) {
     val locale = Locale.getDefault()
+    val context = LocalContext.current
+    val time = remember { DateFormat.getTimeFormat(context) }
     var selected by rememberSaveable { mutableIntStateOf(model.days.lastIndex) }
     var filter by rememberSaveable { mutableStateOf(LogFilter.ALL) }
     val day = model.days[selected]
@@ -150,6 +158,8 @@ private fun Content(model: LogModel, modifier: Modifier, onClear: () -> Unit) {
             listOf(R.string.log_filter_all, R.string.log_filter_masked, R.string.log_filter_others).map { stringResource(it) },
             filter.ordinal, { filter = LogFilter.entries[it] },
         )
+        // A busy day has hundreds of rows, all composed at once in this scroll: show a page, add a page per tap.
+        var shown by rememberSaveable(selected, filter) { mutableIntStateOf(PAGE) }
         Crossfade(selected to filter, animationSpec = motion(tween(110)), label = "day") { (s, f) ->
             val d = model.days[s]
             val rows = d.rows(f)
@@ -162,7 +172,13 @@ private fun Content(model: LogModel, modifier: Modifier, onClear: () -> Unit) {
                 if (rows.isEmpty()) Text(
                     stringResource(if (f == LogFilter.MASKED) R.string.log_nothing_masked else R.string.log_nothing),
                     Modifier.fillMaxWidth().padding(vertical = 18.dp), style = MaterialTheme.typography.bodyMedium, color = Palette.Dim, textAlign = TextAlign.Center,
-                ) else PreferenceGroup { rows.forEach { r -> item { EntryRow(r) } } }
+                )
+                // One group per clock hour, titled with its start ("14:00"), newest first.
+                rows.take(shown).groupBy { Instant.ofEpochMilli(it.at).atZone(zone).truncatedTo(ChronoUnit.HOURS).toInstant().toEpochMilli() }
+                    .forEach { (hour, inHour) -> PreferenceGroup(title = time.format(Date(hour))) { inHour.forEach { r -> item { EntryRow(r) } } } }
+                if (rows.size > shown) PillButton(
+                    stringResource(R.string.log_more, rows.size - shown), { shown += PAGE }, Modifier.align(Alignment.CenterHorizontally),
+                )
             }
         }
         PillButton(stringResource(R.string.log_clear), onClear, Modifier.align(Alignment.CenterHorizontally), style = PillStyle.Destructive, icon = R.drawable.ic_trash)

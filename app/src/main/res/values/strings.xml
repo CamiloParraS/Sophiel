@@ -122,6 +122,7 @@
     <string name="log_filter_others">Otros</string>
     <string name="log_nothing_masked">No se tapó nada este día.</string>
     <string name="log_nothing">Nada que mostrar.</string>
+    <string name="log_more">Mostrar más (%d)</string>
     <string name="log_masked">Se tapó algo</string>
     <plurals name="log_parts">
         <item quantity="one">%d parte de la pantalla</item>

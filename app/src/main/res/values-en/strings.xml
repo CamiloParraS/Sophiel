@@ -122,6 +122,7 @@
     <string name="log_filter_others">Other</string>
     <string name="log_nothing_masked">Nothing was covered this day.</string>
     <string name="log_nothing">Nothing to show.</string>
+    <string name="log_more">Show more (%d)</string>
     <string name="log_masked">Something was covered</string>
     <plurals name="log_parts">
         <item quantity="one">%d part of the screen</item>
