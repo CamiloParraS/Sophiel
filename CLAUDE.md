@@ -27,8 +27,8 @@ NEXT:               M6 Parent app, map at .scratch/m6-parent-app/map.md (decisio
                     left). D46: release starts without the accessibility service (0.79 overlay, Status
                     warns). 19 done (checked on A and B). D47: debug-pill switch in the debug menu
                     (pill still debug-signed only). D48: Thorough 3x3 preset ("Reforzado").
-                    20 wizard code done (ui/Wizard.kt), V3 device check on A and B left (needs an
-                    uninstall: wipes PIN, Log and the accessibility grant). 21 = M6
+                    20 wizard done (V3 passed on A and B). D49: debug builds can rerun the wizard
+                    from the debug menu; D47 amended: debug pill off by default. Next: 21 = M6
                     verification (human, both devices).
                     FEATURE FREEZE end of week 3 (end of M6), then M7.
 ```

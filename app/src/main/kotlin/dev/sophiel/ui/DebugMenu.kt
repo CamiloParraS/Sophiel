@@ -39,7 +39,7 @@ enum class DebugPage(val title: Int) {
  * experiment switches (D24, D34, D35) and the raw cutoff (D40) apply between frames, no restart.
  */
 @Composable
-fun DebugMenu(container: AppContainer, door: Door, onBack: () -> Unit, open: (DebugPage) -> Unit) {
+fun DebugMenu(container: AppContainer, door: Door, onBack: () -> Unit, open: (DebugPage) -> Unit, rerunWizard: () -> Unit) {
     Column(Modifier.fillMaxSize()) {
         HeaderBar(stringResource(R.string.debug_title), start = { FlatIconButton(R.drawable.ic_back, stringResource(R.string.back), onBack) })
         UnlockedBanner(door)
@@ -62,6 +62,8 @@ fun DebugMenu(container: AppContainer, door: Door, onBack: () -> Unit, open: (De
                             description = stringResource(R.string.debug_pill_text),
                         )
                     }
+                    // D49: from step 1; the PIN made there replaces the current one.
+                    item { PrefRow(stringResource(R.string.debug_rerun_wizard), description = stringResource(R.string.debug_rerun_wizard_text), onClick = { door.pass(rerunWizard) }, end = { SIcon(R.drawable.ic_chev) }) }
                 }
             }
             Switches(container)

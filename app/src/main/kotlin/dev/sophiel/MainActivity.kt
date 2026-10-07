@@ -140,14 +140,14 @@ class MainActivity : ComponentActivity() {
                 if (setup) {
                     SetupWizard(container, resumes.intValue, ::fix, start = { setup = false; controller.start() })
                 } else {
-                    DoorHost(container) { door -> appBody(container, door) }
+                    DoorHost(container) { door -> appBody(container, door, rerunWizard = { setup = true }) }
                 }
             }
         }
     }
 
     @Composable
-    private fun appBody(container: AppContainer, door: Door) {
+    private fun appBody(container: AppContainer, door: Door, rerunWizard: () -> Unit) {
         // Behind the door: rotation keeps them, a relock closes them all (D38).
         var logOpen by rememberSaveable { mutableStateOf(false) }
         var settingsOpen by rememberSaveable { mutableStateOf(false) }
@@ -167,7 +167,7 @@ class MainActivity : ComponentActivity() {
         if (debugOpen) {
             val page = debugPage
             if (page == null) {
-                DebugMenu(container, door, onBack = { debugOpen = false }, open = { debugPage = it })
+                DebugMenu(container, door, onBack = { debugOpen = false }, open = { debugPage = it }, rerunWizard = rerunWizard)
             } else {
                 Column(Modifier.fillMaxSize()) {
                     HeaderBar(stringResource(page.title), start = { FlatIconButton(R.drawable.ic_back, stringResource(R.string.back), { debugPage = null }) })

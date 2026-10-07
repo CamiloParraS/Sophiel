@@ -55,7 +55,7 @@ class AppContainer(context: Context) {
 
     /** The debug pill (model, tile, timings), toggled in the debug menu. Debug-signed builds only; in memory. */
     @Volatile
-    var debugPill = true
+    var debugPill = false
 
     /** Debug raw cutoff (D40), in memory: cleared by [pickSensitivity] or process death. */
     @Volatile

@@ -183,6 +183,8 @@
     <string name="debug_benchmark">Benchmark</string>
     <string name="debug_pill">Etiqueta de depuración</string>
     <string name="debug_pill_text">La etiqueta de arriba con el modelo, el recuadro y los tiempos. Solo en versiones de depuración.</string>
+    <string name="debug_rerun_wizard">Repetir el asistente</string>
+    <string name="debug_rerun_wizard_text">Empieza en el paso 1. El PIN que crees ahí reemplaza el actual. Solo en versiones de depuración.</string>
     <string name="debug_masks">Aspecto de la máscara</string>
 
     <!-- Asistente -->

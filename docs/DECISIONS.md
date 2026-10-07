@@ -1291,6 +1291,8 @@ Parent setting in Ajustes as D28 and D40 say.
 - **Rule:** the debug menu has a "Etiqueta de depuración" switch for the pill at the top of the
   screen (model, tile, timings), shown only in debug-signed builds. Default on, in memory
   (`AppContainer.debugPill`), applied live on the next frame: off removes the pill.
+- **Amended 2026-10-07 (human):** default off. Turn it on in the debug menu when needed; it
+  still resets to off with the process.
 - **Still debug-only:** the pill itself never shows in a release build (D15/D18).
 
 
@@ -1317,3 +1319,15 @@ Thorough, Precise, with the one-line help under each ("Revisa más zonas. Usa m�
   (worst case) 3x3 is 453 ms on A, 340 ms on B: a little over the ~400 ms budget on A, accepted
   for a preset sold as heavier.
 - **Not changed:** Balanced stays the recommended default.
+
+
+## D49 — Run the wizard again from the debug menu (2026-10-07, human request, M6)
+
+- **Rule:** debug-signed builds get a "Repetir el asistente" row in the debug menu, next to the
+  pill switch (D47). It opens the setup wizard (D42) at step 1, through the door like every
+  debug-menu action. The PIN made in step 1 replaces the current one; nothing else is cleared
+  (Log, settings, permissions stay). Back on step 1 leaves the app, and the next launch opens
+  Status with the old PIN still set.
+- **Why:** checking the wizard on device otherwise needs an uninstall, which also wipes the Log and
+  the accessibility grant.
+- **Release:** unchanged. The wizard runs only while no PIN exists.
