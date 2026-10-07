@@ -512,8 +512,6 @@ class CaptureSession(
             }
             shown = states
             masking = states.any { it != CLEAR }
-            reportMasked(masking, grid.preset.name, states.count { it != CLEAR }, peak)
-            peak = 0f
             val (preset, w, h) = grid
             overlay.updateMasks(
                 states.indices.filter { states[it] == MASKED || states[it] == PEEKING }.map { i ->
@@ -521,6 +519,9 @@ class CaptureSession(
                     toDisplayFraction(RectF(r.left / w.toFloat(), r.top / h.toFloat(), r.right / w.toFloat(), r.bottom / h.toFloat()))
                 },
             )
+            // After the draw is posted: the Log write is disk I/O, and the mask must not wait for it.
+            reportMasked(masking, preset.name, states.count { it != CLEAR }, peak)
+            peak = 0f
             // Every path into PEEKING (neighbour rule, owed probe, rotation) publishes after it.
             if (PEEKING in states) peek()
         }

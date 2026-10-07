@@ -19,8 +19,8 @@ object OffReason {
 }
 
 /**
- * The Parent's Log (D39): `filesDir/log.csv`, wall clock, 7 days. Appends drop older lines (rewriting only
- * when something drops) and reads filter by age too. The last-alive heartbeat lives behind [read]/[write]
+ * The Parent's Log (D39): `filesDir/log.csv`, wall clock, 7 days. Reads filter by age; older lines leave the
+ * file once per process, in [recoverGap], so an append never reads it (masks log on the frame lane). The last-alive heartbeat lives behind [read]/[write]
  * (SharedPreferences in the app; null removes a key) so an ON with no OFF can be closed on the next start.
  */
 class EventLog(
@@ -52,6 +52,7 @@ class EventLog(
 
     /** On app start: an ON that never got its OFF ends at its last heartbeat. */
     @Synchronized fun recoverGap() {
+        prune()
         val at = read(ALIVE)?.toLongOrNull() ?: return
         add(at, "OFF", if (read(BOOT)?.toIntOrNull() != bootCount()) OffReason.RESTARTED else OffReason.APP_CLOSED)
         write(mapOf(ALIVE to null, BOOT to null))
@@ -76,10 +77,14 @@ class EventLog(
 
     @Synchronized fun clear() { file.delete() }
 
-    private fun add(at: Long, kind: String, vararg fields: String) {
+    // ponytail: a process alive past 7 days keeps older lines on disk until its next start; reads hide them.
+    private fun prune() {
         val all = load()
         val fresh = all.filter { it.at >= wall() - WEEK_MS }
         if (fresh.size != all.size) file.writeText(fresh.joinToString("") { it.line() + "\n" })
+    }
+
+    private fun add(at: Long, kind: String, vararg fields: String) {
         file.appendText(Entry(at, kind, fields.toList()).line() + "\n")
         heartbeat() // a write is proof of life too: the inferred OFF must not land before the last entry
     }

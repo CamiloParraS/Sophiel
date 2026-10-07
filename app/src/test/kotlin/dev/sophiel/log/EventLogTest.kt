@@ -61,7 +61,7 @@ class EventLogTest {
         assertEquals(now - 5_000, l.entries()[2].at)
     }
 
-    @Test fun `lines older than 7 days drop on write and are filtered on read`() {
+    @Test fun `lines older than 7 days are filtered on read and drop at the next start`() {
         val l = log()
         l.masked("LIGHT", 1, 0.9f)
         now += 6 * DAY
@@ -70,7 +70,9 @@ class EventLogTest {
         now += 2 * DAY // the first is now 8 days old, the second 2
         assertEquals(1, l.entries().size) // filtered on read, file untouched
         assertEquals(2, tmp.root.resolve("log.csv").readLines().size)
-        l.masked("LIGHT", 1, 0.9f) // dropped on write
+        l.masked("LIGHT", 1, 0.9f) // an append never reads or rewrites the file
+        assertEquals(3, tmp.root.resolve("log.csv").readLines().size)
+        log().recoverGap() // app start drops it
         assertEquals(2, tmp.root.resolve("log.csv").readLines().size)
     }
 
