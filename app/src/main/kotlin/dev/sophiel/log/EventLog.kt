@@ -19,9 +19,10 @@ object OffReason {
 }
 
 /**
- * The Parent's Log (D39): `filesDir/log.csv`, wall clock, 7 days. Reads filter by age; older lines leave the
- * file once per process, in [recoverGap], so an append never reads it (masks log on the frame lane). The last-alive heartbeat lives behind [read]/[write]
- * (SharedPreferences in the app; null removes a key) so an ON with no OFF can be closed on the next start.
+ * The Parent's Log (D39): `filesDir/log.csv`, wall clock, 7 days. Reads filter by age; older lines
+ * leave the file once per process, in [recoverGap], so an append never reads it (masks log on the
+ * frame lane). The last-alive heartbeat lives behind [read]/[write] (SharedPreferences in the app;
+ * null removes a key) so an ON with no OFF can be closed on the next start.
  */
 class EventLog(
     private val file: File,

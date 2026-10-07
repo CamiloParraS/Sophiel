@@ -66,7 +66,7 @@ private const val STILL_CONFIRM_MS = 200L // D51: no new frame this long after a
 class CaptureSession(
     context: Context,
     private val projection: MediaProjection,
-    private var size: CaptureSize,
+    @Volatile private var size: CaptureSize, // written by resize (main), read on the lane
     private val onStatus: (String) -> Unit,
     private val container: AppContainer,
 ) {
@@ -311,8 +311,7 @@ class CaptureSession(
         private var peak = 0f // highest raw score judged since the last report: the masked entry's score
 
         suspend fun run(frame: Bitmap): String {
-            stillCheck?.cancel() // a frame came: the screen is not still
-            engagePending = false
+            cancelStillCheck() // a frame came: the screen is not still
             val preset = settings.preset.tiles
             val judging = Grid(preset, frame.width, frame.height, container.threshold())
             if (grid != judging) { // rotation, preset or threshold change (D40)
@@ -364,17 +363,19 @@ class CaptureSession(
             // A timer can lift a mask while this frame waits between tiles (dueProbe, expireLater):
             // stop judging CLEAR tiles then, so the lift frame isn't held behind them. They wait one frame.
             var cleared = 0
+            var clearPeak = 0f // D51: the still-screen Log entry's score (publish resets [peak] before it)
             if (stillMasked.isEmpty()) {
                 detector.analyze(frame, preset, clears)
                     .takeWhile { (0 until tracker.size).none { it !in probes && tracker[it] == PROBING } }
-                    .collect { apply(it, showsMask = false); cleared++ }
+                    .collect { apply(it, showsMask = false); cleared++; clearPeak = maxOf(clearPeak, it.score) }
                 if (cleared < clears.size) Log.d(TAG, "clears stopped: a probe started mid-frame, judged $cleared of ${clears.size}")
             }
             tracker.endFrame(now())
             publish()
             if (PROBING in shown) expireLater() // a screen that goes static once the mask is lifted sends no frame
             scheduleDueProbe()
-            confirmIfStill()
+            // D51 needs the tile flagged in *this* frame: one that skipped CLEAR tiles proves nothing.
+            if (stillMasked.isEmpty() && cleared == clears.size) confirmIfStill(clearPeak)
             // No latency here (it is in Logcat): the pill is captured too, and text that changes
             // every frame redraws it, which makes a static screen deliver frames forever.
             return "GantMan · $preset · ${shown.joinToString(" ") { it.name.take(1) }} · " +
@@ -383,8 +384,7 @@ class CaptureSession(
 
         /** Ticket 12 (D29): a protected frame can't judge a probe, and none later will: release them. */
         fun protectedFrame() {
-            stillCheck?.cancel() // the screen changed to something we can't see
-            engagePending = false
+            cancelStillCheck() // the screen changed to something we can't see
             tracker.releaseProbes(now())
             publish()
         }
@@ -393,17 +393,24 @@ class CaptureSession(
          * D51: a tile flagged once waits for a second flagged frame, but a still screen sends none. If
          * no frame starts within [STILL_CONFIRM_MS], the screen still shows it: mask it now.
          */
-        private fun confirmIfStill() {
+        private fun confirmIfStill(score: Float) {
             engagePending = tracker.engagePending()
             if (!engagePending) return
+            val at = size
             stillCheck = scope.launch {
                 delay(STILL_CONFIRM_MS)
                 engagePending = false
-                tracker.confirmStill(now()).forEach {
-                    Log.i(TAG, "mask episode tile=$it frameToMaskMs=${now() - frameAvailableAt} (still screen)")
-                }
+                if (size != at) return@launch // rotated meanwhile: these tiles are on the old grid
+                val masked = tracker.confirmStill(now())
+                masked.forEach { Log.i(TAG, "mask episode tile=$it frameToMaskMs=${now() - frameAvailableAt} (still screen)") }
+                if (masked.isNotEmpty()) peak = maxOf(peak, score)
                 publish()
             }
+        }
+
+        private fun cancelStillCheck() {
+            stillCheck?.cancel()
+            engagePending = false
         }
 
         private fun expireLater() = scope.launch {
@@ -549,9 +556,8 @@ class CaptureSession(
             coverSince = null // our 1 s timer must not take down a cover the next judge now owns
             masking = false
             probing = false
-            engagePending = false
             dueProbe?.cancel()
-            stillCheck?.cancel()
+            cancelStillCheck()
             overlay.updateMasks(emptyList())
             detector.close()
         }

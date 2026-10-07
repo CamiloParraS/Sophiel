@@ -174,7 +174,7 @@ class TileMaskTracker(private var cols: Int, rows: Int, private val peek: () -> 
     }
 
     /** A CLEAR tile was flagged in its last frame but not yet often enough to mask: [confirmStill] may. */
-    fun engagePending(): Boolean = pausedAt == null && tiles.any { it.state == CLEAR && it.flaggedStreak > 0 }
+    fun engagePending(): Boolean = pausedAt == null && tiles.any { it.pending }
 
     /**
      * D51: no frame came since the last one, so the screen still shows it: a still screen sends no
@@ -185,7 +185,7 @@ class TileMaskTracker(private var cols: Int, rows: Int, private val peek: () -> 
      */
     fun confirmStill(now: Long): List<Int> {
         if (pausedAt != null) return emptyList()
-        return tiles.indices.filter { tiles[it].state == CLEAR && tiles[it].flaggedStreak > 0 }
+        return tiles.indices.filter { tiles[it].pending }
             .onEach { tiles[it].mask(tiles[it].lastHash, now) }
     }
 
@@ -218,6 +218,9 @@ class TileMaskTracker(private var cols: Int, rows: Int, private val peek: () -> 
         reset(cols, rows)
         for (tile in tiles) tile.startProbe(now)
     }
+
+    /** CLEAR, flagged in its last judged frame, not yet often enough to mask. */
+    private val Tile.pending get() = state == CLEAR && flaggedStreak > 0
 
     private fun Tile.startProbe(now: Long) = enter(if (peek()) PEEKING else PROBING, now)
 

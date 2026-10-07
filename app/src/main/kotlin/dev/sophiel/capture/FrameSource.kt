@@ -70,9 +70,13 @@ class FrameSource(
     // A frame [wantsFrame] can't take yet but must not lose (a probe waits for it). Only this thread touches it.
     private var held: Pair<Bitmap, Long>? = null
 
+    // One retry task: re-posting it replaces the pending one, so a newer held image never adds a loop.
+    private val offerHeldTask = Runnable { offerHeld() }
+
     private fun hold(bitmap: Bitmap, availableAt: Long) {
         held = bitmap to availableAt
-        handler.postDelayed(::offerHeld, HOLD_RETRY_MS)
+        handler.removeCallbacks(offerHeldTask)
+        handler.postDelayed(offerHeldTask, HOLD_RETRY_MS)
     }
 
     private fun offerHeld() {
@@ -82,7 +86,7 @@ class FrameSource(
                 held = null
                 onFrame(bitmap, availableAt)
             }
-            Want.HOLD -> handler.postDelayed(::offerHeld, HOLD_RETRY_MS)
+            Want.HOLD -> handler.postDelayed(offerHeldTask, HOLD_RETRY_MS)
             Want.SKIP -> dropHeld()
         }
     }

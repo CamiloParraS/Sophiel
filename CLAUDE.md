@@ -30,7 +30,7 @@ NEXT:               M6 Parent app, map at .scratch/m6-parent-app/map.md (decisio
                     20 wizard done (V3 passed on A and B). D49: debug builds can rerun the wizard
                     from the debug menu; D47 amended: debug pill off by default. Next: 21 = M6
                     verification (human, both devices).
-                    Perf fixes (2026-10-07, uncommitted): masks draw before the Log write, Log appends
+                    Perf fixes (2026-10-07, branch perf/frame-path): masks draw before the Log write, Log appends
                     no longer read the file (pruned at start), reused tile input buffer and padded frame
                     bitmap. Checked on B (same content, before/after): frameToMaskMs median/worst
                     101/303 -> 70/168 ms; probe exposure unchanged (median 123 -> 126). NOT

@@ -1369,3 +1369,9 @@ Thorough, Precise, with the one-line help under each ("Revisa más zonas. Usa m�
   exposure has no bound.
 - **Not chosen:** ENGAGE_FRAMES = 1 everywhere. It brings back one-frame mask blips while
   scrolling, which ticket 07 tuned away. A still screen is not a blip: the content stays.
+- **Amends D50 and SPEC.md §4.5:** frames are also held (not dropped) while a tile waits to
+  engage, so D50's "with no probe waiting, frames drop exactly as before" now reads "with no probe
+  and no pending tile waiting". The 80 ms throttle skip stays probe-only.
+- **Review fixes (same day):** the still check runs only after a frame that judged every CLEAR
+  tile (one that skipped them proves nothing), is skipped if the capture size changed meanwhile,
+  and logs the flagged frame's score (it logged 0). One held-frame retry task, not one per image.
