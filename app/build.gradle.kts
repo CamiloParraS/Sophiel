@@ -27,6 +27,8 @@ android {
 
     buildTypes {
         release {
+            // Local release testing only (D32 gates, no debug overlay); real signing is M7.
+            signingConfig = signingConfigs.getByName("debug")
             optimization {
                 enable = false
             }
