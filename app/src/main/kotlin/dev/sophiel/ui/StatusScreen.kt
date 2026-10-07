@@ -36,7 +36,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
@@ -58,7 +57,7 @@ class StatusActions(
     val stop: () -> Unit,
     val fix: (Need) -> Unit,
     val openSettings: () -> Unit,
-    val seeLog: (() -> Unit)?, // null until the Log screen exists (ticket 18): the row shows disabled
+    val seeLog: () -> Unit,
 )
 
 @DrawableRes
@@ -148,16 +147,19 @@ fun StatusScreen(model: StatusModel, door: Door, actions: StatusActions, modifie
                                 end = { Text(time.format(Date(model.stopped!!.at)), style = MaterialTheme.typography.bodyMedium, color = Palette.Dim) },
                             )
                         }
-                        item {
-                            PrefRow(
-                                stringResource(R.string.status_see_log), Modifier.alpha(if (actions.seeLog == null) .5f else 1f), icon = R.drawable.ic_list,
-                                onClick = actions.seeLog, end = { SIcon(R.drawable.ic_chev) },
-                            )
-                        }
                     }
                     if (model.missing.isNotEmpty()) PreferenceGroup(title = stringResource(R.string.status_to_restart)) {
                         model.missing.forEach { n -> item { NeedRow(n, false, actions.fix, forcedStop = stoppedReason == OffReason.APP_CLOSED) } }
                     }
+                }
+            }
+            // On every page, not only after a stop: the Historial must always be one tap away. actions.seeLog goes through the door.
+            PreferenceGroup {
+                item {
+                    PrefRow(
+                        stringResource(R.string.status_see_log), icon = R.drawable.ic_list,
+                        onClick = actions.seeLog, end = { SIcon(R.drawable.ic_chev) },
+                    )
                 }
             }
         }
