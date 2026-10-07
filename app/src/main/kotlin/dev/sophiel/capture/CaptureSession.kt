@@ -56,6 +56,7 @@ private const val BOX_MASK_SCORE = 0.3f // ticket 17 calibration knob: NudeNet b
 private const val BOX_PAD = 0.1f // ticket 17 calibration knob: mask margin per side, fraction of the box
 private const val HEARTBEAT_MS = 60_000L // D39: last-alive time for the inferred-gap OFF
 private const val BOX_HOLD_MS = 2_000L // ticket 17: longest masks are held through failed shots
+private const val STILL_CONFIRM_MS = 200L // D51: no new frame this long after a flagged one = a still screen
 
 /**
  * Everything that exists only while capturing (SPEC.md §4.4 RUNNING): the [VirtualDisplay][android.hardware.display.VirtualDisplay],
@@ -152,7 +153,7 @@ class CaptureSession(
         val since = now - (throttle.lastProcessedMs ?: now)
         val want = when {
             !busy && (probing || throttle.shouldProcess(now)) -> Want.TAKE
-            probing -> Want.HOLD
+            probing || engagePending -> Want.HOLD // D51: a pending tile must not lose its next frame either
             else -> Want.SKIP
         }
         if (probing && (!held || want == Want.TAKE)) {
@@ -164,6 +165,10 @@ class CaptureSession(
     // Written by TileLoop's publish (scope lane), read by wantsFrame (FrameSource thread).
     @Volatile
     private var probing = false
+
+    // D51: a tile was flagged once and waits for its second frame. Written by TileLoop.run (scope lane).
+    @Volatile
+    private var engagePending = false
 
     // Ticket 09: on the lane, so the tracker is only touched there. Frames are dropped meanwhile (wantsFrame).
     init {
@@ -297,6 +302,7 @@ class CaptureSession(
         private var shown: List<TileState> = emptyList()
         private val probedAt = HashMap<Int, Long>()
         private var dueProbe: Job? = null
+        private var stillCheck: Job? = null // D51: masks a pending tile when no frame follows
         private var open = true // a probe-timeout job can outlive a model switch
         private var coverSince: Long? = null // ticket 08, D40: cover up, not yet seen in a frame
         private var ownInFront = false // ticket 09
@@ -305,6 +311,8 @@ class CaptureSession(
         private var peak = 0f // highest raw score judged since the last report: the masked entry's score
 
         suspend fun run(frame: Bitmap): String {
+            stillCheck?.cancel() // a frame came: the screen is not still
+            engagePending = false
             val preset = settings.preset.tiles
             val judging = Grid(preset, frame.width, frame.height, container.threshold())
             if (grid != judging) { // rotation, preset or threshold change (D40)
@@ -366,6 +374,7 @@ class CaptureSession(
             publish()
             if (PROBING in shown) expireLater() // a screen that goes static once the mask is lifted sends no frame
             scheduleDueProbe()
+            confirmIfStill()
             // No latency here (it is in Logcat): the pill is captured too, and text that changes
             // every frame redraws it, which makes a static screen deliver frames forever.
             return "GantMan · $preset · ${shown.joinToString(" ") { it.name.take(1) }} · " +
@@ -374,8 +383,27 @@ class CaptureSession(
 
         /** Ticket 12 (D29): a protected frame can't judge a probe, and none later will: release them. */
         fun protectedFrame() {
+            stillCheck?.cancel() // the screen changed to something we can't see
+            engagePending = false
             tracker.releaseProbes(now())
             publish()
+        }
+
+        /**
+         * D51: a tile flagged once waits for a second flagged frame, but a still screen sends none. If
+         * no frame starts within [STILL_CONFIRM_MS], the screen still shows it: mask it now.
+         */
+        private fun confirmIfStill() {
+            engagePending = tracker.engagePending()
+            if (!engagePending) return
+            stillCheck = scope.launch {
+                delay(STILL_CONFIRM_MS)
+                engagePending = false
+                tracker.confirmStill(now()).forEach {
+                    Log.i(TAG, "mask episode tile=$it frameToMaskMs=${now() - frameAvailableAt} (still screen)")
+                }
+                publish()
+            }
         }
 
         private fun expireLater() = scope.launch {
@@ -521,7 +549,9 @@ class CaptureSession(
             coverSince = null // our 1 s timer must not take down a cover the next judge now owns
             masking = false
             probing = false
+            engagePending = false
             dueProbe?.cancel()
+            stillCheck?.cancel()
             overlay.updateMasks(emptyList())
             detector.close()
         }

@@ -173,6 +173,22 @@ class TileMaskTracker(private var cols: Int, rows: Int, private val peek: () -> 
         }
     }
 
+    /** A CLEAR tile was flagged in its last frame but not yet often enough to mask: [confirmStill] may. */
+    fun engagePending(): Boolean = pausedAt == null && tiles.any { it.state == CLEAR && it.flaggedStreak > 0 }
+
+    /**
+     * D51: no frame came since the last one, so the screen still shows it: a still screen sends no
+     * frames, and the second flagged frame engaging waits for would never come (a Gallery image
+     * stayed exposed until a tap, Device A). Every CLEAR tile flagged in that frame masks, locked on
+     * its hash. The caller decides the screen is still (no frame started for a while).
+     * @return the tiles masked, each a new episode
+     */
+    fun confirmStill(now: Long): List<Int> {
+        if (pausedAt != null) return emptyList()
+        return tiles.indices.filter { tiles[it].state == CLEAR && tiles[it].flaggedStreak > 0 }
+            .onEach { tiles[it].mask(tiles[it].lastHash, now) }
+    }
+
     /** How long a probe may wait for a captured frame without our mask before re-masking. */
     val probeTimeoutMs get() = PROBE_VALID_MS
 

@@ -42,6 +42,39 @@ class TileMaskTrackerTest {
         assertEquals(MASKED, t[0])
     }
 
+    @Test fun `a still screen confirms a tile flagged once, as one episode locked on its hash`() {
+        val t = TileMaskTracker(2, 3)
+        t.frame(0, List(6) { 1L }, flagged = setOf(2, 3))
+        assertTrue(t.engagePending())
+        // D51: no frame came since, so the screen still shows what was flagged.
+        assertEquals(listOf(2, 3), t.confirmStill(200))
+        assertEquals(listOf(CLEAR, CLEAR, MASKED, MASKED, CLEAR, CLEAR), List(6) { t[it] })
+        assertFalse(t.engagePending())
+        // Locked on the flagged frame's hash: once its neighbours change, a probe on the same content re-masks.
+        val moved = listOf(2L, 2L, 1L, 1L, 2L, 2L)
+        t.frame(1_300, moved)
+        assertTrue(t[2] == PROBING && t[3] == PROBING)
+        t.frame(1_400, moved)
+        assertTrue(t[2] == MASKED && t[3] == MASKED)
+    }
+
+    @Test fun `a safe frame in between clears the pending tile, so nothing is confirmed`() {
+        val t = TileMaskTracker(1, 1)
+        t.frame(0, listOf(unsafe), flagged = setOf(0))
+        t.frame(80, listOf(1L))
+        assertFalse(t.engagePending())
+        assertEquals(emptyList<Int>(), t.confirmStill(300))
+        assertEquals(CLEAR, t[0])
+    }
+
+    @Test fun `confirming while paused changes nothing`() {
+        val t = TileMaskTracker(1, 1)
+        t.frame(0, listOf(unsafe), flagged = setOf(0))
+        t.pause(50)
+        assertEquals(emptyList<Int>(), t.confirmStill(300))
+        assertEquals(CLEAR, t[0])
+    }
+
     @Test fun `masked tile ignores its captured score and has no release count`() {
         val t = maskedLight()
         repeat(5) { t.frame(200L + it * 100, listOf(mask)) } // reads SAFE, still masked

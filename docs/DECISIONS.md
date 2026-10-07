@@ -1354,3 +1354,18 @@ Thorough, Precise, with the one-line help under each ("Revisa más zonas. Usa m�
 - **Not the old M3 rule:** "one frame per 80 ms" is gone from SPEC.md; the floor is a code
   constant (`FRAME_INTERVAL_MS`). A held frame is not the unbounded queue §4.5 forbids (D-entry
   "Backpressure", ticket 03): it is one frame, never more.
+
+## D51 — A still screen confirms a tile flagged once (2026-10-07, human decision, M6)
+
+- **Rule:** a CLEAR tile flagged in a frame waits for its second flagged frame (ENGAGE_FRAMES) as
+  before, but if no new frame starts within 200 ms of that frame's sweep ending, it masks then,
+  locked on the flagged frame's hash, as a new episode (`TileMaskTracker.confirmStill`). While a
+  tile waits like this, frames are held rather than dropped, as for a probe (D50), so a changing
+  screen always delivers its next frame first and the two-frame rule still decides there.
+- **Why:** a still screen sends no frames (D17). On Device A a sweep takes ~600 ms, so a Gallery
+  image that settles in one frame was flagged once and never again: exposed 3.7-7.8 s, until a tap
+  changed the screen (seen in three runs, 2026-10-07). Device B never showed it (its sweep is
+  short enough that the opening animation brings a second flagged frame). Without the fix the
+  exposure has no bound.
+- **Not chosen:** ENGAGE_FRAMES = 1 everywhere. It brings back one-frame mask blips while
+  scrolling, which ticket 07 tuned away. A still screen is not a blip: the content stays.
