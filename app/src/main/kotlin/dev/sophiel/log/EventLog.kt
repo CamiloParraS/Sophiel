@@ -81,6 +81,7 @@ class EventLog(
         val fresh = all.filter { it.at >= wall() - WEEK_MS }
         if (fresh.size != all.size) file.writeText(fresh.joinToString("") { it.line() + "\n" })
         file.appendText(Entry(at, kind, fields.toList()).line() + "\n")
+        heartbeat() // a write is proof of life too: the inferred OFF must not land before the last entry
     }
 
     private fun load(): List<Entry> {

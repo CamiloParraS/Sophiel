@@ -109,6 +109,17 @@ class EventLogTest {
         assertEquals(OffReason.RESTARTED, last.fields[0])
     }
 
+    @Test fun `the inferred OFF is not stamped before an entry written after the last heartbeat`() {
+        val l = log()
+        l.on("BALANCED", "NORMAL")
+        now += 5_000
+        l.masked("BALANCED", 1, 0.9f)
+        val wrote = now
+        now += 20_000
+        log().recoverGap()
+        assertEquals(wrote, log().last()!!.at)
+    }
+
     @Test fun `a clean OFF leaves nothing to recover and a late heartbeat does not re-arm it`() {
         val l = log()
         l.on("LIGHT", "NORMAL")
