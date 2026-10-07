@@ -45,9 +45,10 @@ NEXT:               M6 Parent app, map at .scratch/m6-parent-app/map.md (decisio
                     mid-frame stop fired 1x (A), 3x (B). No timeouts, no crashes. Then D50: a waiting probe
                     skips the 80 ms throttle (ea2d89f): probe exposure A 61/88, B 66/101 ms; after
                     rotation A 86/214, B 81/159. All on branch perf/frame-path, not merged.
-                    OPEN BUG (pre-existing, Device A only): a still screen whose only frame is flagged
-                    never masks - CLEAR needs 2 flagged frames (ENGAGE_FRAMES) and a still screen
-                    sends none; Gallery stayed exposed 3.7-7.8 s until a tap. Fix not chosen yet.
+                    D51 (437de5d): a still screen confirms a tile flagged once (Gallery on A stayed
+                    exposed 3.7-7.8 s until a tap). Checked on A and B: masks ~210 ms after the sweep,
+                    no tap; all 10 still-confirmed masks re-masked at their first probe (none false).
+                    Last run added the test video, so its exposure numbers aren't comparable.
                     A (same content): frameToMaskMs worst 494 -> 335 ms, but n=6/8, inconclusive;
                     exposure unchanged (103 -> 110). VerdictCache hit 60-66% of tiles on A: keep it.
                     Interpreter threads (TileBenchmark#threadCost, run with am instrument so the app
