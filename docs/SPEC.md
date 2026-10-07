@@ -266,7 +266,7 @@ IDLE → NEED_NOTIFICATIONS (API 33+; denied → DEGRADED) → NEED_OVERLAY (den
 
 - `rowStride` is padded: allocate `width + rowPadding / pixelStride` and crop, or the bitmap is skewed.
 - Every acquired `Image` MUST be closed, or the reader stalls after `maxImages` with no exception.
-- `ImageReader.newInstance(w, h, RGBA_8888, 2)` + `acquireLatestImage()`. Drop frames rather than queue them. **Decide before decoding** (throttle and in-flight check first). **One frame in flight.** **Close on the owning thread** (reader on its handler thread, interpreter on the inference thread; anything else is a native use-after-free).
+- `ImageReader.newInstance(w, h, RGBA_8888, 2)` + `acquireLatestImage()`. Drop frames rather than queue them; while a probe waits, the newest frame is held instead (one, replaced by any newer) and the 80 ms throttle does not apply (D50). **Decide before decoding** (throttle and in-flight check first). **One frame in flight.** **Close on the owning thread** (reader on its handler thread, interpreter on the inference thread; anything else is a native use-after-free).
 
 ### 4.6 Capture resolution
 

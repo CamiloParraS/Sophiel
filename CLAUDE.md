@@ -42,9 +42,12 @@ NEXT:               M6 Parent app, map at .scratch/m6-parent-app/map.md (decisio
                     probe tiles still masked + stop CLEAR tiles when a probe starts mid-frame: A probe
                     judging p90 107 -> 57 ms; B (same content) exposure med 81 -> 107, wait med 71 -> 87, cause
                     not found (same model load; more probes and EXPLICIT verdicts in less time);
-                    mid-frame stop fired 1x (A), 3x (B). No timeouts, no crashes. Remaining wait before
-                    judging (~75-87 ms median) is the 80 ms throttle window (SPEC M3) - only a SPEC
-                    change moves it.
+                    mid-frame stop fired 1x (A), 3x (B). No timeouts, no crashes. Then D50: a waiting probe
+                    skips the 80 ms throttle (ea2d89f): probe exposure A 61/88, B 66/101 ms; after
+                    rotation A 86/214, B 81/159. All on branch perf/frame-path, not merged.
+                    OPEN BUG (pre-existing, Device A only): a still screen whose only frame is flagged
+                    never masks - CLEAR needs 2 flagged frames (ENGAGE_FRAMES) and a still screen
+                    sends none; Gallery stayed exposed 3.7-7.8 s until a tap. Fix not chosen yet.
                     A (same content): frameToMaskMs worst 494 -> 335 ms, but n=6/8, inconclusive;
                     exposure unchanged (103 -> 110). VerdictCache hit 60-66% of tiles on A: keep it.
                     Interpreter threads (TileBenchmark#threadCost, run with am instrument so the app

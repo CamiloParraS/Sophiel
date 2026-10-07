@@ -1331,3 +1331,26 @@ Thorough, Precise, with the one-line help under each ("Revisa más zonas. Usa m�
 - **Why:** checking the wizard on device otherwise needs an uninstall, which also wipes the Log and
   the accessibility grant.
 - **Release:** unchanged. The wizard runs only while no PIN exists.
+
+## D50 — A waiting probe holds its frame and skips the 80 ms throttle (2026-10-07, human decision, M6)
+
+- **Rule:** while any tile is PROBING, a frame the lane can't take yet (one in flight) is decoded
+  and held, not dropped: one at a time, replaced by any newer image, offered again every 10 ms. A
+  probing tile also skips `FrameThrottle`'s 80 ms floor; one frame in flight still holds. With no
+  probe waiting, frames drop exactly as before (SPEC.md §4.5).
+- **Why:** probe exposure was mostly waiting for a frame, not inference (a probe tile judges in
+  4-6 ms median, mostly cache hits). On a still screen the lifted mask brings one or two frames;
+  when the throttle or a busy lane dropped them, no frame came after, and the probe timed out at
+  300 ms, re-masked and backed off. Every timeout had a frame offered and dropped.
+- **Measured** (same content, human-driven, both devices; probe exposure median / p90):
+  | | A | B |
+  |---|---|---|
+  | Before (dropping) | 246 / 247 ms, 21 of 53 timed out | 163 / 194 ms, 25 of 66 timed out |
+  | Held frames | 90 / 185 ms, 0 timeouts | 81 / 152 ms, 0 timeouts |
+  | + skip lane work for still-masked probes (`35bcd28`) | 90 / 143 ms | 107 / 211 ms (cause not found) |
+  | + throttle skipped | 61 / 88 ms | 66 / 101 ms |
+  After rotation (M5: A 220/304, B 129/210): A 86/214, B 81/159 ms; no tile released then
+  re-masked within 1 s (B had 3 before). Cost: ~7-9 extra frames a minute.
+- **Not the old M3 rule:** "one frame per 80 ms" is gone from SPEC.md; the floor is a code
+  constant (`FRAME_INTERVAL_MS`). A held frame is not the unbounded queue §4.5 forbids (D-entry
+  "Backpressure", ticket 03): it is one frame, never more.
