@@ -33,7 +33,9 @@ NEXT:               M6 Parent app, map at .scratch/m6-parent-app/map.md (decisio
                     Perf fixes (2026-10-07, uncommitted): masks draw before the Log write, Log appends
                     no longer read the file (pruned at start), reused tile input buffer and padded frame
                     bitmap. Checked on B (same content, before/after): frameToMaskMs median/worst
-                    101/303 -> 70/168 ms; probe exposure unchanged (median 123 -> 126, inference-bound).
+                    101/303 -> 70/168 ms; probe exposure unchanged (median 123 -> 126). NOT
+                    inference-bound: on A a probe tile judges in 4-6 ms (mostly cache hits); ~75-80 ms
+                    of exposure is waiting for a frame. Suspect FrameThrottle (80 ms) drops the lift frame.
                     A (same content): frameToMaskMs worst 494 -> 335 ms, but n=6/8, inconclusive;
                     exposure unchanged (103 -> 110). VerdictCache hit 60-66% of tiles on A: keep it.
                     Interpreter threads (TileBenchmark#threadCost, run with am instrument so the app
