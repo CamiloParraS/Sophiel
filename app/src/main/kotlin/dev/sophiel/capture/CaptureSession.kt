@@ -137,19 +137,29 @@ class CaptureSession(
         if (masking) coverScreen()
     }
 
-    /** Called on the FrameSource thread before an Image is decoded; false drops it undecoded. */
-    private fun wantsFrame(): Boolean {
-        if (closed || container.ownScreens.showing.value) return false
+    /**
+     * Called on the FrameSource thread before an Image is decoded ([held]: a kept frame offered again).
+     * A frame that can't run yet is dropped, unless a probe waits: then it is held, not lost. On a still
+     * screen the lifted mask brings one or two frames; dropping them timed out ~2/3 of timed-out probes
+     * (2026-10-07, both devices). Held frames still keep to one frame per [FRAME_INTERVAL_MS].
+     */
+    private fun wantsFrame(held: Boolean): Want {
+        if (closed || container.ownScreens.showing.value) return Want.SKIP
         val now = SystemClock.elapsedRealtime()
-        // Exposure check (2026-10-07): is the frame showing a lifted probe mask dropped here?
         val busy = inFlight?.isActive == true
         val since = now - (throttle.lastProcessedMs ?: now)
-        val take = !busy && throttle.shouldProcess(now)
-        if (probing) Log.d(TAG, "probe wait: frame ${if (take) "taken" else if (busy) "dropped by busy lane" else "dropped by throttle"} sinceLastMs=$since")
-        return take
+        val want = when {
+            !busy && throttle.shouldProcess(now) -> Want.TAKE
+            probing -> Want.HOLD
+            else -> Want.SKIP
+        }
+        if (probing && (!held || want == Want.TAKE)) {
+            Log.d(TAG, "probe wait: ${if (held) "held " else ""}frame ${want.name.lowercase()}${if (busy) " (busy lane)" else ""} sinceLastMs=$since")
+        }
+        return want
     }
 
-    // Written by TileLoop's publish (scope lane), read by wantsFrame (FrameSource thread). Diagnostic only.
+    // Written by TileLoop's publish (scope lane), read by wantsFrame (FrameSource thread).
     @Volatile
     private var probing = false
 

@@ -14,7 +14,8 @@ import android.view.Surface
  * Wraps an [ImageReader] as a frame producer for a [android.media.projection.MediaProjection]'s
  * [android.media.projection.MediaProjection.createVirtualDisplay]. Delivers decoded [Bitmap]s,
  * cropped to [crop], on a private background thread via [onFrame] — but only when [wantsFrame]
- * says so, checked before decoding.
+ * says so, checked before decoding. A [Want.HOLD] frame is decoded and kept, then offered again
+ * every [HOLD_RETRY_MS] until it is taken, skipped, or replaced by a newer image.
  *
  * Handles both SPEC.md §4.5 traps: `rowStride` padding (cropped away before [onFrame] sees the
  * bitmap) and closing every acquired [Image] — a leaked one stalls the reader after [maxImages]
@@ -24,7 +25,7 @@ class FrameSource(
     val width: Int,
     val height: Int,
     private val crop: Rect,
-    private val wantsFrame: () -> Boolean,
+    private val wantsFrame: (held: Boolean) -> Want,
     private val onFrame: (bitmap: Bitmap, availableAtMs: Long) -> Unit,
 ) {
     private val maxImages = 2
@@ -38,7 +39,13 @@ class FrameSource(
             try {
                 // Decide before decoding: the display pushes up to 60-120 frames/s, and copying
                 // each one into a Bitmap only for the throttle to drop it was most of the cost.
-                if (wantsFrame()) onFrame(toCroppedBitmap(image), availableAt)
+                // A newer image always replaces a held one.
+                dropHeld()
+                when (wantsFrame(false)) {
+                    Want.TAKE -> onFrame(toCroppedBitmap(image), availableAt)
+                    Want.HOLD -> hold(toCroppedBitmap(image), availableAt)
+                    Want.SKIP -> Unit
+                }
             } finally {
                 image.close()
             }
@@ -60,6 +67,31 @@ class FrameSource(
         return Bitmap.createBitmap(buffer, crop.left, crop.top, crop.width(), crop.height())
     }
 
+    // A frame [wantsFrame] can't take yet but must not lose (a probe waits for it). Only this thread touches it.
+    private var held: Pair<Bitmap, Long>? = null
+
+    private fun hold(bitmap: Bitmap, availableAt: Long) {
+        held = bitmap to availableAt
+        handler.postDelayed(::offerHeld, HOLD_RETRY_MS)
+    }
+
+    private fun offerHeld() {
+        val (bitmap, availableAt) = held ?: return
+        when (wantsFrame(true)) {
+            Want.TAKE -> {
+                held = null
+                onFrame(bitmap, availableAt)
+            }
+            Want.HOLD -> handler.postDelayed(::offerHeld, HOLD_RETRY_MS)
+            Want.SKIP -> dropHeld()
+        }
+    }
+
+    private fun dropHeld() {
+        held?.first?.recycle()
+        held = null
+    }
+
     val surface: Surface get() = imageReader.surface
 
     fun close() {
@@ -69,7 +101,13 @@ class FrameSource(
         handler.post {
             imageReader.close()
             padded?.recycle()
+            dropHeld()
         }
         thread.quitSafely()
     }
 }
+
+/** What [FrameSource] does with an image: decode it for onFrame, decode and keep it to offer again, or drop it. */
+enum class Want { TAKE, HOLD, SKIP }
+
+private const val HOLD_RETRY_MS = 10L
