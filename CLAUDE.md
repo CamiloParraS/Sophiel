@@ -23,13 +23,13 @@ BLOCKED ON:         Nothing.
 NEXT:               M6 Parent app, map at .scratch/m6-parent-app/map.md (decisions D38-D45).
                     Build tickets done: 09 settings, 10 cover path, 12 PinStore + unlock, 13 event log,
                     15 theme/type/parts/strings (device check left), 16 PIN pad and the door, 17 Status
-                    (checked on A; B and the Precise fallback line left), 18 Log (checked on A; Status "Ver en Historial" opens it behind the door). 11 code done (device check on A
-                    left). D46: release starts without the accessibility service (0.79 overlay, Status
+                    (checked on A; B and the Precise fallback line left), 18 Log (checked on A; Status "Ver en Historial" opens it behind the door). 11 done (checked on A 2026-10-11:
+                    service-on swap seamless, service-off flickers, SPEC §7 limitation 11). V2 (Log) checked. D46: release starts without the accessibility service (0.79 overlay, Status
                     warns). 19 done (checked on A and B). D47: debug-pill switch in the debug menu
                     (pill still debug-signed only). D48: Thorough 3x3 preset ("Reforzado").
                     20 wizard done (V3 passed on A and B). D49: debug builds can rerun the wizard
-                    from the debug menu; D47 amended: debug pill off by default. Next: 21 = M6
-                    verification (human, both devices).
+                    from the debug menu; D47 amended: debug pill off by default. Next: finish 21 = M6
+                    verification (V1, V4 exposure on A, look/copy review; 15 and 17 device checks).
                     Perf fixes (2026-10-07, branch perf/frame-path): masks draw before the Log write, Log appends
                     no longer read the file (pruned at start), reused tile input buffer and padded frame
                     bitmap. Checked on B (same content, before/after): frameToMaskMs median/worst
