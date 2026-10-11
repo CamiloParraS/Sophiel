@@ -378,6 +378,7 @@ Copy into `docs/LIMITATIONS.md` and expand with measured numbers.
 8. **Threshold is a value judgement.** "Explicit" is contextual; sensitivity is Parent-set because no single value is right.
 9. **Single-model bias.** Inherits the biases of its training data (GantMan MobileNetV2, D12).
 10. **Overlay gaps.** System dialogs and parts of system UI cannot be covered; Android 15+ hides other apps' notifications while sharing (D16).
+11. **Masks flicker when the accessibility service turns off.** The system destroys the accessibility window with the service, before `onUnbind` runs, so the masks can't be added to the 0.79 app overlay first and are briefly uncovered. Turning it back on is seamless (add new window, then remove old; D42). Seen on Device A in ticket 11's check. A fix needs a second standing overlay window, which is out of scope after the freeze.
 11. **Grayscale blindness in the skin gate.** True black-and-white imagery has no skin chroma and is gated SAFE. Do not "fix" it by classifying every achromatic tile: dark-mode UIs are achromatic too.
 12. **Energy figures are whole-device estimates**, valid only unplugged.
 13. **Low capture resolution.** Frames are 360 px on the short side; small or distant content may be missed.
