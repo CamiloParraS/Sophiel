@@ -1375,3 +1375,23 @@ Thorough, Precise, with the one-line help under each ("Revisa más zonas. Usa m�
 - **Review fixes (same day):** the still check runs only after a frame that judged every CLEAR
   tile (one that skipped them proves nothing), is skipped if the capture size changed meanwhile,
   and logs the flagged frame's score (it logged 0). One held-frame retry task, not one per image.
+
+
+## D52 — M6 verified on A and B; feature freeze (2026-10-11, human decision, M6 ticket 21)
+
+- **Result:** SPEC M6 V1-V4 pass. V1 PIN gate, lockout and no PIN on disk; V2 Log per episode; V3 wizard
+  from uninstall on A and B (ticket 20); V4 sensitivity and preset changes apply live through the cover
+  path. Cover seen after 1 frame in 25 of 27 changes, 2 in the other 2.
+- **V4 exposure, Device A** (`tools/cover_log.py A`, 27 changes, a masked still image in split screen):
+  median of per-change medians ~73 ms, worst 306 ms (next worst 161). Settles to 52-90 ms after the
+  first five changes (98-170 ms). Device B (ticket 10): 83 / 175 ms. Reported, not gated; a still
+  image, so not comparable with the video runs.
+- **Look and copy:** wizard steps without a mockup reviewed on device; English strings verified on B;
+  largest font scale on A (Spanish) fits, apart from the "Ajustes desbloqueado" banner, which takes
+  about a fifth of the screen (cosmetic, accepted: Samsung's own UI handles it no better).
+- **Accepted without a run:** animations off on A, the ticket 15 wallpaper-accent check on B, and the
+  ticket 17 Precise fallback line on B (accessibility off mid-session).
+- **Known limitation found:** turning the accessibility service off briefly uncovers the masks while they
+  move to the 0.79 app overlay (SPEC §7 limitation 11). Turning it on is seamless (D42).
+- **Feature freeze starts.** Only bug fixes for failing verification items and measurement
+  instrumentation from here (CLAUDE.md). Next: M7.
