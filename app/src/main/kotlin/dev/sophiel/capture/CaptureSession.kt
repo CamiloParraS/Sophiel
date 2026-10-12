@@ -39,6 +39,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.takeWhile
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -97,6 +100,14 @@ class CaptureSession(
     @Volatile
     private var closed = false
 
+    // D55: screen off below API 35, the share is kept. Read by decideFrame (FrameSource thread).
+    private val screenOff = MutableStateFlow(false)
+
+    /** D55: while off, every image is still acquired and closed, unread, and the tracker is paused. */
+    fun screenOff(off: Boolean) {
+        screenOff.value = off
+    }
+
     private var frameSource = FrameSource(size.width, size.height, size.crop, ::decideFrame, ::onFrame)
     private val display = checkNotNull(
         projection.createVirtualDisplay(
@@ -147,7 +158,7 @@ class CaptureSession(
      * floor was most of what was left of probe exposure. One frame in flight still holds.
      */
     private fun decideFrame(offeredAgain: Boolean): FrameDecision {
-        if (closed || container.ownScreens.showing.value) return FrameDecision.DROP
+        if (closed || screenOff.value || container.ownScreens.showing.value) return FrameDecision.DROP
         val now = SystemClock.elapsedRealtime()
         val busy = inFlight?.isActive == true
         val since = now - (throttle.lastProcessedMs ?: now)
@@ -179,10 +190,16 @@ class CaptureSession(
             }
         }
         scope.launch {
-            container.ownScreens.showing.collect { own ->
-                overlay.setHidden(own)
-                judge?.ownScreen?.invoke(own)
+            container.ownScreens.showing.collect { overlay.setHidden(it) }
+        }
+        // Ticket 09 and D55: no frames come while our screen is in front or the screen is off; timers must not judge for them.
+        scope.launch {
+            combine(container.ownScreens.showing, screenOff) { own, off -> own || off }.distinctUntilChanged().collect {
+                judge?.pause?.invoke(it)
             }
+        }
+        scope.launch { // a protected stretch ends at screen-off, as it did when the session ended there (D18)
+            screenOff.collect { if (it) logStretch(stretches.end(SystemClock.elapsedRealtime())) }
         }
     }
 
@@ -304,7 +321,7 @@ class CaptureSession(
         private var stillCheck: Job? = null // D51: masks a pending tile when no frame follows
         private var open = true // a probe-timeout job can outlive a model switch
         private var coverSince: Long? = null // ticket 08, D40: cover up, not yet seen in a frame
-        private var ownInFront = false // ticket 09
+        private var paused = false // ticket 09: our screen in front; D55: screen off
         private var peeking = false // ticket 16: a window shot or its verdicts in flight
         private var lastShotAt = 0L
         private var peak = 0f // highest raw score judged since the last report: the masked entry's score
@@ -419,13 +436,13 @@ class CaptureSession(
         }
 
         /**
-         * Ticket 09: a Sophiel screen fills the display. Pauses the tracker, sharing it with the rotation
-         * cover: whichever of the two ends last resumes it.
+         * Ticket 09: a Sophiel screen fills the display; D55: the screen is off. Pauses the tracker, sharing it
+         * with the rotation cover: whichever of the two ends last resumes it.
          */
-        fun ownScreen(own: Boolean) {
-            ownInFront = own
+        fun pause(on: Boolean) {
+            paused = on
             if (coverSince != null) return // endCover resumes, or leaves it to us
-            if (own) {
+            if (on) {
                 tracker.pause(now())
                 dueProbe?.cancel()
                 return
@@ -443,7 +460,7 @@ class CaptureSession(
             val (preset, w, h) = grid
             val (cols, rows) = preset.grid(w, h)
             Log.d(TAG, "cover ends, every tile probes")
-            if (!ownInFront) tracker.resume(now())
+            if (!paused) tracker.resume(now())
             tracker.resetProbing(cols, rows, now())
             overlay.uncover()
             publish()
@@ -490,14 +507,14 @@ class CaptureSession(
                 }
                 // Tiles in another window, or that started peeking meanwhile. Each round either takes
                 // a shot (so the next waits out the rate limit) or resolves every PEEKING tile.
-                if (open && coverSince == null && !ownInFront && (0 until tracker.size).any { tracker[it] == PEEKING }) peek()
+                if (open && coverSince == null && !paused && (0 until tracker.size).any { tracker[it] == PEEKING }) peek()
             }
         }
 
         private suspend fun peekOnce() {
             delay(lastShotAt + SHOT_INTERVAL_MS - now())
             val waiting = (0 until tracker.size).filter { tracker[it] == PEEKING }
-            if (waiting.isEmpty() || coverSince != null || ownInFront) return // a rotation resets every tile; leaving our screen peeks again
+            if (waiting.isEmpty() || coverSince != null || paused) return // a rotation resets every tile; leaving our screen peeks again
             val service = MaskWindowService.instance
             if (!peekMode() || service == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return lift(waiting, "peeking off")
             val at = grid
@@ -598,13 +615,13 @@ class CaptureSession(
     }
 
     private class Judge(val model: SpikeModel, val run: suspend (Bitmap) -> String, val close: () -> Unit, val masked: () -> Boolean,
-        val ownScreen: (Boolean) -> Unit = {}, val protectedFrame: () -> Unit = {},
+        val pause: (Boolean) -> Unit = {}, val protectedFrame: () -> Unit = {},
     )
 
     /** [covered]: the whole-screen cover is up (D40); the new judge takes it down. */
     private fun openJudge(model: SpikeModel, covered: Boolean): Judge = when (model.asset) {
         null -> TileLoop(DetectorFactory.create(appContext, container::threshold), covered)
-            .let { Judge(model, it::run, it::close, it::masked, it::ownScreen, it::protectedFrame) }
+            .let { Judge(model, it::run, it::close, it::masked, it::pause, it::protectedFrame) }
         else -> BoxLoop(NudeNet.load(appContext, model.asset, model.inputSize), model, covered)
             .let { Judge(model, it::run, it::close, it::masked) }
     }

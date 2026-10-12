@@ -62,7 +62,7 @@ class ProjectionController(private val protection: ProtectionStore) {
     /** The service confirms `getMediaProjection()` succeeded. */
     fun onProjectionAcquired() = apply(ControllerEvent.ProjectionAcquired)
 
-    /** The Parent's PIN Stop: the only way protection goes off (D54). */
+    /** The Parent's PIN Stop: the only way protection goes off with the switch on (D54). */
     fun stop() {
         protection.protecting = false
         apply(ControllerEvent.StopRequested)

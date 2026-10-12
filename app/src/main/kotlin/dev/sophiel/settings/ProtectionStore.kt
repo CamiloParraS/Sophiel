@@ -2,7 +2,7 @@ package dev.sophiel.settings
 
 import android.content.Context
 
-/** Protection on/off (D54): on disk, so it survives process death and reboot. Set only by the Parent's Start and PIN Stop. */
+/** Protection on/off (D54): on disk, so it survives process death and reboot. Set only by the Parent's Start and PIN Stop, and cleared when the share ends with the switch off (SPEC.md §4.7). */
 class ProtectionStore(context: Context) {
     private val prefs = context.getSharedPreferences("protection", Context.MODE_PRIVATE)
 

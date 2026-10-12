@@ -50,15 +50,28 @@ class ProjectionService : Service() {
         const val ACTION_STOP = "dev.sophiel.capture.STOP"
     }
 
-    private val controller get() = (application as SophielApp).container.projectionController
+    private val container get() = (application as SophielApp).container
+    private val controller get() = container.projectionController
     private var session: CaptureSession? = null
     private var isTornDown = false
     private var logged = false // ON was written, so OFF must be
 
-    // Tear down proactively on screen-off rather than depend on when/whether the OS revokes the
-    // projection (varies by device; DECISIONS.md D18). The next Start needs fresh consent anyway.
-    private val screenOffReceiver = object : BroadcastReceiver() {
+    // API 35+: tear down proactively on screen-off rather than depend on when/whether the OS revokes
+    // the projection (D18). Below 35 the share survives it (D55): pause frames, resume at screen-on.
+    // Switch off, or no service to fall back on: the share ends at screen-off on every API (SPEC.md §4.7).
+    private val screenReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
+            if (intent.action == Intent.ACTION_SCREEN_ON) {
+                if (session != null) Log.d(TAG, "screen on; frames resume")
+                session?.screenOff(false)
+                return
+            }
+            val keep = container.settings.value.keepProtecting && MaskWindowService.instance != null
+            if (keep && Build.VERSION.SDK_INT < Build.VERSION_CODES.VANILLA_ICE_CREAM) {
+                Log.d(TAG, "screen off; pausing frames (D55)")
+                session?.screenOff(true)
+                return
+            }
             Log.d(TAG, "screen off; ending capture session")
             teardown(screenOff = true) // the broadcast is the proof: isInteractive can still read true here
         }
@@ -69,7 +82,7 @@ class ProjectionService : Service() {
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
-        registerReceiver(screenOffReceiver, IntentFilter(Intent.ACTION_SCREEN_OFF))
+        registerReceiver(screenReceiver, IntentFilter(Intent.ACTION_SCREEN_OFF).apply { addAction(Intent.ACTION_SCREEN_ON) })
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -98,7 +111,7 @@ class ProjectionService : Service() {
             return START_NOT_STICKY
         }
         controller.onProjectionAcquired()
-        (application as SophielApp).container.let { c ->
+        container.let { c ->
             logged = true
             c.log.on(c.settings.value.preset.name, c.settings.value.sensitivity.name)
         }
@@ -106,7 +119,6 @@ class ProjectionService : Service() {
             override fun onStop() = teardown()
         }, null)
 
-        val container = (application as SophielApp).container
         session = CaptureSession(this, projection, captureSize(this), container)
         return START_NOT_STICKY
     }
@@ -119,7 +131,7 @@ class ProjectionService : Service() {
     private fun teardown(userStop: Boolean = false, screenOff: Boolean = false) {
         if (isTornDown) return
         isTornDown = true
-        unregisterReceiver(screenOffReceiver)
+        unregisterReceiver(screenReceiver)
         session?.close() // writes an open unanalyzable stretch before the OFF
         val interactive = getSystemService(PowerManager::class.java).isInteractive
         var systemStop = false
@@ -129,9 +141,11 @@ class ProjectionService : Service() {
                 screenOff || !interactive -> OffReason.SCREEN_OFF
                 else -> OffReason.SYSTEM
             }
-            (application as SophielApp).container.log.off(reason)
+            container.log.off(reason)
             systemStop = reason == OffReason.SYSTEM
         }
+        // Switch off: protection ends with the share (SPEC.md §4.7), or a stale on resumes it without a Start.
+        if (!userStop && !container.settings.value.keepProtecting) container.protection.protecting = false
         controller.onTeardownComplete()
         stopForeground(STOP_FOREGROUND_REMOVE)
         // Screen off means the OS or our receiver ended it, not the user: offer a one-tap restart.
