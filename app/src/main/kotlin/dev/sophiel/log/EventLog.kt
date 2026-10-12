@@ -65,6 +65,9 @@ class EventLog(
     /** D45: written when the stretch ends, stamped at its start. */
     @Synchronized fun unanalyzable(startedAt: Long, seconds: Int) = add(startedAt, "UNANALYZABLE", seconds.toString())
 
+    /** D54: the share ended with the screen on and capture went on by display shots. */
+    @Synchronized fun shareStopped() = add(wall(), "SHARE_STOPPED")
+
     /** The last 7 days, in file order. */
     @Synchronized fun entries(): List<Entry> = load().filter { it.at >= wall() - WEEK_MS }
 

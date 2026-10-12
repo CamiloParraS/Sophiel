@@ -56,11 +56,13 @@ class LogModelTest {
             masked(at(6, 9), "0.80"),
             Entry(at(6, 8, 30), "UNANALYZABLE", listOf("4")), // written at the end, stamped at its start
             Entry(at(6, 10), "OFF", listOf("SCREEN_OFF")),
+            Entry(at(6, 9, 30), "SHARE_STOPPED", emptyList()),
         ).days.last()
-        assertEquals(listOf(at(6, 10), at(6, 9), at(6, 8, 30), at(6, 8)), day.rows.map { it.at })
+        assertEquals(listOf(at(6, 10), at(6, 9, 30), at(6, 9), at(6, 8, 30), at(6, 8)), day.rows.map { it.at })
+        assertEquals(true, day.rows[1] is LogRow.ShareStopped)
         assertEquals(1, day.rows(LogFilter.MASKED).size)
-        assertEquals(3, day.rows(LogFilter.OTHERS).size)
-        assertEquals(4, day.rows(LogFilter.ALL).size)
+        assertEquals(4, day.rows(LogFilter.OTHERS).size)
+        assertEquals(5, day.rows(LogFilter.ALL).size)
         assertEquals(1, day.unanalyzable)
         assertEquals(1, day.off)
     }

@@ -79,6 +79,9 @@ object CaptureModeMachine {
         }
     }
 
+    /** A share ended with the screen on and a fallback took over (D54): the slow-mode notice and the Log's "Compartir pantalla detenido". */
+    fun slowMode(old: ModeState, new: ModeState) = old.mode == CaptureMode.SCREEN_SHARE && new.mode == CaptureMode.ACCESSIBILITY
+
     /** NONE comes back to ACCESSIBILITY when protection is on, there is a fallback and the screen is on. */
     private fun ModeState.resume() =
         if (mode == CaptureMode.NONE && protecting && canFallBack && screenOn) copy(mode = CaptureMode.ACCESSIBILITY)

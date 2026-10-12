@@ -27,6 +27,7 @@ sealed interface LogRow {
     class Unanalyzable(override val at: Long, val seconds: Int) : LogRow
     class On(override val at: Long, val preset: String, val sensitivity: String) : LogRow
     class Off(override val at: Long, val reason: String) : LogRow
+    class ShareStopped(override val at: Long) : LogRow
 }
 
 /** One local day: its counters, the colour of its highest band (null = grey), and its rows, newest first. */
@@ -71,6 +72,7 @@ class LogModel(val days: List<LogDay>, val empty: Boolean) {
                 "UNANALYZABLE" -> LogRow.Unanalyzable(e.at, f.getOrNull(0)?.toIntOrNull() ?: 0)
                 "ON" -> LogRow.On(e.at, f.getOrElse(0) { "" }, f.getOrElse(1) { "" })
                 "OFF" -> LogRow.Off(e.at, f.getOrElse(0) { "" })
+                "SHARE_STOPPED" -> LogRow.ShareStopped(e.at)
                 else -> null
             }
         }

@@ -16,6 +16,8 @@
     <string name="notif_starting">Watching over your screen</string>
     <string name="notif_off_title">Protection turned off</string>
     <string name="notif_off_text">Android stopped protection. Tap to turn it on again.</string>
+    <string name="notif_slow_title">Protection in slow mode</string>
+    <string name="notif_slow_text">Tap to go back to fast mode.</string>
     <string name="notif_alert_channel">Protection stopped alert</string>
     <string name="notif_stop">Stop</string>
     <string name="notif_paused_title">Sophiel protection paused</string>
@@ -151,6 +153,8 @@
     <string name="log_off_system">The system closed it</string>
     <string name="log_off_app">The app was closed</string>
     <string name="log_off_restarted">The phone restarted</string>
+    <string name="log_share_stopped">Screen sharing stopped</string>
+    <string name="log_share_stopped_text">Protection goes on in slow mode</string>
     <string name="log_empty">Nothing to show yet</string>
     <string name="log_empty_text">The log stays on this phone and is deleted after 7 days.</string>
     <string name="log_clear">Clear log</string>

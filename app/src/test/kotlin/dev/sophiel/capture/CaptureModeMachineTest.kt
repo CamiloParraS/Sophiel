@@ -176,4 +176,29 @@ class CaptureModeMachineTest {
         assertEquals(false, run(sharing, ShareEnded, ServiceUnbound).holdsSession)
         assertEquals(false, run(sharing, Stop).holdsSession)
     }
+
+    /** D54: the slow-mode notice and the Log's "Compartir pantalla detenido" for the last event of [e]. */
+    private fun slowAfter(s: ModeState, vararg e: ModeEvent): Boolean {
+        val old = run(s, *e.dropLast(1).toTypedArray())
+        return CaptureModeMachine.slowMode(old, CaptureModeMachine.reduce(old, e.last()))
+    }
+
+    @Test
+    fun slowModeIsNoticedOnlyWhenAShareEndsWithTheScreenOnAndAFallback() {
+        assertEquals(true, slowAfter(sharing, ShareEnded))
+        assertEquals(false, slowAfter(sharing, ScreenOff)) // API 35+: the screen-off ends it, nobody stopped it
+        assertEquals(false, slowAfter(sharing, ScreenOff, ShareEnded))
+        assertEquals(false, slowAfter(sharing, ShareEnded, ScreenOff)) // already accessibility
+        assertEquals(false, slowAfter(sharing.copy(keepProtecting = false), ShareEnded))
+        assertEquals(false, slowAfter(sharing.copy(serviceBound = false), ShareEnded))
+        assertEquals(false, slowAfter(sharing, Stop))
+        assertEquals(false, slowAfter(sharing.copy(shareSurvivesScreenOff = true), ScreenOff)) // D55: paused, not ended
+    }
+
+    @Test
+    fun aFreshShareFromAccessibilityIsScreenShareAgain() {
+        val s = run(sharing, ShareEnded, ShareStarted)
+        assertEquals(sharing, s)
+        assertEquals(false, CaptureModeMachine.slowMode(run(sharing, ShareEnded), s))
+    }
 }

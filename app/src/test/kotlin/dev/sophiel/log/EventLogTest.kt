@@ -52,9 +52,10 @@ class EventLogTest {
         l.on("BALANCED", "NORMAL")
         l.masked("BALANCED", 3, 0.8765f)
         l.unanalyzable(now - 5_000, 4)
+        l.shareStopped()
         l.off(OffReason.USER)
         assertEquals(
-            listOf("ON,BALANCED,NORMAL", "MASKED,BALANCED,3,0.88", "UNANALYZABLE,4", "OFF,USER"),
+            listOf("ON,BALANCED,NORMAL", "MASKED,BALANCED,3,0.88", "UNANALYZABLE,4", "SHARE_STOPPED", "OFF,USER"),
             tmp.root.resolve("log.csv").readLines().map { it.substringAfter(',') },
         )
         assertEquals(OffReason.USER, l.last()!!.fields[0])

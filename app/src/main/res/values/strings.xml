@@ -16,6 +16,8 @@
     <string name="notif_starting">Cuidando tu pantalla</string>
     <string name="notif_off_title">Protección desactivada</string>
     <string name="notif_off_text">Android detuvo la protección. Toca para activarla de nuevo.</string>
+    <string name="notif_slow_title">Protección en modo lento</string>
+    <string name="notif_slow_text">Toca para volver al modo rápido.</string>
     <string name="notif_alert_channel">Aviso de protección detenida</string>
     <string name="notif_stop">Detener</string>
     <string name="notif_paused_title">Protección de Sophiel en pausa</string>
@@ -151,6 +153,8 @@
     <string name="log_off_system">El sistema la cerró</string>
     <string name="log_off_app">La app se cerró</string>
     <string name="log_off_restarted">El teléfono se reinició</string>
+    <string name="log_share_stopped">Compartir pantalla detenido</string>
+    <string name="log_share_stopped_text">La protección sigue en modo lento</string>
     <string name="log_empty">Nada que mostrar aún</string>
     <string name="log_empty_text">El historial se queda en este teléfono y se borra a los 7 días.</string>
     <string name="log_clear">Borrar historial</string>

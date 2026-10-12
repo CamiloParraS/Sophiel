@@ -266,6 +266,10 @@ private fun EntryRow(row: LogRow) {
             description = stringResource(R.string.log_on_text, stringResource(presetName(row.preset)).lowercase(), stringResource(careName(row.sensitivity)).lowercase()),
             icon = R.drawable.ic_power, iconTint = Palette.GreenFg, end = clock,
         )
+        is LogRow.ShareStopped -> PrefRow(
+            stringResource(R.string.log_share_stopped), description = stringResource(R.string.log_share_stopped_text),
+            icon = R.drawable.ic_stop, end = clock,
+        )
         is LogRow.Off -> PrefRow(
             stringResource(R.string.log_off), description = stringResource(offText(row.reason)),
             icon = if (row.reason == OffReason.SCREEN_OFF) R.drawable.ic_moon else R.drawable.ic_power, end = clock,

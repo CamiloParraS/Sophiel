@@ -127,20 +127,26 @@ class CaptureSession(
 
     /** D54: no share, so frames are display shots, one every [SHOT_INTERVAL_MS] whether or not the screen changes. */
     private val shots get() = projection == null
-    private var frameSource = projection?.let { FrameSource(size.width, size.height, size.crop, ::decideFrame, ::onFrame) }
-    private var display: VirtualDisplay? = frameSource?.let { source ->
-        checkNotNull(
-            projection?.createVirtualDisplay(
+    val sharing get() = !shots
+    private var frameSource: FrameSource? = null
+    private var display: VirtualDisplay? = null
+
+    private fun openDisplay(projection: MediaProjection) {
+        val source = FrameSource(size.width, size.height, size.crop, ::decideFrame, ::onFrame)
+        display = checkNotNull(
+            projection.createVirtualDisplay(
                 "SophielCapture",
                 size.width, size.height, size.densityDpi,
                 DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
                 source.surface, null, null,
             ),
         ) { "createVirtualDisplay() returned null" }
+        frameSource = source
     }
 
     // D54: no share, so frames come from display shots. Off the lane: a shot must not wait behind inference.
     private val shotScope = CoroutineScope(Dispatchers.Default + Job())
+    private var shotLoopJob: Job? = null
 
     // When the loop takes its next shot; null while it isn't running. Written by the loop, read on the lane.
     @Volatile
@@ -158,10 +164,20 @@ class CaptureSession(
         startShots()
     }
 
+    /** D54: a fresh consent while on shots. The share starts first, then the shots stop: no frame is lost, the masks stay. */
+    fun startShare(share: MediaProjection) {
+        if (!shots) return
+        openDisplay(share)
+        projection = share
+        shotLoopJob?.cancel()
+        shotLoopJob = null
+        nextShotAt = null
+    }
+
     /** The loop runs while nothing pauses the session (screen off, our screen in front), and restarts after (SPEC.md §4.2). */
     private fun startShots() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return // CaptureModeController never falls back there
-        shotScope.launch {
+        shotLoopJob = shotScope.launch {
             pausedFlow.collectLatest { paused ->
                 nextShotAt = null
                 Log.i(TAG, "shot loop ${if (paused) "stopped (screen off or our screen in front)" else "started"}")
@@ -325,7 +341,7 @@ class CaptureSession(
     private var frameAvailableAt = 0L
 
     init {
-        if (shots) startShots() // after every field the loop reads
+        if (projection != null) openDisplay(projection) else startShots() // after every field the loop reads
     }
 
     private fun onFrame(bitmap: Bitmap, availableAtMs: Long) {

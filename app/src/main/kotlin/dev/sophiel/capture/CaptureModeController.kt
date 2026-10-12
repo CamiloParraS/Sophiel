@@ -65,10 +65,13 @@ class CaptureModeController(context: Context, private val container: AppContaine
 
     /** The share's projection is acquired (SPEC.md §4.4 RUNNING): Start is complete. */
     fun shareStarted(projection: MediaProjection) {
-        // ponytail: from accessibility the shot session closes and a new one starts, a short gap with no
-        // masks. Ticket 14 hands the projection to the live session instead (projection first, then shots stop).
-        session?.close()
-        session = newSession(projection)
+        val live = session
+        if (live != null && !live.sharing) {
+            live.startShare(projection) // D54: from accessibility, the same session: projection first, then the shots stop
+        } else {
+            live?.close()
+            session = newSession(projection)
+        }
         onEvent(ModeEvent.ShareStarted)
     }
 
@@ -95,6 +98,10 @@ class CaptureModeController(context: Context, private val container: AppContaine
         Log.i(TAG, "$e: capture mode ${old.mode} -> ${new.mode}, protecting=${new.protecting} screenOn=${new.screenOn}")
         if (new.protecting != old.protecting) container.protection.protecting = new.protecting
         applyToSession(old, new)
+        if (CaptureModeMachine.slowMode(old, new)) { // D54: the Parent can ask for the fast mode back; Sophiel never does
+            container.log.shareStopped()
+            context.postResumeNotification(R.string.notif_slow_title, R.string.notif_slow_text)
+        }
         // After the session: closing it writes an open unanalyzable stretch, which goes before the OFF.
         CaptureModeMachine.offReason(old, new, e)?.let { reason ->
             container.log.off(reason)
