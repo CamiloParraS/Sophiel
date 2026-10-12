@@ -189,12 +189,11 @@ class CaptureSession(
                 delay(HEARTBEAT_MS)
             }
         }
-        scope.launch {
-            container.ownScreens.showing.collect { overlay.setHidden(it) }
-        }
-        // Ticket 09 and D55: no frames come while our screen is in front or the screen is off; timers must not judge for them.
+        // Ticket 09 and D55: no frames come while our screen is in front or the screen is off; timers must
+        // not judge for them. Masks hide too: off, they would show on Always On Display.
         scope.launch {
             combine(container.ownScreens.showing, screenOff) { own, off -> own || off }.distinctUntilChanged().collect {
+                overlay.setHidden(it)
                 judge?.pause?.invoke(it)
             }
         }
