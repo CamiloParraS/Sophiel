@@ -28,14 +28,11 @@ A new `docs/SPEC.md` milestone section **M8 — Solution fit** (deliverables + v
 - [App attribution in the Log](issues/06-app-attribution-in-the-log.md): each episode (and unanalyzable stretch) names the app under its strongest mask at the start, package in `log.csv`, label at read time; blank without the service; no split on app change; `<queries>` launcher intent; rows show the app, summary names the top app; full breakdown left to 08.
 - [Escalation and per-app rules](issues/07-escalation-and-app-rules.md): fixed 3 masked episodes in 10 min blocks the app 15 min (switch, default on); rule-blocked / trusted apps per app in a Settings "Apps" screen; accessibility service sends Home + block screen while Protection is on; PIN lifts escalation blocks only; trusted apps stop inference; Sophiel, Settings, launcher, dialer excluded; two new Log kinds; PiP and notifications are limitations.
 - [Log upgrades and the shared report](issues/08-log-upgrades-and-shared-report.md): Log = bar chart + per-app list on top, day-grouped rows below; PIN-gated text-only report (Hoy / 7 días) via the share sheet; Status shows active escalation blocks. Prototype on `proto/m8-log-report`.
+- [Write M8 into SPEC and DECISIONS](issues/09-write-m8-into-spec.md): SPEC M8 section (5 deliverables in priority order, V1-V8), new §4.7 capture modes, §1/§4/§7/§9 updated, M7 covers both modes and the M8 demo; D54-D60. Destination reached, pending human review.
 
 ## Not yet specified
 
-- **Schedules** (stricter at night, time windows): in scope, deferred behind escalation and per-app rules; revisit if M8 has slack.
-- **M8 verification items** for each feature (how the human proves it on A and B), and how they fold into M7's soak.
-- **LIMITATIONS changes**: what stays bypassable after the guard (safe mode, factory reset, adb, Quick Settings "Active apps" stop if the guard can't see it), and §7 items 5, 6, 14, 22 rewritten. Ticket 07 adds: blocked app in PiP keeps playing, its notifications aren't blocked.
-- **Battery and feel impact** of trusted apps skipping scanning and of the screenshot backend (M7 V3 numbers per backend?).
-- **Pitch/README story**: how "survives reboot, hard to turn off, report to Parent" changes the demo runbook.
+- **Schedules** (stretch goal, D60): stricter protection at night, time windows; maybe a reminder notification for the daily / weekly report. Plan only with slack once M8 V1-V8 pass.
 
 ## Out of scope
 

@@ -1412,3 +1412,173 @@ Thorough, Precise, with the one-line help under each ("Revisa más zonas. Usa m�
   (blocked / trusted); a PIN-gated report shared through the Android share sheet.
 - **Kept:** C1, no `INTERNET`. Store and policy limits no longer apply (Device Admin, boot receiver,
   `QUERY_ALL_PACKAGES`, accessibility events). Nothing sends messages by itself (one SIM phone to test).
+
+## D54 — Protection and capture mode: hybrid capture behind one switch (2026-10-11, human decisions, `.scratch/m8-solution-fit/` tickets 01-03)
+
+- **Protection vs capture mode.** Protection is on from the Parent's Start until a PIN Stop. Reboot,
+  screen-off and lost consent change only the capture mode: **screen share** (`MediaProjection`, someone
+  accepted the dialog), **accessibility** (`AccessibilityService.takeScreenshot`, no dialog) or **none**.
+  The on/off state is persisted so it survives a reboot. CONTEXT updated.
+- **One switch, "Seguir protegiendo siempre"** (Ajustes and the wizard's accessibility step, behind the
+  PIN, default on; greyed with "Necesita la máscara completa" while the service is unbound). On: screen
+  share whenever someone accepted the dialog, accessibility otherwise. Off: M6 behaviour exactly
+  (protection ends with the share; D21 notification and D39 OFF reasons as before). No "accessibility
+  only" value: the hybrid never asks for consent by itself anyway.
+- **Switching.** Screen share → accessibility whenever the projection ends with protection on (screen-off
+  on API 35+, secure lock, chip stop, revoked): masks and tracker carry over, no cover; first shot
+  ~0.4 s later. Accessibility → screen share only through Start or the notification (fresh consent); the
+  new session starts the projection, then stops the shots.
+- **No boot receiver, no FGS, no notification in accessibility mode.** `MaskWindowService` starts the
+  screenshot loop when it binds if protection is on (the system rebinds it at the first unlock after a
+  reboot). The loop stops on screen-off (shots come back black, timers stretch) and restarts on
+  screen-on. From targetSdk 35 a boot receiver may not start a `mediaProjection` FGS anyway.
+- **Shot loop.** One display shot every 400 ms (Android's limit is 333 ms per service, separate from
+  window shots). The `HardwareBuffer` is copied to a software bitmap, converted to sRGB (B returns
+  Display P3), scaled and cropped to the §4.6 capture size and fed to the unchanged frame path; the
+  buffer is closed at once (C3). Measured in ticket 02: shot 41/25 ms median (A/B), copy ~45 ms,
+  scale + crop 20-27 ms; frame → mask ~215 ms median on both.
+- **Probes on accessibility** lift their mask about one frame before the next shot is due (estimate on
+  A: 0.15-0.25 s exposure, vs 0.45 s measured untimed). Probe timeout per capture mode: 300 ms screen
+  share, 700 ms accessibility (300 ms flickered and stuck in ticket 02). A still exposes 2-3x more than
+  on screen share: a limitation, no extra Parent warning.
+- **Peek under mask defaults to on** (amends D34; applies only on API 34+ with the service bound).
+  **Precise runs on both capture modes**: window shots have their own budget.
+- **Rotation** keeps the D33 cover path (accessibility uncovered 376-520 ms in ticket 02, inside the 1 s
+  cover wait).
+- **Notifications and Log (switch on):** screen share ending with the screen on → notification
+  "Protección en modo lento · toca para volver al modo rápido" (opens consent) and a Log entry
+  "Compartir pantalla detenido"; ending with the screen off → nothing. Service turning off with
+  protection on → "Protección interrumpida · toca para reactivar" (opens Status) and a **Sin
+  protección** stretch. ON/OFF are written only for the Parent's Start and Stop; OFF reasons
+  `SCREEN_OFF` and `RESTARTED` go away (amends D39, D21). Other mode switches are not logged.
+- **Sin protección** (new Log kind): a stretch where protection was on, the screen on and nothing
+  captured: start, length, reason (accessibility off, app stopped, restarted). Boot-to-first-unlock is
+  not a gap. D39's last-alive inference now produces this entry instead of an OFF. Status shows a red
+  "Protección interrumpida" with the reason while it lasts.
+- **Status line** shows the mode: "Protección activa · compartir pantalla" / "· accesibilidad". No new
+  button.
+- **D46 kept:** Start needs only the overlay permission. Without the service there is no fallback: each
+  screen-off ends the share, posts the D21 resume notification and leaves a Sin protección stretch
+  until the next Start. The "Máscara completa" Recomendado item adds "y sigue protegiendo tras apagar
+  la pantalla o reiniciar".
+
+## D55 — Screen share survives screen-off below API 35 (2026-10-12, human device check, M8 ticket 10)
+
+Amends D18's screen-off teardown.
+
+- **Rule:** below API 35, `ACTION_SCREEN_OFF` pauses frames (closes them unread) instead of ending the
+  share; frames resume at screen-on with the same session. On API 35+ (Device B) the teardown stays: the
+  platform ends the projection on a secure keyguard, as D18 found.
+- **Checked:** on Device A with the teardown disabled, the share was alive after screen-off and unlock.
+  Per-run details (secure lock or not, 10 s vs 2 min, `onStop()`) were not recorded; M8 V1 re-checks.
+- **Consequence:** A stays on screen share all day after one consent; the screen-share FGS notification
+  stays during screen-off. A falls to accessibility only when the share really ends (chip, system,
+  reboot).
+
+## D56 — Tamper guard (2026-10-12, human decisions, M8 tickets 04-05)
+
+Amends D38 (Unlock) and D53's scope direction (no Device Admin, no boot receiver).
+
+- **What:** while a PIN exists and no Unlock is active, the accessibility service closes system pages that
+  could turn Sophiel off and opens Sophiel's PIN pad instead, with a line saying the setting is protected.
+  Back goes Home. A page is guarded only while the thing it turns off is on, so turning something *on* is
+  never blocked. The wizard runs before a PIN exists, so it is never guarded.
+- **Guarded pages** (matched by package + on-screen text "Sophiel", never class names; One UI
+  packages confirmed on A and B at build time): Accessibility > Sophiel and its "Stop Sophiel?" dialog
+  (including Samsung's accessibility app); "Appear on top" for Sophiel; Sophiel's App info (Force stop,
+  Clear storage, Uninstall); the uninstall dialog for Sophiel (covers launcher drag-to-uninstall); Quick
+  Settings "Active apps" when it lists Sophiel (screen-share mode only).
+- **Not guarded:** the screen-share "Stop sharing" (the hybrid falls to accessibility, D54); Sophiel's
+  notification settings; the accessibility shortcut, safe mode, adb, factory reset, uninstall from the
+  Play Store app. A tap faster than the guard (one-tap Active apps Stop) wins: the race is a limitation
+  and the guard delay is measured on A.
+- **Unlock from the guard (amends D38):** a correct PIN starts the normal Unlock and Sophiel steps aside,
+  back to the page. That Unlock survives leaving the app; it still ends after 2 min or at screen-off.
+  The guard is off while any Unlock is active.
+- **Tamper attempt** (Log kind): time + target (accessibility off / Appear on top / App info / uninstall /
+  Active apps). The same target within 60 s merges into one entry with a count. A force stop that wins
+  the race, or comes from adb, shows as D54's Sin protección (reason: app stopped).
+- **No Device Admin** (future work): no `DeviceAdminReceiver`, no wizard step; `adb uninstall` keeps
+  working, so no debug escape hatch is needed. **No boot receiver** (D54).
+- **Wizard and Status:** no new step. The accessibility step and the "Máscara completa" item add "y
+  protege los ajustes de Sophiel". Without the service there is no guard.
+- **Service config:** `typeWindowStateChanged` (no content-change events) and `flagReportViewIds`.
+  Node text is read only on window-state events from Settings, the package installer, SystemUI and
+  Samsung's accessibility app, and only to find "Sophiel". Event volume and battery fold into M7 V3.
+
+## D57 — Episode app in the Log (2026-10-12, human decisions, M8 ticket 06)
+
+Amends D39 ("no app names") and D32 (window list read for attribution).
+
+- **Source:** at episode start, the topmost `TYPE_APPLICATION` window under the highest-scoring masked
+  tile (the lookup `MaskWindowService.appWindowShot` already does); package from
+  `window.root.packageName`. Never text, titles or nodes beyond the root. Works on API 33.
+- **Unknown cases → blank** ("App desconocida"): no accessibility service (no `UsageStatsManager`
+  fallback), only system UI under the tile, Sophiel itself. The launcher counts as an app.
+- **Episodes are not split by an app change:** an episode keeps its first app (`ponytail:` comment in
+  code naming the ceiling). D39 otherwise unchanged.
+- **Schema:** package appended as the last field of `MASKED` and `UNANALYZABLE` (stamped at stretch
+  start). Labels resolved at read time through `PackageManager`; an uninstalled app shows its package.
+  Old lines without the field read as blank: no migration. `<queries>` for the MAIN/LAUNCHER intent, not
+  `QUERY_ALL_PACKAGES`.
+- **Privacy line** (LIMITATIONS, README): "The Log names the app that was on screen when something was
+  hidden: the app's name, never what was in it. No pixels, no text, no window titles. It stays on the
+  phone for 7 days."
+
+## D58 — Escalation and per-app rules (2026-10-12, human decisions, M8 ticket 07)
+
+- **Escalation:** fixed rule, no tuning: 3 masked episodes with the same Episode app within a rolling
+  10 min → that app is blocked 15 min. One switch "Bloquear apps que muestran contenido explícito
+  repetidamente", default on. Unanalyzable stretches, blank app, trusted and excluded apps never count.
+  The block fires at once, even with the app in front. The count restarts after a block ends. Not tied
+  to Sensitivity.
+- **Enforcement (accessibility only):** `typeWindowStateChanged` from **all** packages (D56's package
+  filter is dropped; still no content events). A blocked app coming to the front → `GLOBAL_ACTION_HOME`
+  + Sophiel's block screen. Only while protection is on, including during an Unlock. Without the service:
+  no blocking and no trusting; the Apps rows show disabled with "Necesita el servicio de accesibilidad".
+- **Block end times are wall clock** and survive reboot (re-checked when the service rebinds). A PIN Stop
+  clears active escalation blocks.
+- **Block screen** (full-screen activity): app icon + label; escalation "Bloqueada por Sophiel · vuelve
+  en N min" with a small "Desbloquear con PIN" (D38 door; a correct PIN ends the block and resets the
+  count); rule "El Padre bloqueó esta app", no PIN button. "Ir al inicio"; Back goes Home.
+- **Trusted app in front:** masks drop at once and inference stops (screen share: images acquired and
+  closed unread, VirtualDisplay kept; accessibility: shots stop). A split screen or PiP is trusted only
+  if every app window is. Scanning resumes on the next window change to a non-trusted app.
+- **Settings "Apps"** (behind the door): escalation switch, search field, launchable apps by label
+  (changed ones pinned first), each Normal / Bloqueada / De confianza; one-line warning that trusting a
+  browser lets anything through. **Excluded** from the list and from escalation: Sophiel, Settings, the
+  default launcher, the default dialer.
+- **Log kinds:** "App bloqueada" (escalation: time + app + minutes, one per block) and "Apertura
+  bloqueada" (time + app + reason rule / escalation, 60 s merge as for tamper attempts). Trusted apps
+  write nothing.
+- **Not built:** `setPackagesSuspended()` (needs system or Device Owner), UsageStats polling, daily usage
+  limits, temporary allowances.
+
+## D59 — Log dashboard, text report, Status blocks (2026-10-12, human decisions, M8 ticket 08)
+
+Amends D44/D45's Log layout. Prototype: branch `proto/m8-log-report` (794a92c), `mockups/log-report.html`.
+
+- **Log screen:** top, summary chips (tapados · más en <app>, intentos, bloqueos), a 7-day bar chart of
+  masked episodes per day, and a "Por app" list with bars (masked count per app, 7 days). Below, the
+  Todo / Tapados / Otros filter and rows grouped under day headers with the day's total ("Hoy · 8
+  tapados"). New kinds use the same row. No per-app drill-down.
+- **Report:** "Informe" on the Log header (already behind the door). Bottom sheet: Hoy / 7 días, a
+  plain-text preview, "Compartir…" → `ACTION_SEND` text/plain. Contents: period, date, counts of tapados
+  / sin revisar / Sin protección (times) / tamper attempts / apps bloqueadas, top 3 apps, per-day counts
+  for 7 días, and "Solo cifras. Sophiel no guarda imágenes." Text from string resources; counts only what
+  is still in the 7-day Log. No FileProvider, no image card (future work). Sophiel itself sends nothing.
+- **Status:** one orange line per active escalation block, "Instagram bloqueada · 12 min", counting
+  down. Rule blocks are not shown.
+
+## D60 — M8 written into SPEC; schedules are a stretch goal (2026-10-12, M8 ticket 09, human-reviewed)
+
+- **SPEC:** M8 — Solution fit sits between M6 and M7 (D53), ~2 weeks, built in the map's priority order:
+  capture mode, guard, episode app, escalation and rules, Log and report. §1, §3, §4, §7 and §9 are
+  updated; M7's soak, feel numbers and demo runbook now cover both capture modes and the M8 story.
+- **Schedules (stricter protection at night, time windows) are an M8 stretch goal** (human, on review). Not
+  specified: plan them before building, only with slack once deliverables 1-5 pass. A reminder
+  notification for the daily / weekly report (the Hoy / 7 días report, D59) can ride with them; Sophiel
+  still never sends anything by itself.
+- **Confirmed on review:** the guard's PIN-pad line "Este ajuste está protegido"; `ui/BlockActivity`;
+  `isAccessibilityTool="true"` only if B hides the "Stop Sophiel?" page from the service.
+- **SPEC §2 corrected:** `targetSdk = 37`, as in `app/build.gradle.kts` (found in ticket 04).

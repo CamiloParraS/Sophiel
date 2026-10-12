@@ -11,19 +11,13 @@ Agent entrypoint for **Sophiel**. Read this fully, then read `./docs/SPEC.md`.
 > **Update this block at the end of every work session. It is the first thing you and I both read.**
 
 ```
-CURRENT MILESTONE:  M8 — Solution fit, PLANNING (D53: freeze lifted for M8 only, ~2 weeks; then UI polish,
-                    then M7). Map: .scratch/m8-solution-fit/map.md. No M8 code until its SPEC section exists.
-                    M6 done 2026-10-11 (D52). M8 tickets 01, 02, 04 resolved: accessibility screenshots work
-                    with no consent and come back after a reboot (spike/a11y-capture 65fe40a, not merged);
-                    A exposes ~0.45 s per probe on them. Ticket 03 resolved: hybrid capture behind one switch
-                    ("Seguir protegiendo siempre"), Protection stays on until a PIN Stop. Ticket 05 resolved:
-                    accessibility guard on Sophiel's system pages, opens the PIN pad; no Device Admin (future
-                    work). Ticket 10 resolved: screen share survives screen-off on A, so below API 35
-                    screen-off pauses frames instead of ending it (amends D18). Ticket 06 resolved: Log
-                    names the episode app (package, label at read time; amends D39). Ticket 07 resolved:
-                    3 masked episodes in 10 min block the app 15 min; per-app Bloqueada / De confianza
-                    in Settings "Apps"; accessibility sends Home + block screen. Ticket 08 resolved (Log, text report, Status blocks). Next: 09 write M8 into SPEC.
-                    M5 done 2026-10-05 (D36).
+CURRENT MILESTONE:  M8 — Solution fit, SPEC WRITTEN and reviewed 2026-10-12 (D53: freeze lifted
+                    for M8 only, ~2 weeks; then UI polish, then M7). SPEC §5 "M8 — Solution fit" + new §4.7
+                    capture modes; decisions D54-D60. Planning map done: .scratch/m8-solution-fit/map.md
+                    (all 10 tickets resolved). Build order: 1 capture modes (hybrid, D54/D55), 2 tamper guard
+                    (D56), 3 episode app in the Log (D57), 4 escalation + per-app rules (D58), 5 Log dashboard
+                    + text report (D59). Stretch: schedules (D60, unspecified).
+                    M6 done 2026-10-11 (D52). M5 done 2026-10-05 (D36).
 STATUS:             M5 verified on A and B (D36): V1-V5 pass; probe exposure median/worst
                     A 146/306 ms, B 85/188 ms; after rotation A 220/304, B 129/210.
                     Release Start gate checked on B only. M5 decisions: D27-D36.
@@ -32,7 +26,7 @@ STATUS:             M5 verified on A and B (D36): V1-V5 pass; probe exposure med
                     Ticket 12 also fixed VerdictCache caching dHash 0 (black tiles inherited
                     an EXPLICIT verdict).
 BLOCKED ON:         Nothing.
-NEXT:               M7: soak on A and B, feel numbers per preset, LIMITATIONS.md (from SPEC §7), README,
+NEXT:               Build M8 deliverable 1 (capture modes, SPEC §4.7, D54/D55). After M8: UI polish, then M7: soak on A and B, feel numbers per preset, LIMITATIONS.md (from SPEC §7), README,
                     demo runbook + video. M7 has no tickets yet. M6 history below, map at
                     .scratch/m6-parent-app/map.md (decisions D38-D45).
                     Build tickets done: 09 settings, 10 cover path, 12 PinStore + unlock, 13 event log,
