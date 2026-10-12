@@ -1,5 +1,6 @@
 package dev.sophiel.ui
 
+import dev.sophiel.capture.CaptureMode
 import dev.sophiel.capture.ControllerPhase
 import dev.sophiel.core.Sensitivity
 import dev.sophiel.log.Entry
@@ -20,7 +21,8 @@ class StatusModelTest {
         last: Entry? = null,
         preset: ParentPreset = ParentPreset.BALANCED,
         sdk: Int = 35,
-    ) = StatusModel.of(StatusInput(phase, bound, overlay, notifications, last, preset, Sensitivity.NORMAL, sdk))
+        mode: CaptureMode = if (phase == ControllerPhase.RUNNING) CaptureMode.SCREEN_SHARE else CaptureMode.NONE,
+    ) = StatusModel.of(StatusInput(phase, bound, overlay, notifications, last, preset, Sensitivity.NORMAL, sdk, mode))
 
     private fun off(reason: String) = Entry(1_000, "OFF", listOf(reason))
 
@@ -28,12 +30,22 @@ class StatusModelTest {
     fun runningIsProtectedAndItemsThatFailDropOut() {
         val ok = model(ControllerPhase.RUNNING)
         assertEquals(Page.PROTECTED, ok.page)
-        assertEquals(dev.sophiel.capture.CaptureMode.SCREEN_SHARE, ok.mode)
-        assertEquals(dev.sophiel.capture.CaptureMode.NONE, model().mode)
+        assertEquals(CaptureMode.SCREEN_SHARE, ok.mode)
+        assertEquals(CaptureMode.NONE, model().mode)
         assertTrue(ok.missing.isEmpty())
         // The service gets turned off mid-session: its row leaves the collapsed "Todo en orden".
         assertEquals(listOf(Need.SERVICE), model(ControllerPhase.RUNNING, bound = false).missing)
         assertTrue(model(ControllerPhase.STOPPING).stopBusy)
+    }
+
+    @Test
+    fun accessibilityModeIsProtectedWithNoShare() { // D54: the share ended, protection goes on
+        val m = model(mode = CaptureMode.ACCESSIBILITY)
+        assertEquals(Page.PROTECTED, m.page)
+        assertEquals(CaptureMode.ACCESSIBILITY, m.mode)
+        assertNull(m.note)
+        // An older OFF (switch off, a past share) does not show "Se detuvo" over it.
+        assertEquals(Page.PROTECTED, model(mode = CaptureMode.ACCESSIBILITY, last = off(OffReason.SYSTEM)).page)
     }
 
     @Test

@@ -284,12 +284,6 @@ class MainActivity : ComponentActivity() {
                 .putExtra(ProjectionService.EXTRA_RESULT_DATA, pendingResultData)
             startForegroundService(intent)
         }
-
-        override fun stopCaptureService() {
-            val intent = Intent(this@MainActivity, ProjectionService::class.java)
-                .setAction(ProjectionService.ACTION_STOP)
-            startService(intent)
-        }
     }
 }
 
@@ -303,9 +297,10 @@ private fun statusScreen(controller: ProjectionController, container: AppContain
     val overlay = remember(resumes) { Settings.canDrawOverlays(context) }
     val notifications = remember(resumes) { NotificationManagerCompat.from(context).areNotificationsEnabled() }
     // The Log is written at ON / OFF, which coincide with phase changes.
-    val last = remember(state.phase, resumes) { container.log.last() }
+    val mode by container.captureModes.state.collectAsState()
+    val last = remember(state.phase, mode.protecting, resumes) { container.log.last() }
     val model = StatusModel.of(
-        StatusInput(state.phase, bound, overlay, notifications, last, settings.preset, settings.sensitivity, Build.VERSION.SDK_INT),
+        StatusInput(state.phase, bound, overlay, notifications, last, settings.preset, settings.sensitivity, Build.VERSION.SDK_INT, mode.mode),
     )
     StatusScreen(model, door, actions, modifier)
 }

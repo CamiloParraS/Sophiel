@@ -23,8 +23,14 @@ enum class TileState { CLEAR, MASKED, PROBING, PEEKING }
  * Not thread-safe: drive it from one frame stream.
  *
  * @param peek read whenever a probe starts: true starts it as PEEKING (ticket 16)
+ * @param probeTimeout read live: the capture mode can change mid-probe (D54)
  */
-class TileMaskTracker(private var cols: Int, rows: Int, private val peek: () -> Boolean = { false }) {
+class TileMaskTracker(
+    private var cols: Int,
+    rows: Int,
+    private val peek: () -> Boolean = { false },
+    private val probeTimeout: () -> Long = { PROBE_VALID_MS },
+) {
 
     private class Tile {
         var state = CLEAR
@@ -122,7 +128,7 @@ class TileMaskTracker(private var cols: Int, rows: Int, private val peek: () -> 
     }
 
     /**
-     * Re-masks every probe with no valid frame within 300 ms. [endFrame] does this too; call it
+     * Re-masks every probe with no valid frame within [probeTimeoutMs]. [endFrame] does this too; call it
      * on a timer while a tile is PROBING, because a screen that goes static after the mask is
      * lifted delivers no frame. A peek with no verdict in 1 s is lifted as a backstop ([liftPeek]).
      */
@@ -130,7 +136,7 @@ class TileMaskTracker(private var cols: Int, rows: Int, private val peek: () -> 
         if (pausedAt != null) return
         for (tile in tiles) {
             val age = now - tile.enteredAt
-            if (tile.state == PROBING && age >= PROBE_VALID_MS) tile.remask(tile.lockedHash, now)
+            if (tile.state == PROBING && age >= probeTimeoutMs) tile.remask(tile.lockedHash, now)
             if (tile.state == PEEKING && age >= PEEK_VALID_MS) tile.enter(PROBING, now)
         }
     }
@@ -148,7 +154,7 @@ class TileMaskTracker(private var cols: Int, rows: Int, private val peek: () -> 
 
     /**
      * Ticket 16: no window shot for this PEEKING tile (it failed, timed out, or peeking stopped).
-     * It probes the old way, mask lifted, with a fresh 300 ms. Device B: inside X every shot
+     * It probes the old way, mask lifted, with a fresh probe timeout. Device B: inside X every shot
      * failed after ~2 s, and timing those out re-masked tiles for minutes.
      */
     fun liftPeek(index: Int, now: Long) {
@@ -190,7 +196,7 @@ class TileMaskTracker(private var cols: Int, rows: Int, private val peek: () -> 
     }
 
     /** How long a probe may wait for a captured frame without our mask before re-masking. */
-    val probeTimeoutMs get() = PROBE_VALID_MS
+    val probeTimeoutMs get() = probeTimeout()
 
     /** A Sophiel screen is in front: freeze states and timers, ignore frames until [resume]. */
     fun pause(now: Long) {
@@ -264,12 +270,13 @@ class TileMaskTracker(private var cols: Int, rows: Int, private val peek: () -> 
      */
     private fun Tile.probeGap() = MIN_PROBE_GAP_MS shl minOf(wastedProbes, 3)
 
-    private companion object {
-        const val ENGAGE_FRAMES = 2 // the old PolicyEngine value; tuned in ticket 07
-        const val RECENT_RELEASE_MS = 3_000L // ticket 15 calibration knob: set from the clip's flip gaps
-        const val MIN_PROBE_GAP_MS = 1_000L
-        const val PROBE_TIMER_MS = 2_000L
+    companion object {
+        private const val ENGAGE_FRAMES = 2 // the old PolicyEngine value; tuned in ticket 07
+        private const val RECENT_RELEASE_MS = 3_000L // ticket 15 calibration knob: set from the clip's flip gaps
+        private const val MIN_PROBE_GAP_MS = 1_000L
+        private const val PROBE_TIMER_MS = 2_000L
+        /** The default probe timeout: screen share frames (§3.4). Accessibility passes its own. */
         const val PROBE_VALID_MS = 300L
-        const val PEEK_VALID_MS = 1_000L // backstop only: CaptureSession lifts a failed shot at once
+        private const val PEEK_VALID_MS = 1_000L // backstop only: CaptureSession lifts a failed shot at once
     }
 }

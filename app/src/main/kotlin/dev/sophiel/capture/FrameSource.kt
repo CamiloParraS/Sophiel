@@ -115,4 +115,4 @@ class FrameSource(
 /** What [FrameSource] does with an image: decode it and run it (onFrame), decode and hold it to offer again, or drop it undecoded. */
 enum class FrameDecision { RUN, HOLD, DROP }
 
-private const val HOLD_RETRY_MS = 10L
+internal const val HOLD_RETRY_MS = 10L

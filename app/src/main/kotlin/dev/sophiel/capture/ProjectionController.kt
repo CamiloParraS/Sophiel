@@ -1,13 +1,12 @@
 package dev.sophiel.capture
 
-import dev.sophiel.settings.ProtectionStore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /**
  * Drives the SPEC.md §4.4 state machine and dispatches the Android side effects (permission
- * requests, starting/stopping [dev.sophiel.capture.ProjectionService]) that move it forward.
+ * requests, starting [dev.sophiel.capture.ProjectionService]) that move it forward.
  *
  * Effects run on phase *entry* ([onEnter]), so each fires once per transition — never again on
  * a repeated call (the D17 Settings loop was exactly that).
@@ -17,7 +16,7 @@ import kotlinx.coroutines.flow.asStateFlow
  * whichever `MainActivity` instance is currently alive. [Effects] is re-attached by the current
  * Activity in `onStart()` and cleared in `onStop()` so a destroyed Activity is never leaked.
  */
-class ProjectionController(private val protection: ProtectionStore) {
+class ProjectionController(private val stopProtection: () -> Unit) {
     private val _state = MutableStateFlow(ControllerState())
     val state: StateFlow<ControllerState> = _state.asStateFlow()
 
@@ -34,7 +33,6 @@ class ProjectionController(private val protection: ProtectionStore) {
         fun requestOverlayPermission()
         fun launchConsentRequest()
         fun startCaptureService()
-        fun stopCaptureService()
     }
 
     fun start() = apply(ControllerEvent.StartRequested)
@@ -51,10 +49,7 @@ class ProjectionController(private val protection: ProtectionStore) {
         apply(ControllerEvent.OverlayResult(effects.hasOverlayPermission()))
     }
 
-    fun onConsentResult(granted: Boolean) {
-        if (granted) protection.protecting = true // D54: Start is complete at consent
-        apply(ControllerEvent.ConsentResult(granted))
-    }
+    fun onConsentResult(granted: Boolean) = apply(ControllerEvent.ConsentResult(granted))
 
     /** The service confirms `startForeground()` succeeded. */
     fun onServiceStarted() = apply(ControllerEvent.ServiceStarted)
@@ -62,14 +57,13 @@ class ProjectionController(private val protection: ProtectionStore) {
     /** The service confirms `getMediaProjection()` succeeded. */
     fun onProjectionAcquired() = apply(ControllerEvent.ProjectionAcquired)
 
-    /** The Parent's PIN Stop: the only way protection goes off with the switch on (D54). */
+    /** The Parent's PIN Stop: the only way protection goes off with the switch on (D54). Ends the share too. */
     fun stop() {
-        protection.protecting = false
         apply(ControllerEvent.StopRequested)
-        effects?.stopCaptureService()
+        stopProtection()
     }
 
-    /** The service released its session, however it ended. */
+    /** The service's share ended, however it ended. */
     fun onTeardownComplete() = apply(ControllerEvent.TeardownComplete)
 
     private fun apply(event: ControllerEvent) {

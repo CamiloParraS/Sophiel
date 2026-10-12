@@ -27,6 +27,7 @@ class StatusInput(
     val preset: ParentPreset,
     val sensitivity: Sensitivity,
     val sdk: Int,
+    val mode: CaptureMode, // live, from CaptureModeController (SPEC §4.7)
 )
 
 /** What Status shows, so the composable only draws. [stopped] is the OFF entry behind "Se detuvo". */
@@ -57,7 +58,8 @@ class StatusModel(
             val blocking = REQUIRED.filter { it in missing }
             // D45: an OFF the user did not cause, until the next start logs an ON.
             val stopped = i.last?.takeIf { it.kind == "OFF" && it.fields.firstOrNull().let { r -> r != null && r != OffReason.USER } }
-            val running = i.phase == ControllerPhase.RUNNING || i.phase == ControllerPhase.STOPPING
+            // D54: accessibility mode protects with no share running.
+            val running = i.phase == ControllerPhase.RUNNING || i.phase == ControllerPhase.STOPPING || i.mode == CaptureMode.ACCESSIBILITY
             val page = when {
                 running -> Page.PROTECTED
                 i.phase in STARTING -> Page.STARTING
@@ -78,9 +80,7 @@ class StatusModel(
                 !i.serviceBound -> Fallback.ACCESSIBILITY_OFF
                 else -> null
             }
-            // Until the accessibility modes are wired (M8 tickets 12-13), a running session is a screen share.
-            val mode = if (page == Page.PROTECTED) CaptureMode.SCREEN_SHARE else CaptureMode.NONE
-            return StatusModel(page, missing, startEnabled, note, stopped, i.preset, i.sensitivity, fallback, i.phase == ControllerPhase.STOPPING, mode)
+            return StatusModel(page, missing, startEnabled, note, stopped, i.preset, i.sensitivity, fallback, i.phase == ControllerPhase.STOPPING, i.mode)
         }
     }
 }

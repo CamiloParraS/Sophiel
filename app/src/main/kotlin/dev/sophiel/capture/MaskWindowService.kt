@@ -6,9 +6,11 @@ import android.graphics.Bitmap
 import android.graphics.Rect
 import android.os.Build
 import android.util.Log
+import android.view.Display
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityWindowInfo
 import androidx.annotation.RequiresApi
+import dev.sophiel.SophielApp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.asExecutor
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,7 +22,8 @@ import kotlin.coroutines.resume
  * The mask window's host (D32): an accessibility service that lends [OverlayController] a
  * TYPE_ACCESSIBILITY_OVERLAY window token. Android 12+ treats that window as trusted, so the 0.8
  * opacity cap (D28) does not apply and masks draw opaque. Release builds need it to start; debug
- * builds may start on the 0.79 app overlay without it.
+ * builds may start on the 0.79 app overlay without it. M8 (D54): its [displayShot]s are the frames
+ * while no share runs.
  *
  * No event types. Window content only for [appWindowShot] (ticket 16): ids and bounds, never nodes
  * (res/xml/mask_window_service.xml).
@@ -32,12 +35,30 @@ class MaskWindowService : AccessibilityService() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) setCacheEnabled(false)
         current.value = this
         onChange?.invoke()
+        modes.serviceChanged() // D54: protection on resumes in accessibility mode, also at the first unlock after a reboot
     }
 
     override fun onUnbind(intent: Intent?): Boolean {
         current.value = null
         onChange?.invoke()
+        modes.serviceChanged()
         return super.onUnbind(intent)
+    }
+
+    private val modes get() = (application as SophielApp).container.captureModes
+
+    /** D54: the whole display, our masks included; null on failure (logged). The caller closes the buffer at once. */
+    @RequiresApi(Build.VERSION_CODES.R)
+    suspend fun displayShot(): ScreenshotResult? = suspendCancellableCoroutine { cont ->
+        takeScreenshot(Display.DEFAULT_DISPLAY, Dispatchers.Default.asExecutor(), object : TakeScreenshotCallback {
+            // Cancelled meanwhile (the loop stopped): nobody else will close it.
+            override fun onSuccess(shot: ScreenshotResult) = cont.resume(shot) { _, s, _ -> s?.hardwareBuffer?.close() }
+
+            override fun onFailure(errorCode: Int) {
+                Log.d("Sophiel", "display shot failed, error $errorCode")
+                cont.resume(null)
+            }
+        })
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) = Unit

@@ -1,6 +1,7 @@
 package dev.sophiel
 
 import android.content.Context
+import dev.sophiel.capture.CaptureModeController
 import dev.sophiel.capture.OwnScreens
 import dev.sophiel.capture.ProjectionController
 import dev.sophiel.core.Sensitivity
@@ -47,10 +48,13 @@ class AppContainer(context: Context) {
 
     val protection = ProtectionStore(context)
 
-    val projectionController = ProjectionController(protection)
-
     /** Ticket 09: a Sophiel screen fills the display; capture hides the masks and pauses. */
     val ownScreens = OwnScreens()
+
+    /** SPEC.md §4.7: protection and capture mode; owns the capture session. After what it reads. */
+    val captureModes = CaptureModeController(context, this)
+
+    val projectionController = ProjectionController(captureModes::stop)
 
     /** Spike (D24): model the live capture judges with, picked on the Status screen (debug builds). */
     @Volatile

@@ -43,6 +43,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import dev.sophiel.R
+import dev.sophiel.capture.CaptureMode
 import dev.sophiel.core.Sensitivity
 import dev.sophiel.log.OffReason
 import dev.sophiel.settings.ParentPreset
@@ -199,7 +200,10 @@ private fun Note(@StringRes id: Int) =
 private fun Hero(model: StatusModel, stoppedAt: String) {
     val blocking = StatusModel.REQUIRED.count { it in model.missing }
     when (model.page) {
-        Page.PROTECTED -> StatusPage(R.drawable.ic_shield_ok, stringResource(R.string.status_protected), stringResource(R.string.status_mode_share), Tone.Ok)
+        Page.PROTECTED -> StatusPage(
+            R.drawable.ic_shield_ok, stringResource(R.string.status_protected),
+            stringResource(if (model.mode == CaptureMode.ACCESSIBILITY) R.string.status_mode_a11y else R.string.status_mode_share), Tone.Ok,
+        )
         Page.OFF -> StatusPage(R.drawable.ic_shield_off, stringResource(R.string.status_idle), pluralStringResource(R.plurals.status_missing, blocking, blocking), Tone.Off)
         Page.READY -> StatusPage(
             R.drawable.ic_shield, stringResource(R.string.status_ready),

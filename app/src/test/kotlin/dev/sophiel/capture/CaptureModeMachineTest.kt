@@ -11,7 +11,10 @@ import dev.sophiel.capture.ModeEvent.ShareEnded
 import dev.sophiel.capture.ModeEvent.ShareStarted
 import dev.sophiel.capture.ModeEvent.Stop
 import dev.sophiel.capture.ModeEvent.SwitchOff
+import dev.sophiel.capture.ModeEvent.SwitchOn
+import dev.sophiel.log.OffReason
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 /** One test per arrow of the SPEC.md §4.7 diagram (D54). */
@@ -50,9 +53,38 @@ class CaptureModeMachineTest {
 
     @Test
     fun belowApi35ScreenOffKeepsTheShare() { // D55: frames pause, the mode does not change
-        val s = run(sharing, ScreenOff)
+        val s = run(sharing.copy(shareSurvivesScreenOff = true), ScreenOff)
         assertEquals(SCREEN_SHARE, s.mode)
         assertEquals(SCREEN_SHARE, run(s, ScreenOn).mode)
+    }
+
+    @Test
+    fun screenOffEndsTheShareWhenItCannotPause() {
+        // API 35+: the share ends at screen-off, protection goes on in accessibility at screen-on.
+        val b = run(sharing, ScreenOff)
+        assertEquals(NONE, b.mode)
+        assertEquals(true, b.protecting)
+        assertEquals(ACCESSIBILITY, run(b, ScreenOn).mode)
+        // Below 35 with nothing to fall back on (switch off, service unbound): the share ends at screen-off as in M6.
+        val a = sharing.copy(shareSurvivesScreenOff = true)
+        assertEquals(false, run(a.copy(keepProtecting = false), ScreenOff).protecting)
+        assertEquals(NONE, run(a.copy(serviceBound = false), ScreenOff).mode)
+    }
+
+    @Test
+    fun aLateShareEndChangesNothing() { // the system's onStop after the screen-off already ended it
+        val acc = run(sharing, ShareEnded)
+        assertEquals(acc, run(acc, ShareEnded))
+        val off = run(sharing, ScreenOff)
+        assertEquals(off, run(off, ShareEnded))
+    }
+
+    @Test
+    fun switchOnResumesNothingByItselfButAllowsTheFallback() {
+        val noKeep = sharing.copy(keepProtecting = false)
+        assertEquals(SCREEN_SHARE, run(noKeep, SwitchOn).mode)
+        assertEquals(ACCESSIBILITY, run(noKeep, SwitchOn, ShareEnded).mode)
+        assertEquals(NONE, run(idle.copy(serviceBound = true, keepProtecting = false), SwitchOn).mode) // not protecting
     }
 
     @Test
@@ -112,5 +144,36 @@ class CaptureModeMachineTest {
         }
         // Not protecting: nothing resumes by itself.
         assertEquals(NONE, run(run(sharing, Stop), ServiceBound, ScreenOn).mode)
+    }
+
+    /** D39's OFF for the last event of [e] (the Log line [CaptureModeController] writes). */
+    private fun offAfter(s: ModeState, vararg e: ModeEvent): String? {
+        val old = run(s, *e.dropLast(1).toTypedArray())
+        return CaptureModeMachine.offReason(old, CaptureModeMachine.reduce(old, e.last()), e.last())
+    }
+
+    @Test
+    fun offIsLoggedOnlyWhereProtectionOrTheLastCaptureEnds() {
+        assertEquals(OffReason.USER, offAfter(sharing, Stop))
+        assertEquals(OffReason.USER, offAfter(sharing, ShareEnded, SwitchOff))
+        val switchOff = sharing.copy(keepProtecting = false)
+        assertEquals(OffReason.SYSTEM, offAfter(switchOff, ShareEnded))
+        assertEquals(OffReason.SCREEN_OFF, offAfter(switchOff, ScreenOff))
+        assertNull(offAfter(switchOff, ScreenOff, ShareEnded)) // the late onStop: one OFF, not two
+        // Switch on, unbound: protection stays on but nothing reads the screen (ticket 16 replaces this OFF).
+        assertEquals(OffReason.SYSTEM, offAfter(sharing.copy(serviceBound = false), ShareEnded))
+        // A fallback, or a paused share (D55): no OFF.
+        assertNull(offAfter(sharing, ShareEnded))
+        assertNull(offAfter(sharing, ScreenOff, ShareEnded))
+        assertNull(offAfter(sharing.copy(shareSurvivesScreenOff = true), ScreenOff))
+        assertNull(offAfter(sharing, ShareEnded, ScreenOff))
+    }
+
+    @Test
+    fun theSessionLivesWhileCapturingOrWaitingForScreenOn() {
+        assertEquals(true, run(sharing, ShareEnded).holdsSession)
+        assertEquals(true, run(sharing, ShareEnded, ScreenOff).holdsSession) // paused for screen-on
+        assertEquals(false, run(sharing, ShareEnded, ServiceUnbound).holdsSession)
+        assertEquals(false, run(sharing, Stop).holdsSession)
     }
 }

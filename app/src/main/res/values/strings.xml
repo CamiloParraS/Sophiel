@@ -53,6 +53,7 @@
     <!-- Estado -->
     <string name="status_protected">Protegido</string>
     <string name="status_mode_share">Protección activa · compartir pantalla</string>
+    <string name="status_mode_a11y">Protección activa · accesibilidad</string>
     <plurals name="status_missing">
         <item quantity="one">Falta %d cosa</item>
         <item quantity="other">Faltan %d cosas</item>

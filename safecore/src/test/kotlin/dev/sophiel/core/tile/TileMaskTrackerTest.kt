@@ -25,7 +25,7 @@ class TileMaskTrackerTest {
         .also { endFrame(now) }
 
     /** Light tracker with its tile masked at t=100 on [unsafe]; [peek] starts its probes as peeks. */
-    private fun maskedLight(peek: Boolean = false) = TileMaskTracker(1, 1) { peek }.apply {
+    private fun maskedLight(peek: Boolean = false) = TileMaskTracker(1, 1, peek = { peek }).apply {
         frame(0, listOf(unsafe), flagged = setOf(0))
         frame(100, listOf(unsafe), flagged = setOf(0))
         assertEquals(MASKED, this[0])
@@ -132,6 +132,22 @@ class TileMaskTrackerTest {
         t.frame(2300, listOf(mask), showsMask = setOf(0))
         assertEquals(PROBING, t[0])
         t.frame(2400, listOf(mask), showsMask = setOf(0))
+        assertEquals(MASKED, t[0])
+    }
+
+    @Test fun `the probe timeout follows the capture mode, read live`() {
+        var timeout = 300L // screen share
+        val t = TileMaskTracker(1, 1, probeTimeout = { timeout }).apply {
+            frame(0, listOf(unsafe), flagged = setOf(0))
+            frame(100, listOf(unsafe), flagged = setOf(0))
+            frame(2100, listOf(mask))
+        }
+        assertEquals(PROBING, t[0])
+        timeout = 700 // D54: the share ended mid-probe; shots come 400 ms apart
+        t.expireProbes(2400)
+        assertEquals(PROBING, t[0])
+        assertEquals(700L, t.probeTimeoutMs)
+        t.expireProbes(2800)
         assertEquals(MASKED, t[0])
     }
 
