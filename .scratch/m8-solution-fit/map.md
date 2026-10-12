@@ -27,6 +27,7 @@ A new `docs/SPEC.md` milestone section **M8 — Solution fit** (deliverables + v
 - [Does screen share survive screen-off on A?](issues/10-screen-share-through-screen-off-on-a.md): yes; below API 35 screen-off pauses frames instead of ending the share (amends D18), so A stays on screen share all day after one consent; B keeps the teardown.
 - [App attribution in the Log](issues/06-app-attribution-in-the-log.md): each episode (and unanalyzable stretch) names the app under its strongest mask at the start, package in `log.csv`, label at read time; blank without the service; no split on app change; `<queries>` launcher intent; rows show the app, summary names the top app; full breakdown left to 08.
 - [Escalation and per-app rules](issues/07-escalation-and-app-rules.md): fixed 3 masked episodes in 10 min blocks the app 15 min (switch, default on); rule-blocked / trusted apps per app in a Settings "Apps" screen; accessibility service sends Home + block screen while Protection is on; PIN lifts escalation blocks only; trusted apps stop inference; Sophiel, Settings, launcher, dialer excluded; two new Log kinds; PiP and notifications are limitations.
+- [Log upgrades and the shared report](issues/08-log-upgrades-and-shared-report.md): Log = bar chart + per-app list on top, day-grouped rows below; PIN-gated text-only report (Hoy / 7 días) via the share sheet; Status shows active escalation blocks. Prototype on `proto/m8-log-report`.
 
 ## Not yet specified
 
