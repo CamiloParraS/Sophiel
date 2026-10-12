@@ -11,7 +11,11 @@ Agent entrypoint for **Sophiel**. Read this fully, then read `./docs/SPEC.md`.
 > **Update this block at the end of every work session. It is the first thing you and I both read.**
 
 ```
-CURRENT MILESTONE:  M7 — Harden and ship (week 4). M6 done 2026-10-11 (D52), FEATURE FREEZE in effect.
+CURRENT MILESTONE:  M8 — Solution fit, PLANNING (D53: freeze lifted for M8 only, ~2 weeks; then UI polish,
+                    then M7). Map: .scratch/m8-solution-fit/map.md. No M8 code until its SPEC section exists.
+                    M6 done 2026-10-11 (D52). M8 tickets 01, 02, 04 resolved: accessibility screenshots work
+                    with no consent and come back after a reboot (spike/a11y-capture 65fe40a, not merged);
+                    A exposes ~0.45 s per probe on them. Next: ticket 03 (capture backend, grilling).
                     M5 done 2026-10-05 (D36).
 STATUS:             M5 verified on A and B (D36): V1-V5 pass; probe exposure median/worst
                     A 146/306 ms, B 85/188 ms; after rotation A 220/304, B 129/210.

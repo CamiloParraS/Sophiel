@@ -1395,3 +1395,20 @@ Thorough, Precise, with the one-line help under each ("Revisa más zonas. Usa m�
   move to the 0.79 app overlay (SPEC §7 limitation 22). Turning it on is seamless (D42).
 - **Feature freeze starts.** Only bug fixes for failing verification items and measurement
   instrumentation from here (CLAUDE.md). Next: M7.
+
+## D53 — Feature freeze lifted for M8 — Solution fit (2026-10-11, human decision, `/wayfinder` charting)
+
+- **Why:** the app works but does not feel like it solves the parental-control problem: the Child can
+  turn it off in seconds, it needs fresh consent every session and dies on reboot, the Parent learns
+  only "N masks today", and it never escalates. The schedule is ahead (about 3 weeks left), so the
+  D52 freeze is lifted for one time-boxed milestone.
+- **M8 — Solution fit**, inserted before M7: about 2 weeks, then about 3-4 days of UI polish (a
+  separate effort), then about 3-4 days of M7. Planned in `.scratch/m8-solution-fit/map.md`; the
+  map's destination is a SPEC M8 section plus D-entries.
+- **Scope direction (details decided in the map's tickets):** survive reboot and lost consent
+  (accessibility screenshots as a capture fallback, hybrid preferred); a settings guard + Device Admin
+  + start on boot (tamper resistance moves out of SPEC §1.3, Device Owner stays out); app names in
+  the Log (amends D39 and D32); escalation (repeated hits block an app for a while) and per-app rules
+  (blocked / trusted); a PIN-gated report shared through the Android share sheet.
+- **Kept:** C1, no `INTERNET`. Store and policy limits no longer apply (Device Admin, boot receiver,
+  `QUERY_ALL_PACKAGES`, accessibility events). Nothing sends messages by itself (one SIM phone to test).
