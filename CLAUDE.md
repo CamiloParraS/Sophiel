@@ -15,7 +15,11 @@ CURRENT MILESTONE:  M8 — Solution fit, PLANNING (D53: freeze lifted for M8 onl
                     then M7). Map: .scratch/m8-solution-fit/map.md. No M8 code until its SPEC section exists.
                     M6 done 2026-10-11 (D52). M8 tickets 01, 02, 04 resolved: accessibility screenshots work
                     with no consent and come back after a reboot (spike/a11y-capture 65fe40a, not merged);
-                    A exposes ~0.45 s per probe on them. Next: ticket 03 (capture backend, grilling).
+                    A exposes ~0.45 s per probe on them. Ticket 03 resolved: hybrid capture behind one switch
+                    ("Seguir protegiendo siempre"), Protection stays on until a PIN Stop. Ticket 05 resolved:
+                    accessibility guard on Sophiel's system pages, opens the PIN pad; no Device Admin (future
+                    work). Next: 06 app attribution (grilling); 10 (screen share through screen-off on A,
+                    device check) also open.
                     M5 done 2026-10-05 (D36).
 STATUS:             M5 verified on A and B (D36): V1-V5 pass; probe exposure median/worst
                     A 146/306 ms, B 85/188 ms; after rotation A 220/304, B 129/210.

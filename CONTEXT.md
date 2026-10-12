@@ -2,8 +2,9 @@
 
 - **Parent**: the person who sets up protection, knows the PIN, and sets sensitivity.
 - **Child**: the person using the protected phone; cannot change settings without the PIN.
-- **Protection**: the running state in which the screen is captured and analysed.
-- **Unlock**: the short window after the Parent enters the PIN in which Stop and Settings open without asking again. It ends after about 2 minutes without a PIN-gated action, or as soon as the Parent leaves the app or the screen turns off.
+- **Protection**: on from the moment the Parent turns it on until the Parent stops it with the PIN. Reboot, screen-off and lost consent don't end it; they change the capture mode.
+- **Capture mode**: how protection gets the screen right now: **screen share** (the Parent or Child accepted the system's share dialog), **accessibility** (screenshots, no dialog), or **none** (screen off, or nothing able to capture).
+- **Unlock**: the short window after the Parent enters the PIN in which Stop and Settings open without asking again, and the guard stays out of the way. It ends after about 2 minutes without a PIN-gated action, or as soon as the Parent leaves the app or the screen turns off; an Unlock started from the guard survives leaving the app for the guarded page.
 - **Preset**: a named performance/precision tradeoff. Three exist: **Light** (judges the whole frame), **Balanced** (judges a grid of tiles), and **Precise** (masks the boxes a detector finds; experimental, Android 14+, D35).
 - **Tile**: one cell of the grid that Balanced classifies on its own.
 - **Mask**: the covering drawn over a flagged tile (or the whole frame in Light).
@@ -12,7 +13,8 @@
 - **Sensitivity**: the Parent-set score threshold above which a frame or tile is flagged.
 - **Log entry**: a local record kept 7 days, scalars only, never pixels. Kinds: masked, protection on, protection off (with reason), unanalyzable.
 - **Unanalyzable**: a screen that returns only black frames (`FLAG_SECURE`), so it can't be judged.
-- **Tamper attempt**: the Child trying to turn protection off or remove Sophiel (its App info page, its accessibility toggle, uninstalling) while no Unlock is active. Blocked where possible, always written to the Log.
+- **Guard**: Sophiel closing a system page that could turn it off (its accessibility toggle, its "Appear on top" permission, its App info page, its uninstall dialog, its Stop in Active apps) and asking for the PIN instead. Armed whenever a PIN exists and no Unlock is active; a page is guarded only while the thing it turns off is on.
+- **Tamper attempt**: the guard closing one of those pages. Written to the Log as time + which page; repeats on the same page within a minute are one attempt.
 - **Blocked app**: an app the Child can't open: always, because the Parent marked it, or for a while, because it caused repeated masking episodes (escalation).
 - **Trusted app**: an app the Parent marked as never scanned; no masks appear over it.
 - **Report**: a summary of the Log the Parent sends out of the phone through another app (share sheet). Sophiel itself never sends anything.
