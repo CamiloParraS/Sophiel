@@ -126,6 +126,9 @@ class ProjectionService : Service() {
     }
 }
 
+internal fun Context.cancelResumeNotification() =
+    getSystemService(NotificationManager::class.java).cancel(RESUME_NOTIFICATION_ID)
+
 /**
  * D21: protection ended on its own. Tapping it opens MainActivity, which starts the normal flow; consent
  * is still fresh (§4.2). The alert channel exists: only a share's end posts this, after the service ran.

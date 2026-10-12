@@ -98,6 +98,7 @@ class CaptureModeController(context: Context, private val container: AppContaine
         Log.i(TAG, "$e: capture mode ${old.mode} -> ${new.mode}, protecting=${new.protecting} screenOn=${new.screenOn}")
         if (new.protecting != old.protecting) container.protection.protecting = new.protecting
         applyToSession(old, new)
+        if (old.protecting && !new.protecting) context.cancelResumeNotification() // a stale "tap to resume" must not start a session; the OFF below may post its own
         if (CaptureModeMachine.slowMode(old, new)) { // D54: the Parent can ask for the fast mode back; Sophiel never does
             container.log.shareStopped()
             context.postResumeNotification(R.string.notif_slow_title, R.string.notif_slow_text)

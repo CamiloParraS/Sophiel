@@ -133,14 +133,22 @@ class CaptureSession(
 
     private fun openDisplay(projection: MediaProjection) {
         val source = FrameSource(size.width, size.height, size.crop, ::decideFrame, ::onFrame)
-        display = checkNotNull(
+        val created = try {
             projection.createVirtualDisplay(
                 "SophielCapture",
                 size.width, size.height, size.densityDpi,
                 DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
                 source.surface, null, null,
-            ),
-        ) { "createVirtualDisplay() returned null" }
+            )
+        } catch (e: Throwable) {
+            source.close()
+            throw e
+        }
+        if (created == null) {
+            source.close()
+            error("createVirtualDisplay() returned null")
+        }
+        display = created
         frameSource = source
     }
 
@@ -237,11 +245,11 @@ class CaptureSession(
         var ran = false
         try {
             var decision = decideFrame(false)
-            while (decision == FrameDecision.HOLD) {
+            while (decision == FrameDecision.HOLD && shots) {
                 delay(HOLD_RETRY_MS)
                 decision = decideFrame(true)
             }
-            if (decision == FrameDecision.RUN) {
+            if (decision == FrameDecision.RUN && shots) { // a share took over while this shot was in the air: its frames are the only ones
                 onFrame(frame, availableAt)
                 ran = true
             }
