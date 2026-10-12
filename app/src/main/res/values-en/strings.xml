@@ -16,6 +16,7 @@
     <string name="notif_starting">Watching over your screen</string>
     <string name="notif_off_title">Protection turned off</string>
     <string name="notif_off_text">Android stopped protection. Tap to turn it on again.</string>
+    <string name="notif_alert_channel">Protection stopped alert</string>
     <string name="notif_stop">Stop</string>
     <string name="notif_paused_title">Sophiel protection paused</string>
     <string name="notif_paused_text">The screen turned off. Tap to resume.</string>

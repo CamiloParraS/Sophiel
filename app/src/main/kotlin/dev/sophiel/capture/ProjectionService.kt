@@ -41,6 +41,7 @@ class ProjectionService : Service() {
     companion object {
         private const val TAG = "Sophiel"
         private const val CHANNEL_ID = "capture"
+        private const val ALERT_CHANNEL_ID = "capture_alert" // importance is fixed once created, so a new id
         private const val NOTIFICATION_ID = 1
         private const val RESUME_NOTIFICATION_ID = 2
 
@@ -154,7 +155,9 @@ class ProjectionService : Service() {
         val pendingIntent = PendingIntent.getActivity(
             this, 0, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
-        val notification = NotificationCompat.Builder(this, CHANNEL_ID)
+        val notification = NotificationCompat.Builder(this, ALERT_CHANNEL_ID)
+            .setCategory(Notification.CATEGORY_ALARM)
+            .setPriority(NotificationCompat.PRIORITY_MAX)
             .setContentTitle(getString(title))
             .setContentText(getString(text))
             .setSmallIcon(R.drawable.ic_stat_sophiel)
@@ -187,6 +190,8 @@ class ProjectionService : Service() {
 
     private fun createNotificationChannel() {
         val channel = NotificationChannel(CHANNEL_ID, getString(R.string.notif_channel), NotificationManager.IMPORTANCE_LOW)
-        getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+        val alert = NotificationChannel(ALERT_CHANNEL_ID, getString(R.string.notif_alert_channel), NotificationManager.IMPORTANCE_HIGH)
+            .apply { enableVibration(true) }
+        getSystemService(NotificationManager::class.java).createNotificationChannels(listOf(channel, alert))
     }
 }

@@ -16,6 +16,7 @@
     <string name="notif_starting">Cuidando tu pantalla</string>
     <string name="notif_off_title">Protección desactivada</string>
     <string name="notif_off_text">Android detuvo la protección. Toca para activarla de nuevo.</string>
+    <string name="notif_alert_channel">Aviso de protección detenida</string>
     <string name="notif_stop">Detener</string>
     <string name="notif_paused_title">Protección de Sophiel en pausa</string>
     <string name="notif_paused_text">La pantalla se apagó. Toca para reanudar.</string>
