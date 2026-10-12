@@ -1392,6 +1392,6 @@ Thorough, Precise, with the one-line help under each ("Revisa más zonas. Usa m�
 - **Accepted without a run:** animations off on A, the ticket 15 wallpaper-accent check on B, and the
   ticket 17 Precise fallback line on B (accessibility off mid-session).
 - **Known limitation found:** turning the accessibility service off briefly uncovers the masks while they
-  move to the 0.79 app overlay (SPEC §7 limitation 11). Turning it on is seamless (D42).
+  move to the 0.79 app overlay (SPEC §7 limitation 22). Turning it on is seamless (D42).
 - **Feature freeze starts.** Only bug fixes for failing verification items and measurement
   instrumentation from here (CLAUDE.md). Next: M7.

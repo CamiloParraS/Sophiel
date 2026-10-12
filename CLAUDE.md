@@ -26,7 +26,7 @@ NEXT:               M7: soak on A and B, feel numbers per preset, LIMITATIONS.md
                     .scratch/m6-parent-app/map.md (decisions D38-D45).
                     Build tickets done: 09 settings, 10 cover path, 12 PinStore + unlock, 13 event log,
                     15 theme/type/parts/strings, 16 PIN pad and the door, 17 Status, 18 Log (checked on A; Status "Ver en Historial" opens it behind the door). 11 done (checked on A 2026-10-11:
-                    service-on swap seamless, service-off flickers, SPEC §7 limitation 11). V2 (Log) checked. D46: release starts without the accessibility service (0.79 overlay, Status
+                    service-on swap seamless, service-off flickers, SPEC §7 limitation 22). V2 (Log) checked. D46: release starts without the accessibility service (0.79 overlay, Status
                     warns). 19 done (checked on A and B). D47: debug-pill switch in the debug menu
                     (pill still debug-signed only). D48: Thorough 3x3 preset ("Reforzado").
                     20 wizard done (V3 passed on A and B). D49: debug builds can rerun the wizard

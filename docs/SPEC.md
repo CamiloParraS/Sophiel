@@ -343,7 +343,7 @@ M0–M3 are **done and reused**: skeleton, model + parity gate, pipeline + Test 
 
 ### M7 — Harden and ship (week 4)
 
-**Deliverables.** On-device verification of M4–M6 on both devices; `docs/LIMITATIONS.md` from §8 with measured numbers; `README.md`; a written demo runbook and a recorded demo video (record early in the week). Stretch, only with slack: the softer "suggestive" tier (pixelate or blur at mid scores, needs a second Parent threshold).
+**Deliverables.** On-device verification of M4–M6 on both devices; `docs/LIMITATIONS.md` from §7 with measured numbers; `README.md`; a written demo runbook and a recorded demo video (record early in the week). Stretch, only with slack: the softer "suggestive" tier (pixelate or blur at mid scores, needs a second Parent threshold).
 
 **Verification**
 
@@ -378,7 +378,6 @@ Copy into `docs/LIMITATIONS.md` and expand with measured numbers.
 8. **Threshold is a value judgement.** "Explicit" is contextual; sensitivity is Parent-set because no single value is right.
 9. **Single-model bias.** Inherits the biases of its training data (GantMan MobileNetV2, D12).
 10. **Overlay gaps.** System dialogs and parts of system UI cannot be covered; Android 15+ hides other apps' notifications while sharing (D16).
-11. **Masks flicker when the accessibility service turns off.** The system destroys the accessibility window with the service, before `onUnbind` runs, so the masks can't be added to the 0.79 app overlay first and are briefly uncovered. Turning it back on is seamless (add new window, then remove old; D42). Seen on Device A in ticket 11's check. A fix needs a second standing overlay window, which is out of scope after the freeze.
 11. **Grayscale blindness in the skin gate.** True black-and-white imagery has no skin chroma and is gated SAFE. Do not "fix" it by classifying every achromatic tile: dark-mode UIs are achromatic too.
 12. **Energy figures are whole-device estimates**, valid only unplugged.
 13. **Low capture resolution.** Frames are 360 px on the short side; small or distant content may be missed.
@@ -390,6 +389,7 @@ Copy into `docs/LIMITATIONS.md` and expand with measured numbers.
 19. **Precise is Android 14+ and model-bound (D35).** It needs window screenshots, so Device A (Android 13) runs Balanced instead. While scrolling, new content shows until NudeNet's frame verdict lands (~100-200 ms on Device B), and masks trail moving content by up to the 400 ms screenshot gap (Android allows one per 333 ms). NudeNet's weights are gitignored: copy `nudenet_320n.onnx` into `app/src/main/assets/` before building (D24).
 20. **Install over adb.** Play Protect blocks installing the APK from a file manager (Device A: "App not installed", no override), and such an install also needs "Allow restricted settings" before the accessibility service can be turned on. `adb install` / Android Studio has neither problem (D41, D42).
 21. **Samsung may put Sophiel to sleep.** One UI sleeps unused apps by default; a deep-slept app likely loses its accessibility service like a force-stop. The wizard has the Parent add Sophiel to "Never auto sleeping apps"; the app can't check it later (D42).
+22. **Masks flicker when the accessibility service turns off.** The system destroys the accessibility window with the service, before `onUnbind` runs, so the masks can't be added to the 0.79 app overlay first and are briefly uncovered. Turning it back on is seamless (add new window, then remove old; D42). Seen on Device A in ticket 11's check. A fix needs a second standing overlay window, which is out of scope after the freeze.
 
 ---
 
