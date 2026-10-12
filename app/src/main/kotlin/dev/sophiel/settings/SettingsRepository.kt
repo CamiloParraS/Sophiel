@@ -16,6 +16,7 @@ data class ParentSettings(
     val sensitivity: Sensitivity = Sensitivity.NORMAL,
     val peekUnderMask: Boolean = false, // D34
     val showLabel: Boolean = true, // D28
+    val keepProtecting: Boolean = true, // "Seguir protegiendo siempre" (D54)
 )
 
 /**
@@ -35,6 +36,7 @@ class SettingsRepository(context: Context) {
             .putString(SENSITIVITY, s.sensitivity.name)
             .putBoolean(PEEK, s.peekUnderMask)
             .putBoolean(LABEL, s.showLabel)
+            .putBoolean(KEEP, s.keepProtecting)
             .apply()
     }
 
@@ -46,6 +48,7 @@ class SettingsRepository(context: Context) {
             sensitivity = Sensitivity.entries.find { it.name == prefs.getString(SENSITIVITY, null) } ?: d.sensitivity,
             peekUnderMask = prefs.getBoolean(PEEK, d.peekUnderMask),
             showLabel = prefs.getBoolean(LABEL, d.showLabel),
+            keepProtecting = prefs.getBoolean(KEEP, d.keepProtecting),
         )
     }
 
@@ -54,5 +57,6 @@ class SettingsRepository(context: Context) {
         const val SENSITIVITY = "sensitivity"
         const val PEEK = "peek_under_mask"
         const val LABEL = "show_label"
+        const val KEEP = "keep_protecting"
     }
 }

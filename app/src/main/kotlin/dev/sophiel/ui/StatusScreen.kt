@@ -199,7 +199,7 @@ private fun Note(@StringRes id: Int) =
 private fun Hero(model: StatusModel, stoppedAt: String) {
     val blocking = StatusModel.REQUIRED.count { it in model.missing }
     when (model.page) {
-        Page.PROTECTED -> StatusPage(R.drawable.ic_shield_ok, stringResource(R.string.status_protected), stringResource(R.string.status_protected_text), Tone.Ok)
+        Page.PROTECTED -> StatusPage(R.drawable.ic_shield_ok, stringResource(R.string.status_protected), stringResource(R.string.status_mode_share), Tone.Ok)
         Page.OFF -> StatusPage(R.drawable.ic_shield_off, stringResource(R.string.status_idle), pluralStringResource(R.plurals.status_missing, blocking, blocking), Tone.Off)
         Page.READY -> StatusPage(
             R.drawable.ic_shield, stringResource(R.string.status_ready),

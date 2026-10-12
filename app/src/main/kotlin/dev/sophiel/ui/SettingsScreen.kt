@@ -27,6 +27,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import dev.sophiel.AppContainer
 import dev.sophiel.R
+import dev.sophiel.capture.MaskWindowService
 import dev.sophiel.core.Sensitivity
 import dev.sophiel.settings.ParentPreset
 import dev.sophiel.ui.theme.Palette
@@ -52,6 +53,7 @@ fun SettingsScreen(container: AppContainer, door: Door, onBack: () -> Unit, onHi
     val context = LocalContext.current
     val version = context.packageManager.getPackageInfo(context.packageName, 0).versionName.orEmpty()
     val canShoot = Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE // D35
+    val bound = MaskWindowService.bound.collectAsState().value != null
     val taps = remember { mutableIntStateOf(0) }
     val presets = ParentPreset.entries
     val android14 = stringResource(R.string.needs_android14)
@@ -79,6 +81,14 @@ fun SettingsScreen(container: AppContainer, door: Door, onBack: () -> Unit, onHi
                         )
                         if (!canShoot) Text(android14, style = MaterialTheme.typography.bodySmall, color = Palette.Dim)
                     }
+                }
+                item {
+                    SwitchRow(
+                        stringResource(R.string.set_keep), settings.keepProtecting && bound,
+                        { v -> door.pass { container.settings.update { it.copy(keepProtecting = v) } } },
+                        description = stringResource(if (bound) R.string.set_keep_text else R.string.needs_full_mask),
+                        icon = R.drawable.ic_shield, enabled = bound,
+                    )
                 }
             }
             PreferenceGroup(title = stringResource(R.string.group_mask)) {

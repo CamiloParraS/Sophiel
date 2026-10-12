@@ -52,7 +52,7 @@
 
     <!-- Estado -->
     <string name="status_protected">Protegido</string>
-    <string name="status_protected_text">Cubriendo esta pantalla</string>
+    <string name="status_mode_share">Protección activa · compartir pantalla</string>
     <plurals name="status_missing">
         <item quantity="one">Falta %d cosa</item>
         <item quantity="other">Faltan %d cosas</item>
@@ -169,6 +169,9 @@
     <string name="how_help_thorough">Revisa más zonas. Usa más batería.</string>
     <string name="how_help_precise">Tapa solo la parte exacta (beta).</string>
     <string name="needs_android14">Necesita Android 14 o más nuevo</string>
+    <string name="set_keep">Seguir protegiendo siempre</string>
+    <string name="set_keep_text">Si se acaba la pantalla compartida, sigue protegiendo en modo lento.</string>
+    <string name="needs_full_mask">Necesita la máscara completa</string>
     <string name="group_mask">Máscara</string>
     <string name="set_label">Texto en la máscara</string>
     <string name="set_label_text">Un aviso pequeño sobre lo tapado</string>

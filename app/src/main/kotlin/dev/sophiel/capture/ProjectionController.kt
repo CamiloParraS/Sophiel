@@ -1,5 +1,6 @@
 package dev.sophiel.capture
 
+import dev.sophiel.settings.ProtectionStore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -16,7 +17,7 @@ import kotlinx.coroutines.flow.asStateFlow
  * whichever `MainActivity` instance is currently alive. [Effects] is re-attached by the current
  * Activity in `onStart()` and cleared in `onStop()` so a destroyed Activity is never leaked.
  */
-class ProjectionController {
+class ProjectionController(private val protection: ProtectionStore) {
     private val _state = MutableStateFlow(ControllerState())
     val state: StateFlow<ControllerState> = _state.asStateFlow()
 
@@ -50,7 +51,10 @@ class ProjectionController {
         apply(ControllerEvent.OverlayResult(effects.hasOverlayPermission()))
     }
 
-    fun onConsentResult(granted: Boolean) = apply(ControllerEvent.ConsentResult(granted))
+    fun onConsentResult(granted: Boolean) {
+        if (granted) protection.protecting = true // D54: Start is complete at consent
+        apply(ControllerEvent.ConsentResult(granted))
+    }
 
     /** The service confirms `startForeground()` succeeded. */
     fun onServiceStarted() = apply(ControllerEvent.ServiceStarted)
@@ -58,7 +62,9 @@ class ProjectionController {
     /** The service confirms `getMediaProjection()` succeeded. */
     fun onProjectionAcquired() = apply(ControllerEvent.ProjectionAcquired)
 
+    /** The Parent's PIN Stop: the only way protection goes off (D54). */
     fun stop() {
+        protection.protecting = false
         apply(ControllerEvent.StopRequested)
         effects?.stopCaptureService()
     }

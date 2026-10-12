@@ -52,7 +52,7 @@
 
     <!-- Estado -->
     <string name="status_protected">Protected</string>
-    <string name="status_protected_text">Covering this screen</string>
+    <string name="status_mode_share">Protection on · screen share</string>
     <plurals name="status_missing">
         <item quantity="one">%d thing missing</item>
         <item quantity="other">%d things missing</item>
@@ -169,6 +169,9 @@
     <string name="how_help_thorough">Checks more areas. Uses more battery.</string>
     <string name="how_help_precise">Covers only the exact part (beta).</string>
     <string name="needs_android14">Needs Android 14 or newer</string>
+    <string name="set_keep">Keep protecting always</string>
+    <string name="set_keep_text">If the screen share ends, protection carries on in slow mode.</string>
+    <string name="needs_full_mask">Needs Full mask</string>
     <string name="group_mask">Mask</string>
     <string name="set_label">Text on the mask</string>
     <string name="set_label_text">A small notice over what is covered</string>

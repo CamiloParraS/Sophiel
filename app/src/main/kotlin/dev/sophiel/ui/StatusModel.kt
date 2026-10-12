@@ -1,5 +1,6 @@
 package dev.sophiel.ui
 
+import dev.sophiel.capture.CaptureMode
 import dev.sophiel.capture.ControllerPhase
 import dev.sophiel.core.Sensitivity
 import dev.sophiel.log.Entry
@@ -39,6 +40,7 @@ class StatusModel(
     val sensitivity: Sensitivity,
     val fallback: Fallback?,
     val stopBusy: Boolean,
+    val mode: CaptureMode, // how the screen is read while protected (SPEC §4.7)
 ) {
     companion object {
         val REQUIRED = listOf(Need.OVERLAY)
@@ -76,7 +78,9 @@ class StatusModel(
                 !i.serviceBound -> Fallback.ACCESSIBILITY_OFF
                 else -> null
             }
-            return StatusModel(page, missing, startEnabled, note, stopped, i.preset, i.sensitivity, fallback, i.phase == ControllerPhase.STOPPING)
+            // Until the accessibility modes are wired (M8 tickets 12-13), a running session is a screen share.
+            val mode = if (page == Page.PROTECTED) CaptureMode.SCREEN_SHARE else CaptureMode.NONE
+            return StatusModel(page, missing, startEnabled, note, stopped, i.preset, i.sensitivity, fallback, i.phase == ControllerPhase.STOPPING, mode)
         }
     }
 }

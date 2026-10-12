@@ -28,6 +28,8 @@ class StatusModelTest {
     fun runningIsProtectedAndItemsThatFailDropOut() {
         val ok = model(ControllerPhase.RUNNING)
         assertEquals(Page.PROTECTED, ok.page)
+        assertEquals(dev.sophiel.capture.CaptureMode.SCREEN_SHARE, ok.mode)
+        assertEquals(dev.sophiel.capture.CaptureMode.NONE, model().mode)
         assertTrue(ok.missing.isEmpty())
         // The service gets turned off mid-session: its row leaves the collapsed "Todo en orden".
         assertEquals(listOf(Need.SERVICE), model(ControllerPhase.RUNNING, bound = false).missing)

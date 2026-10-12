@@ -10,6 +10,7 @@ import dev.sophiel.feed.SpikeModel
 import dev.sophiel.log.EventLog
 import dev.sophiel.pin.PinStore
 import dev.sophiel.pin.Unlock
+import dev.sophiel.settings.ProtectionStore
 import dev.sophiel.settings.SettingsRepository
 import java.io.File
 
@@ -44,7 +45,9 @@ class AppContainer(context: Context) {
         bootCount = { Settings.Global.getInt(context.contentResolver, Settings.Global.BOOT_COUNT, 0) },
     ).also { it.recoverGap() }
 
-    val projectionController = ProjectionController()
+    val protection = ProtectionStore(context)
+
+    val projectionController = ProjectionController(protection)
 
     /** Ticket 09: a Sophiel screen fills the display; capture hides the masks and pauses. */
     val ownScreens = OwnScreens()
