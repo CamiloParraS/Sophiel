@@ -13,7 +13,9 @@
     <!-- Notificaciones -->
     <string name="notif_channel">Protección de pantalla</string>
     <string name="notif_running_title">Protección de Sophiel activa</string>
-    <string name="notif_starting">Iniciando protección…</string>
+    <string name="notif_starting">Cuidando tu pantalla</string>
+    <string name="notif_off_title">Protección desactivada</string>
+    <string name="notif_off_text">Android detuvo la protección. Toca para activarla de nuevo.</string>
     <string name="notif_stop">Detener</string>
     <string name="notif_paused_title">Protección de Sophiel en pausa</string>
     <string name="notif_paused_text">La pantalla se apagó. Toca para reanudar.</string>

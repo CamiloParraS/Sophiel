@@ -67,7 +67,6 @@ class CaptureSession(
     context: Context,
     private val projection: MediaProjection,
     @Volatile private var size: CaptureSize, // written by resize (main), read on the lane
-    private val onStatus: (String) -> Unit,
     private val container: AppContainer,
 ) {
     private val appContext = context.applicationContext
@@ -216,7 +215,6 @@ class CaptureSession(
                     }
                     current.run(bitmap)
                 }
-                onStatus(status)
                 pill(status)
             } finally {
                 bitmap.recycle()

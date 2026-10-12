@@ -106,7 +106,7 @@ class ProjectionService : Service() {
         }, null)
 
         val container = (application as SophielApp).container
-        session = CaptureSession(this, projection, captureSize(this), ::updateNotification, container)
+        session = CaptureSession(this, projection, captureSize(this), container)
         return START_NOT_STICKY
     }
 
@@ -121,6 +121,7 @@ class ProjectionService : Service() {
         unregisterReceiver(screenOffReceiver)
         session?.close() // writes an open unanalyzable stretch before the OFF
         val interactive = getSystemService(PowerManager::class.java).isInteractive
+        var systemStop = false
         if (logged) {
             val reason = when {
                 userStop -> OffReason.USER
@@ -128,12 +129,15 @@ class ProjectionService : Service() {
                 else -> OffReason.SYSTEM
             }
             (application as SophielApp).container.log.off(reason)
+            systemStop = reason == OffReason.SYSTEM
         }
         controller.onTeardownComplete()
         stopForeground(STOP_FOREGROUND_REMOVE)
         // Screen off means the OS or our receiver ended it, not the user: offer a one-tap restart.
         // Covers both orders D19 observed (projection onStop() first, or the receiver first).
-        if (!interactive) postResumeNotification()
+        if (!interactive) postResumeNotification(R.string.notif_paused_title, R.string.notif_paused_text)
+        // The system ended it while the screen was on: protection is silently gone, so say so.
+        else if (systemStop) postResumeNotification(R.string.notif_off_title, R.string.notif_off_text)
         stopSelf()
     }
 
@@ -143,7 +147,7 @@ class ProjectionService : Service() {
     }
 
     /** Tapping it opens MainActivity, which starts the normal flow; consent is still fresh (§4.2). */
-    private fun postResumeNotification() {
+    private fun postResumeNotification(title: Int, text: Int) {
         val intent = Intent(this, MainActivity::class.java)
             .setAction(MainActivity.ACTION_RESUME)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
@@ -151,9 +155,9 @@ class ProjectionService : Service() {
             this, 0, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle(getString(R.string.notif_paused_title))
-            .setContentText(getString(R.string.notif_paused_text))
-            .setSmallIcon(R.mipmap.ic_launcher)
+            .setContentTitle(getString(title))
+            .setContentText(getString(text))
+            .setSmallIcon(R.drawable.ic_stat_sophiel)
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)
             .build()
@@ -162,7 +166,7 @@ class ProjectionService : Service() {
 
     private fun startForegroundWithType() {
         getSystemService(NotificationManager::class.java).cancel(RESUME_NOTIFICATION_ID)
-        val notification = buildNotification(getString(R.string.notif_starting))
+        val notification = buildNotification(R.string.notif_starting)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION)
         } else {
@@ -170,19 +174,14 @@ class ProjectionService : Service() {
         }
     }
 
-    private fun updateNotification(text: String) {
-        getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, buildNotification(text))
-    }
-
-    private fun buildNotification(text: String): Notification {
+    private fun buildNotification(text: Int): Notification {
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setCategory(Notification.CATEGORY_SERVICE)
             .setContentTitle(getString(R.string.notif_running_title))
-            .setContentText(text)
-            .setSmallIcon(R.mipmap.ic_launcher)
+            .setContentText(getString(text))
+            .setSmallIcon(R.drawable.ic_stat_sophiel)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
             .build()
     }
 
