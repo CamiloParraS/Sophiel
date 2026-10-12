@@ -29,7 +29,9 @@ BLOCKED ON:         Nothing.
 NEXT:               Build M8 deliverable 1 (capture modes, SPEC §4.7, D54/D55): tickets 11, 12 done
                     (12 checked on A: share survives screen-off 3+ min, secure lock, AOD); 13 built 2026-10-12
                     (CaptureModeController owns the mode machine + session; shot loop; JVM green), its device
-                    check on A and B is still to do (list in the ticket notes); next ticket 14. After M8: UI polish, then M7: soak on A and B, feel numbers per preset, LIMITATIONS.md (from SPEC §7), README,
+                    check on A and B is still to do (list in the ticket notes); 14 done on B 2026-10-12 (slow-mode
+                    notice, SHARE_STOPPED, projection handed to the live session; service back on does not
+                    resume until Start); next ticket 15. After M8: UI polish, then M7: soak on A and B, feel numbers per preset, LIMITATIONS.md (from SPEC §7), README,
                     demo runbook + video. M7 has no tickets yet. M6 history below, map at
                     .scratch/m6-parent-app/map.md (decisions D38-D45).
                     Build tickets done: 09 settings, 10 cover path, 12 PinStore + unlock, 13 event log,

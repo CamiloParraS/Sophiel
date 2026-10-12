@@ -4,14 +4,14 @@
 
 **Blocked by:** 13
 
-**Status:** ready-for-human (built 2026-10-12; device check on A and B pending)
+**Status:** done on B 2026-10-12 (A has no sharing chip, so V1d cannot be run there)
 
 - [x] Notification posted only when the share ends with the screen on and the switch is on
-- [ ] No notification and no Log entry when the share ends with the screen off
-- [ ] Tapping it opens consent; a fresh consent `Intent` every time; §4.4 ordering (FGS before projection) kept
+- [x] No notification and no Log entry when the share ends with the screen off
+- [x] Tapping it opens consent; a fresh consent `Intent` every time; §4.4 ordering (FGS before projection) kept
 - [x] Order on return: projection starts, then shots stop; no uncovered gap
 - [x] New Log kind **Compartir pantalla detenido** (Spanish + `values-en/`), old lines still parse
-- [ ] SPEC V1d on A: chip stop keeps masks, notification, Log entry, consent returns Status to "· compartir pantalla"
+- [x] SPEC V1d (B; A has no chip): chip stop keeps masks, notification, Log entry, consent returns Status to "· compartir pantalla"
 - [x] Ends buildable
 
 ## Notes (built 2026-10-12)
@@ -27,5 +27,5 @@
 
 - **Passed on B:** chip stop keeps masks (log: `SCREEN_SHARE -> ACCESSIBILITY`, `shot loop started` 16 ms later); notification and Log entry; tap -> consent -> Status "· compartir pantalla"; screen-off share end posts nothing; PIN Stop clears the notice; service off then on does not resume until Start.
 - **Probe waits on shots:** all `frame run`, no `hold` or `busy lane`, no `display shot failed`, no mask change or flicker. A few waits show `sinceLastMs` 0.8-1.6 s (several shots in a row); read as a still screen probing on the 2 s timer (ticket 13 open item, ticket 17), not a ticket 14 defect.
-- **Not checked:** the leftover-overlay `dumpsys window windows` after unbinding, and Device A.
+- **Overlay check passed:** `dumpsys window windows | findstr sophiel` lists only MainActivity. Device A not checkable (no chip).
 - **Question raised:** no notice when a share ends at screen-off on API 35+ (kept, per SPEC §4.7); the Parent isn't told they are in slow mode after a wake-up. Revisit in the M7 soak.
