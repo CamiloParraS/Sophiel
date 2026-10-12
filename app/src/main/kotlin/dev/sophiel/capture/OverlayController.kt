@@ -59,7 +59,7 @@ class OverlayController(private val context: Context, private val showLabel: () 
         val wm = a11y?.getSystemService(WindowManager::class.java) ?: windowManager
         wm.addView(view, touchThroughOverlayParams(trusted = a11y != null))
         host = wm
-        Log.i("Sophiel", "mask window: ${if (a11y != null) "accessibility, alpha 1.0" else "app overlay, alpha $OVERLAY_ALPHA"}")
+        Log.i("Sophiel", "mask window: ${if (a11y != null) "accessibility, alpha 1.0" else "app overlay, alpha $OVERLAY_ALPHA"} view=${System.identityHashCode(view)} controller=${System.identityHashCode(this)}")
     }
 
     /**
@@ -72,6 +72,7 @@ class OverlayController(private val context: Context, private val showLabel: () 
         // Off and back on can both land before this runs: compare against the live service's window
         // manager (one per service context), not just "not ours".
         val a11yWm = MaskWindowService.instance?.getSystemService(WindowManager::class.java)
+        Log.i("Sophiel", "followService: host=${host?.let { if (it === windowManager) "app" else "a11y" }} service=${a11yWm != null} view=${System.identityHashCode(view)} controller=${System.identityHashCode(this)}")
         when {
             host == null || host === a11yWm -> return // hidden (or nothing to move), or already there
             host !== windowManager -> {
@@ -138,7 +139,11 @@ class OverlayController(private val context: Context, private val showLabel: () 
 
     fun hide() = mainHandler.post {
         MaskWindowService.onChange = null
-        if (view.isAttachedToWindow) host?.removeView(view)
+        Log.i("Sophiel", "mask window: hide host=${host != null} view=${System.identityHashCode(view)} controller=${System.identityHashCode(this)}")
+        // Not isAttachedToWindow: it stays false until the first layout pass, so a hide right after
+        // attach() left the window up with no one tracking it (full-screen 0.79 window: dead touches).
+        // A dead service's window may already be gone with its token.
+        host?.let { runCatching { it.removeViewImmediate(view) } }
         host = null
     }
 }
