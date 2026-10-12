@@ -25,6 +25,7 @@ A new `docs/SPEC.md` milestone section **M8 — Solution fit** (deliverables + v
 - [Capture backend, switching rules and start on boot](issues/03-capture-backend-and-boot.md): hybrid behind one switch "Seguir protegiendo siempre" (default on); Protection stays on until a PIN Stop and capture mode changes underneath; no boot receiver or FGS in accessibility mode; probes timed to shots; peek default on; new Log entries "Compartir pantalla detenido" and "Sin protección".
 - [Tamper guard: what is guarded, how, and what gets logged](issues/05-tamper-guard.md): accessibility-only guard, armed while a PIN exists and no Unlock; covers Sophiel's accessibility toggle, Appear on top, App info, uninstall dialog, Active apps; opens the existing PIN pad, an Unlock from it survives leaving the app (amends D38); Tamper attempt Log entry (time + target, 60 s merge); no Device Admin.
 - [Does screen share survive screen-off on A?](issues/10-screen-share-through-screen-off-on-a.md): yes; below API 35 screen-off pauses frames instead of ending the share (amends D18), so A stays on screen share all day after one consent; B keeps the teardown.
+- [App attribution in the Log](issues/06-app-attribution-in-the-log.md): each episode (and unanalyzable stretch) names the app under its strongest mask at the start, package in `log.csv`, label at read time; blank without the service; no split on app change; `<queries>` launcher intent; rows show the app, summary names the top app; full breakdown left to 08.
 
 ## Not yet specified
 
