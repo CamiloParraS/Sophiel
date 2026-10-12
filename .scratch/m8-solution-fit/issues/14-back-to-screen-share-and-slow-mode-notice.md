@@ -22,3 +22,10 @@
 - **No Start button in accessibility.** Status shows the protected page there (SPEC §4.7: "No new button"), so the notification is the only way back; "or Start" is the PIN-Stop-then-Start path.
 - **Review fixes.** A shot still in the air when the share takes over is dropped (`offerShot` checks `shots`); a failed `openDisplay` closes its `FrameSource`; the notice is cancelled when protection ends (PIN Stop, switch off) so a stale tap cannot start a session. Open: a notice cancelled by swipe or a cancelled consent leaves no way back to fast mode except PIN Stop then Start; a Status button was left out by SPEC §4.7 ("No new button").
 - **Device check still to do (A and B):** V1d: chip stop keeps masks, notification and Log entry appear, tap -> consent -> Status "· compartir pantalla" and logcat shows the shot loop stopping after the display opens. Screen-off share end: no notification, no entry. A has no chip: use B for the chip route.
+
+## Device check, 2026-10-12 (B, partial, by the human)
+
+- **Passed on B:** chip stop keeps masks (log: `SCREEN_SHARE -> ACCESSIBILITY`, `shot loop started` 16 ms later); notification and Log entry; tap -> consent -> Status "· compartir pantalla"; screen-off share end posts nothing; PIN Stop clears the notice; service off then on does not resume until Start.
+- **Probe waits on shots:** all `frame run`, no `hold` or `busy lane`, no `display shot failed`, no mask change or flicker. A few waits show `sinceLastMs` 0.8-1.6 s (several shots in a row); read as a still screen probing on the 2 s timer (ticket 13 open item, ticket 17), not a ticket 14 defect.
+- **Not checked:** the leftover-overlay `dumpsys window windows` after unbinding, and Device A.
+- **Question raised:** no notice when a share ends at screen-off on API 35+ (kept, per SPEC §4.7); the Parent isn't told they are in slow mode after a wake-up. Revisit in the M7 soak.
