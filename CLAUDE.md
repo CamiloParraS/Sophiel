@@ -18,8 +18,9 @@ CURRENT MILESTONE:  M8 — Solution fit, PLANNING (D53: freeze lifted for M8 onl
                     A exposes ~0.45 s per probe on them. Ticket 03 resolved: hybrid capture behind one switch
                     ("Seguir protegiendo siempre"), Protection stays on until a PIN Stop. Ticket 05 resolved:
                     accessibility guard on Sophiel's system pages, opens the PIN pad; no Device Admin (future
-                    work). Next: 06 app attribution (grilling); 10 (screen share through screen-off on A,
-                    device check) also open.
+                    work). Ticket 10 resolved: screen share survives screen-off on A, so below API 35
+                    screen-off pauses frames instead of ending it (amends D18). Next: 06 app attribution
+                    (grilling).
                     M5 done 2026-10-05 (D36).
 STATUS:             M5 verified on A and B (D36): V1-V5 pass; probe exposure median/worst
                     A 146/306 ms, B 85/188 ms; after rotation A 220/304, B 129/210.
