@@ -11,11 +11,12 @@
 - **Probe**: briefly removing one mask to check whether the content under it changed.
 - **Masking episode**: the screen going from no masks to at least one, whatever the preset; the unit the Log counts. Probes don't end it, and masks that return within a few seconds of the screen clearing continue it.
 - **Sensitivity**: the Parent-set score threshold above which a frame or tile is flagged.
-- **Log entry**: a local record kept 7 days, scalars only, never pixels. Kinds: masked, protection on, protection off (with reason), unanalyzable, tamper attempt.
+- **Log entry**: a local record kept 7 days, scalars only, never pixels. Kinds: masked, protection on, protection off (with reason), unanalyzable, tamper attempt, app blocked (escalation), blocked open.
 - **Episode app**: the app a masking episode (or unanalyzable stretch) is counted against: the app on screen under the strongest mask when it began. Named in the Log, never what was in it; unknown when Sophiel can't see windows.
 - **Unanalyzable**: a screen that returns only black frames (`FLAG_SECURE`), so it can't be judged.
 - **Guard**: Sophiel closing a system page that could turn it off (its accessibility toggle, its "Appear on top" permission, its App info page, its uninstall dialog, its Stop in Active apps) and asking for the PIN instead. Armed whenever a PIN exists and no Unlock is active; a page is guarded only while the thing it turns off is on.
 - **Tamper attempt**: the guard closing one of those pages. Written to the Log as time + which page; repeats on the same page within a minute are one attempt.
-- **Blocked app**: an app the Child can't open: always, because the Parent marked it, or for a while, because it caused repeated masking episodes (escalation).
-- **Trusted app**: an app the Parent marked as never scanned; no masks appear over it.
+- **Blocked app**: an app the Child can't open while Protection is on: always, because the Parent marked it (rule), or for a while, because of escalation. Opening it sends the phone Home and shows Sophiel's block screen.
+- **Escalation**: an app becoming blocked for 15 minutes because it was the episode app of 3 masking episodes within 10 minutes. Only masked episodes count; the Parent can turn it off or lift one block early with the PIN.
+- **Trusted app**: an app the Parent marked as never scanned; no masks appear over it and it never counts toward escalation. A split screen is trusted only if every app on it is.
 - **Report**: a summary of the Log the Parent sends out of the phone through another app (share sheet). Sophiel itself never sends anything.

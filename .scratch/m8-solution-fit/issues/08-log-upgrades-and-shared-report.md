@@ -10,6 +10,7 @@ Decided at charting: both (b) a richer Log screen and (a) a PIN-gated "Send repo
 
 - Report period (today / 7 days), contents (masks per day, per app, off-periods and reasons, tamper attempts, blocks), and format: plain text (works in any chat), or an image/PDF card (needs a FileProvider; the file holds scalars only, never pixels from capture).
 - Log screen: trends (per-day bars), per-app breakdown, tamper and block entries; what stays from D45/M6.
+- Whether Status shows active blocks ("Instagram bloqueada · 12 min"); ticket 07 only stores block end times.
 - Spanish first, English second (D43).
 
 Prototype asset: a rough HTML/Compose mock of the report and Log screen, linked here.
