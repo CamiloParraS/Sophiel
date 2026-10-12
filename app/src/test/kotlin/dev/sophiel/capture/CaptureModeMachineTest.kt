@@ -10,6 +10,7 @@ import dev.sophiel.capture.ModeEvent.ServiceUnbound
 import dev.sophiel.capture.ModeEvent.ShareEnded
 import dev.sophiel.capture.ModeEvent.ShareStarted
 import dev.sophiel.capture.ModeEvent.Stop
+import dev.sophiel.capture.ModeEvent.UiOpened
 import dev.sophiel.capture.ModeEvent.SwitchOff
 import dev.sophiel.capture.ModeEvent.SwitchOn
 import dev.sophiel.log.OffReason
@@ -102,11 +103,31 @@ class CaptureModeMachineTest {
     }
 
     @Test
-    fun serviceBindingResumesAccessibility() { // reboot, first unlock
-        val s = run(sharing, ShareEnded, ServiceUnbound)
+    fun serviceBindingResumesAccessibility() { // reboot, first unlock: protection was persisted on, nothing was unbound
+        val s = idle.copy(protecting = true)
         assertEquals(ACCESSIBILITY, run(s, ServiceBound).mode)
         // Screen off at bind time: wait for screen on.
         assertEquals(NONE, run(s, ScreenOff, ServiceBound).mode)
+    }
+
+    @Test
+    fun turningTheServiceBackOnDoesNotResumeUntilStart() { // the Parent flips it in Settings from the Status row
+        val s = run(sharing, ShareEnded, ServiceUnbound)
+        assertEquals(NONE, run(s, ServiceBound).mode)
+        assertEquals(NONE, run(s, ServiceBound, ScreenOff, ScreenOn).mode)
+        assertEquals(false, run(s, ServiceBound).holdsSession)
+        // The switch is no Start either.
+        assertEquals(NONE, run(s, ServiceBound, SwitchOff, SwitchOn).mode)
+        // Start does: and from then on the fallback is back.
+        assertEquals(ACCESSIBILITY, run(s, ServiceBound, ShareStarted, ShareEnded).mode)
+    }
+
+    @Test
+    fun anUnboundServiceFoundWhenTheAppOpensIsTheSameInterruption() { // process died, then the Parent turns it on
+        val s = idle.copy(protecting = true)
+        assertEquals(NONE, run(s, UiOpened, ServiceBound).mode)
+        assertEquals(ACCESSIBILITY, run(s, ServiceBound, UiOpened).mode) // already capturing: nothing to interrupt
+        assertEquals(false, run(sharing, UiOpened).interrupted)
     }
 
     @Test

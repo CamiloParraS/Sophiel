@@ -226,6 +226,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
+        (application as SophielApp).container.captureModes.uiOpened()
         controller.effects = activityEffects()
         controller.recheckOverlay() // re-check after a possible trip to Settings
         consumeResume()

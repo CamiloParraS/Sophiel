@@ -87,6 +87,9 @@ class CaptureModeController(context: Context, private val container: AppContaine
     /** MaskWindowService bound or unbound. */
     fun serviceChanged() = onEvent(if (serviceBound()) ModeEvent.ServiceBound else ModeEvent.ServiceUnbound)
 
+    /** MainActivity came to the front. */
+    fun uiOpened() = onEvent(ModeEvent.UiOpened)
+
     /** The Parent's PIN Stop. */
     fun stop() = onEvent(ModeEvent.Stop)
 

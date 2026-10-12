@@ -8,6 +8,8 @@ enum class CaptureMode { SCREEN_SHARE, ACCESSIBILITY, NONE }
 /**
  * @param protecting the Parent's persisted on/off: on when Start's share is acquired, off at PIN Stop, or
  *   with the switch off when nothing is left to read the screen (a share ending, or SwitchOff outside one).
+ * @param interrupted protection is on but the service went away (or was never there when the app opened):
+ *   binding it again does not resume, only Start does (SPEC.md §4.7). A reboot is no interruption.
  * @param shareSurvivesScreenOff platform fact: below API 35 a share outlives screen-off (D55).
  */
 data class ModeState(
@@ -16,13 +18,14 @@ data class ModeState(
     val screenOn: Boolean = true,
     val serviceBound: Boolean = false,
     val keepProtecting: Boolean = true, // "Seguir protegiendo siempre"
+    val interrupted: Boolean = false,
     val shareSurvivesScreenOff: Boolean = false,
 ) {
     /** Switch on and the service bound: the only way capture goes on without a share (SPEC.md §4.7). */
     val canFallBack get() = keepProtecting && serviceBound
 
     /** The capture session lives on: capturing, or protection on with a fallback, waiting for screen-on. */
-    val holdsSession get() = mode != CaptureMode.NONE || protecting && canFallBack
+    val holdsSession get() = mode != CaptureMode.NONE || protecting && canFallBack && !interrupted
 }
 
 sealed interface ModeEvent {
@@ -34,13 +37,14 @@ sealed interface ModeEvent {
     data object ServiceUnbound : ModeEvent
     data object SwitchOn : ModeEvent
     data object SwitchOff : ModeEvent
+    data object UiOpened : ModeEvent // the app came to the front
     data object Stop : ModeEvent // the Parent's PIN Stop
 }
 
 /** Pure transition function for the SPEC.md §4.7 diagram (D54, D55). */
 object CaptureModeMachine {
     fun reduce(s: ModeState, e: ModeEvent): ModeState = when (e) {
-        ModeEvent.ShareStarted -> s.copy(protecting = true, mode = CaptureMode.SCREEN_SHARE)
+        ModeEvent.ShareStarted -> s.copy(protecting = true, mode = CaptureMode.SCREEN_SHARE, interrupted = false)
         ModeEvent.ShareEnded -> when {
             s.mode != CaptureMode.SCREEN_SHARE -> s // late: the screen-off already ended it
             !s.keepProtecting -> s.copy(protecting = false, mode = CaptureMode.NONE)
@@ -58,12 +62,17 @@ object CaptureModeMachine {
         ModeEvent.ScreenOn -> s.copy(screenOn = true).resume()
         ModeEvent.ServiceBound -> s.copy(serviceBound = true).resume()
         ModeEvent.ServiceUnbound ->
-            s.copy(serviceBound = false, mode = if (s.mode == CaptureMode.ACCESSIBILITY) CaptureMode.NONE else s.mode)
+            s.copy(
+                serviceBound = false, interrupted = s.interrupted || s.protecting,
+                mode = if (s.mode == CaptureMode.ACCESSIBILITY) CaptureMode.NONE else s.mode,
+            )
+        ModeEvent.UiOpened ->
+            if (!s.serviceBound && s.mode == CaptureMode.NONE && s.protecting) s.copy(interrupted = true) else s
         ModeEvent.SwitchOn -> s.copy(keepProtecting = true).resume()
         ModeEvent.SwitchOff ->
             if (s.mode == CaptureMode.SCREEN_SHARE) s.copy(keepProtecting = false)
-            else s.copy(keepProtecting = false, protecting = false, mode = CaptureMode.NONE)
-        ModeEvent.Stop -> s.copy(protecting = false, mode = CaptureMode.NONE)
+            else s.copy(keepProtecting = false, protecting = false, mode = CaptureMode.NONE, interrupted = false)
+        ModeEvent.Stop -> s.copy(protecting = false, mode = CaptureMode.NONE, interrupted = false)
     }
 
     /**
@@ -84,6 +93,6 @@ object CaptureModeMachine {
 
     /** NONE comes back to ACCESSIBILITY when protection is on, there is a fallback and the screen is on. */
     private fun ModeState.resume() =
-        if (mode == CaptureMode.NONE && protecting && canFallBack && screenOn) copy(mode = CaptureMode.ACCESSIBILITY)
+        if (mode == CaptureMode.NONE && protecting && canFallBack && screenOn && !interrupted) copy(mode = CaptureMode.ACCESSIBILITY)
         else this
 }
