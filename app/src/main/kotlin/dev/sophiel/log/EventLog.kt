@@ -45,6 +45,7 @@ class EventLog(
     private val zone: ZoneId = ZoneId.systemDefault(),
 ) {
     private var running = false // a heartbeat that races the session's end must not re-arm the gap check
+    private var bootStart = false // the first process since the boot: nothing of ours ran before it (D61)
 
     /** The Parent's Start (D54: not a resume after a stretch). */
     @Synchronized fun on(preset: String, sensitivity: String) = add(wall(), "ON", preset, sensitivity)
@@ -69,6 +70,9 @@ class EventLog(
      */
     @Synchronized fun recoverGap(keepProtecting: Boolean) {
         prune()
+        val boot = bootCount().toString()
+        bootStart = read(SEEN_BOOT) != boot
+        if (bootStart) write(mapOf(SEEN_BOOT to boot))
         val at = read(ALIVE)?.toLongOrNull() ?: return
         val restarted = read(BOOT)?.toIntOrNull() != bootCount()
         write(mapOf(ALIVE to null, BOOT to null))
@@ -85,6 +89,13 @@ class EventLog(
     @Synchronized fun gapOpened(reason: String, at: Long = wall()) {
         if (gap() == null) write(mapOf(GAP_AT to at.toString(), GAP_WHY to reason))
     }
+
+    /**
+     * D61: a stretch found at app start, nothing capturing. The first process since the boot (accessibility off,
+     * so nothing started us at the first unlock) begins it at the boot, so a Child's hours before Sophiel is
+     * opened are not hidden; boot to first unlock is counted with them. A later process begins it now.
+     */
+    @Synchronized fun gapFound(reason: String) = gapOpened(reason, if (bootStart) bootedAt() else wall())
 
     /** Capture or protection is back: the open stretch is written, stamped at its start, with its length. */
     @Synchronized fun gapClosed() {
@@ -146,6 +157,7 @@ class EventLog(
         const val BOOT = "last_boot"
         const val GAP_AT = "gap_at"
         const val GAP_WHY = "gap_reason"
+        const val SEEN_BOOT = "seen_boot" // boot count of the last process start
     }
 }
 

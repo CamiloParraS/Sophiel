@@ -46,7 +46,7 @@ class CaptureModeController(context: Context, private val container: AppContaine
 
     init {
         container.protection.protecting = _state.value.protecting
-        followGap(_state.value) // back from a kill: a stretch to open, or a recovered one to end
+        followGap(_state.value, found = true) // back from a kill or a reboot: a stretch to open, or a recovered one to end
         this.context.registerReceiver(object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) =
                 onEvent(if (intent.action == Intent.ACTION_SCREEN_ON) ModeEvent.ScreenOn else ModeEvent.ScreenOff)
@@ -124,10 +124,15 @@ class CaptureModeController(context: Context, private val container: AppContaine
         }
     }
 
-    /** D54: open or end the Sin protección stretch. Opened live, it is the service going away (a dead process's is opened by EventLog.recoverGap). */
-    private fun followGap(s: ModeState) {
+    /**
+     * D54: open or end the Sin protección stretch. Opened live, it is the service going away (a dead process's is
+     * opened by EventLog.recoverGap); [found] at app start, it may date from the boot (D61).
+     */
+    private fun followGap(s: ModeState, found: Boolean = false) {
         val open = container.log.gap() != null
-        if (CaptureModeMachine.gapOpens(open, s)) container.log.gapOpened(GapReason.ACCESSIBILITY_OFF)
+        if (CaptureModeMachine.gapOpens(open, s)) {
+            if (found) container.log.gapFound(GapReason.ACCESSIBILITY_OFF) else container.log.gapOpened(GapReason.ACCESSIBILITY_OFF)
+        }
         if (CaptureModeMachine.gapEnds(open, s)) container.log.gapClosed()
     }
 

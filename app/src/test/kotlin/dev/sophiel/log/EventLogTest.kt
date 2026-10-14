@@ -149,6 +149,21 @@ class EventLogTest {
         assertEquals(listOf(again, "20"), log().last()!!.let { listOf(it.at, it.fields[0]) })
     }
 
+    @Test fun `a stretch found at the first start after a boot begins at the boot, a later start at now`() {
+        log().recoverGap(keepProtecting = true) // a process this boot
+        bootedAt = now + 60_000
+        now += 3 * 3_600_000 // accessibility off: nothing ran until Sophiel was opened, 3 h later
+        boot = 2
+        val first = log().apply { recoverGap(keepProtecting = true) }
+        first.gapFound(GapReason.ACCESSIBILITY_OFF)
+        assertEquals(Gap(bootedAt, GapReason.ACCESSIBILITY_OFF), first.gap())
+        first.gapClosed()
+        now += 60_000
+        val later = log().apply { recoverGap(keepProtecting = true) } // killed and started again, same boot
+        later.gapFound(GapReason.ACCESSIBILITY_OFF)
+        assertEquals(Gap(now, GapReason.ACCESSIBILITY_OFF), later.gap())
+    }
+
     @Test fun `a live stretch survives the process and capturing again does not re-arm a gap`() {
         val l = log()
         l.capturing(true)

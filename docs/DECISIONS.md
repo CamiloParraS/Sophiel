@@ -1582,3 +1582,20 @@ Amends D44/D45's Log layout. Prototype: branch `proto/m8-log-report` (794a92c), 
 - **Confirmed on review:** the guard's PIN-pad line "Este ajuste está protegido"; `ui/BlockActivity`;
   `isAccessibilityTool="true"` only if B hides the "Stop Sophiel?" page from the service.
 - **SPEC §2 corrected:** `targetSdk = 37`, as in `app/build.gradle.kts` (found in ticket 04).
+
+## D61 — A stretch found after a reboot with accessibility off starts at the boot (2026-10-14, human decision, M8 ticket 16 open item)
+
+Amends D54's "boot-to-first-unlock is not a gap" for this one case.
+
+- **Found (ticket 16, B):** reboot with protection on and the accessibility service off: nothing starts Sophiel
+  (the system rebinds only an enabled service), so the Sin protección stretch opened only when Sophiel was
+  opened, and the hours before were hidden.
+- **Rule:** a stretch found at app start, in the first process since the boot, begins at the boot (wall clock
+  at boot). A later process in the same boot begins it at app start, as before. The heartbeat's "restarted"
+  stretch before the shutdown is unchanged, so a reboot reads as two entries: "El teléfono se reinició" and
+  "La accesibilidad está apagada".
+- **Trade-off:** boot to first unlock is counted in this case (usually seconds; longer if the phone sits
+  locked after booting). It errs towards telling the Parent; power-off time is still never counted. No boot
+  receiver (D54).
+- **With the service on** nothing changes: the bind at the first unlock starts the process, capture resumes,
+  no stretch is found.

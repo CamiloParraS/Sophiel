@@ -28,3 +28,10 @@
 - V3 steps 1-5 done on B. Step 5 (reboot): the Log showed "Unprotected · The phone restarted · 22 s" (English UI): last heartbeat to boot, under the 60 s cap; boot-to-unlock not counted.
 - Step 5 ran with accessibility on, as intended. A pending for all steps.
 - **Found, open:** reboot with accessibility **off** and protection on: nothing resumes, and the live stretch ("La accesibilidad está apagada") opens only when Sophiel is opened, so unlock-to-open time is not counted. Starting it at boot would count boot-to-unlock instead (no unlock time without a receiver). Decide before ticket 19.
+  **Decided 2026-10-14 (D61):** the stretch found at the first app start after a boot begins at the boot. Built (`EventLog.gapFound`, JVM test). Device check on B still to do: reboot with protection on and accessibility off, wait a few minutes, open Sophiel: Status red "desde las <boot time>", and after Start the Log shows "El teléfono se reinició" then "La accesibilidad está apagada" from the boot.
+
+## Device check, 2026-10-14 (B, by the human): D61
+
+- Reboot with protection on and accessibility off, Sophiel opened a few minutes later. Log (English UI):
+  "Unprotected · The phone restarted · 19 s" and "Unprotected · Accessibility is off · 3 min": two
+  stretches, as D61 says. The open item is closed on B; A not checked.
