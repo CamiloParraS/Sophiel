@@ -14,7 +14,7 @@ enum class ParentPreset(val tiles: Preset) { LIGHT(Preset.LIGHT), BALANCED(Prese
 data class ParentSettings(
     val preset: ParentPreset = ParentPreset.BALANCED,
     val sensitivity: Sensitivity = Sensitivity.NORMAL,
-    val peekUnderMask: Boolean = false, // D34
+    val peekUnderMask: Boolean = true, // D34, default on in M8 (ticket 17); peekMode() still needs canShoot()
     val showLabel: Boolean = true, // D28
     val keepProtecting: Boolean = true, // "Seguir protegiendo siempre" (D54)
 )
