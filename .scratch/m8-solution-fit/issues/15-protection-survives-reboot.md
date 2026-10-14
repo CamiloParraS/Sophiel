@@ -15,4 +15,4 @@
 ## Device check, 2026-10-14
 
 - Reboot with protection on, Sophiel not opened: test video masked, so V1c passes on B (A pending). Masks took ~30 s to appear after the reboot. Attributed to the device still settling after boot (the service binds late), not to Sophiel; not measured. If it matters for the demo, compare the `ServiceBound` log time with the unlock time.
-- Reboot with protection off: nothing started (device not stated; A still pending for both checks).
+- Reboot with protection off: nothing started on B, no masks (A pending for both checks).
