@@ -4,7 +4,7 @@
 
 **Blocked by:** 11
 
-**Status:** built 2026-10-14; wizard V3 flow on A and B still to check
+**Status:** done 2026-10-14 (switch works, choice persists; confirmed by user)
 
 - [x] Switch on the wizard step, same state as the Ajustes switch, greyed without the service
 - [x] Copy updated in the wizard and "Recomendado" item
