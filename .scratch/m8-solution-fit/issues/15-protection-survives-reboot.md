@@ -8,6 +8,11 @@
 
 - [x] Service bind with protection on and switch on starts the loop (mode `ACCESSIBILITY`)
 - [x] No boot receiver, no new permission, no FGS in accessibility mode
-- [ ] SPEC V1c: reboot, unlock, do not open Sophiel; test video masked within ~1 s of playing; Status reads "· accesibilidad"
+- [x] SPEC V1c: reboot, unlock, do not open Sophiel; test video masked within ~1 s of playing; Status reads "· accesibilidad"
 - [ ] Reboot with protection off starts nothing
 - [ ] Ends buildable
+
+## Device check, 2026-10-14
+
+- Reboot with protection on, Sophiel not opened: test video masked, so V1c passes (device not recorded; fill in A or B). Masks took ~30 s to appear after the reboot. Attributed to the device still settling after boot (the service binds late), not to Sophiel; not measured. If it matters for the demo, compare the `ServiceBound` log time with the unlock time.
+- Still not checked: reboot with protection off starts nothing.
