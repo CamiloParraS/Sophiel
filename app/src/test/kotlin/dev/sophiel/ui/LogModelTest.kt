@@ -68,6 +68,27 @@ class LogModelTest {
     }
 
     @Test
+    fun sinProteccionReadsItsLengthAndReasonAndOldShortLinesStillParse() {
+        val day = model(
+            Entry(at(6, 8), "UNPROTECTED", listOf("754", "ACCESSIBILITY_OFF")),
+            Entry(at(6, 9), "UNPROTECTED", emptyList()),
+        ).days.last()
+        val gap = day.rows[1] as LogRow.Unprotected
+        assertEquals(754, gap.seconds)
+        assertEquals("ACCESSIBILITY_OFF", gap.reason)
+        assertEquals(0, (day.rows[0] as LogRow.Unprotected).seconds)
+        assertEquals(2, day.rows(LogFilter.OTHERS).size)
+    }
+
+    @Test
+    fun lengthsReadInTheirLargestUnits() {
+        assertEquals("45 s", LogModel.length(45))
+        assertEquals("12 min", LogModel.length(754))
+        assertEquals("2 h 5 min", LogModel.length(7_500))
+        assertEquals("3 h", LogModel.length(3 * 3_600 + 20))
+    }
+
+    @Test
     fun noEntriesIsEmptyAndGarbageLinesAreSkipped() {
         assertTrue(model().empty)
         val m = model(Entry(at(6, 8), "WAT", emptyList()), Entry(at(6, 9), "MASKED", listOf("BALANCED")))

@@ -10,7 +10,7 @@
 - [x] No boot receiver, no new permission, no FGS in accessibility mode
 - [x] SPEC V1c: reboot, unlock, do not open Sophiel; test video masked within ~1 s of playing; Status reads "· accesibilidad"
 - [x] Reboot with protection off starts nothing
-- [ ] Ends buildable
+- [x] Ends buildable
 
 ## Device check, 2026-10-14
 

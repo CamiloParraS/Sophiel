@@ -131,11 +131,12 @@ internal fun Context.cancelResumeNotification() =
 
 /**
  * D21: protection ended on its own. Tapping it opens MainActivity, which starts the normal flow; consent
- * is still fresh (§4.2). The alert channel exists: only a share's end posts this, after the service ran.
+ * is still fresh (§4.2). Not [resume] (D54 "Protección interrumpida"): it only opens Status. The alert
+ * channel exists: protection is only ever on after a share ran, and channels outlive a reboot.
  */
-internal fun Context.postResumeNotification(title: Int, text: Int) {
+internal fun Context.postResumeNotification(title: Int, text: Int, resume: Boolean = true) {
     val intent = Intent(this, MainActivity::class.java)
-        .setAction(MainActivity.ACTION_RESUME)
+        .setAction(if (resume) MainActivity.ACTION_RESUME else null)
         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
     val pendingIntent = PendingIntent.getActivity(
         this, 0, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,

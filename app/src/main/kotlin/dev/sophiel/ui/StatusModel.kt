@@ -4,13 +4,14 @@ import dev.sophiel.capture.CaptureMode
 import dev.sophiel.capture.ControllerPhase
 import dev.sophiel.core.Sensitivity
 import dev.sophiel.log.Entry
+import dev.sophiel.log.Gap
 import dev.sophiel.log.OffReason
 import dev.sophiel.settings.ParentPreset
 
 /** The three things Status checks live (D42). Only the overlay is needed to start (D46); the service and notifications are recommended. */
 enum class Need { OVERLAY, SERVICE, NOTIFICATIONS }
 
-enum class Page { PROTECTED, OFF, READY, STARTING, STOPPED }
+enum class Page { PROTECTED, OFF, READY, STARTING, STOPPED, INTERRUPTED }
 
 /** Why Precise is not running as Precise (SPEC M6, D35, D40). */
 enum class Fallback { ACCESSIBILITY_OFF, ANDROID_BELOW_14 }
@@ -28,6 +29,7 @@ class StatusInput(
     val sensitivity: Sensitivity,
     val sdk: Int,
     val mode: CaptureMode, // live, from CaptureModeController (SPEC §4.7)
+    val gap: Gap?, // an open Sin protección stretch (D54)
 )
 
 /** What Status shows, so the composable only draws. [stopped] is the OFF entry behind "Se detuvo". */
@@ -42,6 +44,7 @@ class StatusModel(
     val fallback: Fallback?,
     val stopBusy: Boolean,
     val mode: CaptureMode, // how the screen is read while protected (SPEC §4.7)
+    val gap: Gap?, // behind the red "Protección interrumpida"
 ) {
     companion object {
         val REQUIRED = listOf(Need.OVERLAY)
@@ -63,6 +66,7 @@ class StatusModel(
             val page = when {
                 running -> Page.PROTECTED
                 i.phase in STARTING -> Page.STARTING
+                i.gap != null -> Page.INTERRUPTED
                 stopped != null -> Page.STOPPED
                 blocking.isNotEmpty() -> Page.OFF
                 else -> Page.READY
@@ -80,7 +84,7 @@ class StatusModel(
                 !i.serviceBound -> Fallback.ACCESSIBILITY_OFF
                 else -> null
             }
-            return StatusModel(page, missing, startEnabled, note, stopped, i.preset, i.sensitivity, fallback, i.phase == ControllerPhase.STOPPING, i.mode)
+            return StatusModel(page, missing, startEnabled, note, stopped, i.preset, i.sensitivity, fallback, i.phase == ControllerPhase.STOPPING, i.mode, i.gap)
         }
     }
 }

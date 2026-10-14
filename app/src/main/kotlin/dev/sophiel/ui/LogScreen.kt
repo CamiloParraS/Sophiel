@@ -49,6 +49,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import dev.sophiel.R
 import dev.sophiel.log.EventLog
+import dev.sophiel.log.GapReason
 import dev.sophiel.log.OffReason
 import dev.sophiel.ui.theme.Ease
 import dev.sophiel.ui.theme.Palette
@@ -95,6 +96,13 @@ private fun offText(reason: String) = when (reason) {
     OffReason.RESTARTED -> R.string.log_off_restarted
     OffReason.APP_CLOSED -> R.string.log_off_app
     else -> R.string.log_off_system
+}
+
+@StringRes
+private fun gapText(reason: String) = when (reason) {
+    GapReason.APP_CLOSED -> R.string.log_off_app
+    GapReason.RESTARTED -> R.string.log_off_restarted
+    else -> R.string.log_gap_accessibility
 }
 
 /** Historial (D39, D44): draws a [LogModel]. Reads the file off the main thread; Borrar historial asks first. */
@@ -269,6 +277,11 @@ private fun EntryRow(row: LogRow) {
         is LogRow.ShareStopped -> PrefRow(
             stringResource(R.string.log_share_stopped), description = stringResource(R.string.log_share_stopped_text),
             icon = R.drawable.ic_stop, end = clock,
+        )
+        is LogRow.Unprotected -> PrefRow(
+            stringResource(R.string.log_gap),
+            description = stringResource(R.string.log_gap_text, stringResource(gapText(row.reason)), LogModel.length(row.seconds)),
+            icon = R.drawable.ic_shield_off, iconTint = Palette.RedFg, end = clock,
         )
         is LogRow.Off -> PrefRow(
             stringResource(R.string.log_off), description = stringResource(offText(row.reason)),

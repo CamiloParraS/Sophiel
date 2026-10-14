@@ -16,10 +16,11 @@ class EventLogTest {
     private val kv = HashMap<String, String>()
     private var now = 10 * DAY + 3_600_000 // 01:00 on day 10, UTC
     private var boot = 1
+    private var bootedAt = 0L
 
     private fun log() = EventLog(
         tmp.root.resolve("log.csv"), { now }, { kv[it] },
-        { m -> m.forEach { (k, v) -> if (v == null) kv.remove(k) else kv[k] = v } }, { boot }, ZoneOffset.UTC,
+        { m -> m.forEach { (k, v) -> if (v == null) kv.remove(k) else kv[k] = v } }, { boot }, { bootedAt }, ZoneOffset.UTC,
     )
 
     @Test fun `episodes continue within 3 s and restart after, probes do not split`() {
@@ -73,7 +74,7 @@ class EventLogTest {
         assertEquals(2, tmp.root.resolve("log.csv").readLines().size)
         l.masked("LIGHT", 1, 0.9f) // an append never reads or rewrites the file
         assertEquals(3, tmp.root.resolve("log.csv").readLines().size)
-        log().recoverGap() // app start drops it
+        log().recoverGap(keepProtecting = true) // app start drops it
         assertEquals(2, tmp.root.resolve("log.csv").readLines().size)
     }
 
@@ -92,43 +93,93 @@ class EventLogTest {
         assertEquals(0, l.entries().size)
     }
 
-    @Test fun `an ON without an OFF is closed at its last heartbeat, by boot count`() {
+    @Test fun `switch off - a capture with no OFF is closed at its last heartbeat, by boot count`() {
         val l = log()
-        l.on("BALANCED", "NORMAL")
+        l.capturing(true)
         now += 60_000
         l.heartbeat()
         val alive = now
         now += 500_000 // the app dies without an OFF
-        log().recoverGap()
+        log().recoverGap(keepProtecting = false)
         var last = log().last()!!
         assertEquals(listOf(alive, "OFF", OffReason.APP_CLOSED), listOf(last.at, last.kind, last.fields[0]))
-        log().recoverGap() // nothing left to close
-        assertEquals(2, log().entries().size) // ON, OFF
+        log().recoverGap(keepProtecting = false) // nothing left to close
+        assertEquals(1, log().entries().size)
 
-        l.on("BALANCED", "NORMAL")
+        l.capturing(true)
         boot = 2
-        log().recoverGap()
+        log().recoverGap(keepProtecting = false)
         last = log().last()!!
         assertEquals(OffReason.RESTARTED, last.fields[0])
     }
 
-    @Test fun `the inferred OFF is not stamped before an entry written after the last heartbeat`() {
+    @Test fun `switch on - an app stopped is an open Sin proteccion stretch from its last heartbeat`() {
         val l = log()
-        l.on("BALANCED", "NORMAL")
+        l.capturing(true)
+        val alive = now
+        now += 300_000 // am force-stop
+        val back = log().apply { recoverGap(keepProtecting = true) }
+        assertEquals(Gap(alive, GapReason.APP_CLOSED), back.gap())
+        assertTrue(back.entries().isEmpty()) // written when it ends
+        now += 60_000 // the Parent's Start
+        back.gapClosed()
+        val e = back.last()!!
+        assertEquals(listOf(alive, "UNPROTECTED", "360", GapReason.APP_CLOSED), listOf(e.at, e.kind) + e.fields)
+        assertNull(back.gap())
+        back.gapClosed() // nothing open: nothing written
+        assertEquals(1, back.entries().size)
+    }
+
+    @Test fun `switch on - a restart is a stretch up to the boot, boot to first unlock is not a gap`() {
+        log().capturing(true)
+        val alive = now
+        bootedAt = now + 90_000
+        now += 30 * 60_000 // first unlock, half an hour later
+        boot = 2
+        val back = log().apply { recoverGap(keepProtecting = true) }
+        assertNull(back.gap())
+        val e = back.last()!!
+        assertEquals(listOf(alive, "UNPROTECTED", "60", GapReason.RESTARTED), listOf(e.at, e.kind) + e.fields) // the night off is not a gap
+        back.capturing(true)
+        val again = now
+        bootedAt = now + 20_000 // a quick restart
+        now += 120_000
+        boot = 3
+        log().recoverGap(keepProtecting = true)
+        assertEquals(listOf(again, "20"), log().last()!!.let { listOf(it.at, it.fields[0]) })
+    }
+
+    @Test fun `a live stretch survives the process and capturing again does not re-arm a gap`() {
+        val l = log()
+        l.capturing(true)
+        l.capturing(false) // the service went off: the session closed
+        l.gapOpened(GapReason.ACCESSIBILITY_OFF)
+        val at = now
+        now += 10_000
+        log().recoverGap(keepProtecting = true) // no heartbeat to infer from
+        assertEquals(Gap(at, GapReason.ACCESSIBILITY_OFF), log().gap())
+        l.gapOpened(GapReason.APP_CLOSED) // already open: the first reason and start stay
+        assertEquals(Gap(at, GapReason.ACCESSIBILITY_OFF), log().gap())
+    }
+
+    @Test fun `the inferred stretch is not stamped before an entry written after the last heartbeat`() {
+        val l = log()
+        l.capturing(true)
         now += 5_000
         l.masked("BALANCED", 1, 0.9f)
         val wrote = now
         now += 20_000
-        log().recoverGap()
-        assertEquals(wrote, log().last()!!.at)
+        log().recoverGap(keepProtecting = true)
+        assertEquals(wrote, log().gap()!!.at)
     }
 
-    @Test fun `a clean OFF leaves nothing to recover and a late heartbeat does not re-arm it`() {
+    @Test fun `a clean stop leaves nothing to recover and a late heartbeat does not re-arm it`() {
         val l = log()
-        l.on("LIGHT", "NORMAL")
-        l.off(OffReason.SCREEN_OFF)
+        l.capturing(true)
+        l.capturing(false)
+        l.off(OffReason.USER)
         l.heartbeat()
-        log().recoverGap()
-        assertEquals(2, log().entries().size)
+        log().recoverGap(keepProtecting = false)
+        assertEquals(1, log().entries().size)
     }
 }

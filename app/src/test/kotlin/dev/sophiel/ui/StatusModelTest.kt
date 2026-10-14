@@ -4,6 +4,8 @@ import dev.sophiel.capture.CaptureMode
 import dev.sophiel.capture.ControllerPhase
 import dev.sophiel.core.Sensitivity
 import dev.sophiel.log.Entry
+import dev.sophiel.log.Gap
+import dev.sophiel.log.GapReason
 import dev.sophiel.log.OffReason
 import dev.sophiel.settings.ParentPreset
 import org.junit.Assert.assertEquals
@@ -22,7 +24,8 @@ class StatusModelTest {
         preset: ParentPreset = ParentPreset.BALANCED,
         sdk: Int = 35,
         mode: CaptureMode = if (phase == ControllerPhase.RUNNING) CaptureMode.SCREEN_SHARE else CaptureMode.NONE,
-    ) = StatusModel.of(StatusInput(phase, bound, overlay, notifications, last, preset, Sensitivity.NORMAL, sdk, mode))
+        gap: Gap? = null,
+    ) = StatusModel.of(StatusInput(phase, bound, overlay, notifications, last, preset, Sensitivity.NORMAL, sdk, mode, gap))
 
     private fun off(reason: String) = Entry(1_000, "OFF", listOf(reason))
 
@@ -107,5 +110,17 @@ class StatusModelTest {
         assertEquals(Fallback.ACCESSIBILITY_OFF, model(preset = ParentPreset.PRECISE, bound = false).fallback)
         assertEquals(Fallback.ANDROID_BELOW_14, model(preset = ParentPreset.PRECISE, sdk = 33).fallback)
         assertEquals(Fallback.ANDROID_BELOW_14, model(preset = ParentPreset.PRECISE, sdk = 33, bound = false).fallback)
+    }
+
+    @Test
+    fun anOpenStretchIsInterruptedUntilStart() { // D54: red "Protección interrumpida" with its reason
+        val gap = Gap(1_000, GapReason.ACCESSIBILITY_OFF)
+        val m = model(bound = false, gap = gap, last = off(OffReason.SYSTEM))
+        assertEquals(Page.INTERRUPTED, m.page)
+        assertEquals(gap, m.gap)
+        assertTrue(m.startEnabled)
+        assertEquals(listOf(Need.SERVICE), m.missing)
+        assertEquals(Page.STARTING, model(ControllerPhase.NEED_CONSENT, gap = gap).page)
+        assertEquals(Page.PROTECTED, model(ControllerPhase.RUNNING, gap = gap).page)
     }
 }

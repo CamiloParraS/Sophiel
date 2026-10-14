@@ -300,8 +300,9 @@ private fun statusScreen(controller: ProjectionController, container: AppContain
     // The Log is written at ON / OFF, which coincide with phase changes.
     val mode by container.captureModes.state.collectAsState()
     val last = remember(state.phase, mode.protecting, resumes) { container.log.last() }
+    val gap = remember(mode, resumes) { container.log.gap() } // opened and ended only on a mode change (D54)
     val model = StatusModel.of(
-        StatusInput(state.phase, bound, overlay, notifications, last, settings.preset, settings.sensitivity, Build.VERSION.SDK_INT, mode.mode),
+        StatusInput(state.phase, bound, overlay, notifications, last, settings.preset, settings.sensitivity, Build.VERSION.SDK_INT, mode.mode, gap),
     )
     StatusScreen(model, door, actions, modifier)
 }

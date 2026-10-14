@@ -181,8 +181,9 @@ class CaptureModeMachineTest {
         assertEquals(OffReason.SYSTEM, offAfter(switchOff, ShareEnded))
         assertEquals(OffReason.SCREEN_OFF, offAfter(switchOff, ScreenOff))
         assertNull(offAfter(switchOff, ScreenOff, ShareEnded)) // the late onStop: one OFF, not two
-        // Switch on, unbound: protection stays on but nothing reads the screen (ticket 16 replaces this OFF).
-        assertEquals(OffReason.SYSTEM, offAfter(sharing.copy(serviceBound = false), ShareEnded))
+        // Switch on, unbound: protection stays on, so no OFF: a Sin protección stretch instead (D54).
+        assertNull(offAfter(sharing.copy(serviceBound = false), ShareEnded))
+        assertNull(offAfter(sharing.copy(serviceBound = false, shareSurvivesScreenOff = true), ScreenOff))
         // A fallback, or a paused share (D55): no OFF.
         assertNull(offAfter(sharing, ShareEnded))
         assertNull(offAfter(sharing, ScreenOff, ShareEnded))
@@ -221,5 +222,75 @@ class CaptureModeMachineTest {
         val s = run(sharing, ShareEnded, ShareStarted)
         assertEquals(sharing, s)
         assertEquals(false, CaptureModeMachine.slowMode(run(sharing, ShareEnded), s))
+    }
+
+    /** Sin protección (D54): whether the controller opens / ends a stretch after the last event of [e], from a closed / open one. */
+    private fun opensAfter(s: ModeState, vararg e: ModeEvent) = CaptureModeMachine.gapOpens(false, run(s, *e))
+    private fun endsAfter(s: ModeState, vararg e: ModeEvent) = CaptureModeMachine.gapEnds(true, run(s, *e))
+
+    @Test
+    fun serviceOffWithProtectionOnIsAStretchUntilStart() {
+        assertEquals(true, opensAfter(sharing, ShareEnded, ServiceUnbound))
+        assertEquals(false, endsAfter(sharing, ShareEnded, ServiceUnbound, ServiceBound)) // binding again is no Start
+        assertEquals(true, endsAfter(sharing, ShareEnded, ServiceUnbound, ShareStarted))
+        assertEquals(true, endsAfter(sharing, ShareEnded, ServiceUnbound, Stop))
+        assertEquals(true, endsAfter(sharing, ShareEnded, ServiceUnbound, SwitchOff))
+        assertEquals(false, endsAfter(sharing, ShareEnded, ServiceUnbound, ScreenOff)) // one stretch, screen-offs inside it included
+    }
+
+    @Test
+    fun aShareStillRunningIsNoStretch() {
+        assertEquals(false, opensAfter(sharing, ServiceUnbound))
+        assertEquals(false, opensAfter(sharing, ShareEnded)) // accessibility took over
+        assertEquals(false, opensAfter(sharing, ScreenOff, ShareEnded)) // API 35+: waits for screen-on with a fallback
+        assertEquals(false, opensAfter(sharing.copy(keepProtecting = false), ShareEnded)) // switch off: protection ended, an OFF
+    }
+
+    @Test
+    fun withoutTheServiceEachScreenOffLeavesAStretchFromScreenOn() { // D46
+        val a = sharing.copy(serviceBound = false, shareSurvivesScreenOff = true)
+        assertEquals(false, opensAfter(a, ScreenOff)) // screen off: nothing uncovered yet
+        assertEquals(true, opensAfter(a, ScreenOff, ScreenOn))
+        assertEquals(true, opensAfter(sharing.copy(serviceBound = false), ShareEnded)) // chip stop, screen on
+        assertEquals(true, endsAfter(a, ScreenOff, ScreenOn, ShareStarted))
+    }
+
+    @Test
+    fun aProcessBackWithProtectionOnAndNoServiceIsAStretch() { // force-stop: the service is unticked (D41)
+        assertEquals(true, opensAfter(idle.copy(protecting = true)))
+        assertEquals(true, opensAfter(idle.copy(protecting = true), UiOpened))
+        // A kill the system recovers from: the service binds and capture resumes, the recovered stretch ends.
+        assertEquals(true, endsAfter(idle.copy(protecting = true, serviceBound = true)))
+        assertEquals(false, opensAfter(idle)) // not protecting
+        assertEquals(false, opensAfter(idle.copy(protecting = true, screenOn = false))) // reboot before first unlock
+    }
+
+    /** "Protección interrumpida · toca para reactivar" after the last event of [e]. */
+    private fun noticeAfter(s: ModeState, vararg e: ModeEvent): Boolean {
+        val old = run(s, *e.dropLast(1).toTypedArray())
+        return CaptureModeMachine.serviceLost(old, CaptureModeMachine.reduce(old, e.last()))
+    }
+
+    @Test
+    fun theServiceTurningOffWithProtectionOnIsNoticed() {
+        assertEquals(true, noticeAfter(sharing, ShareEnded, ServiceUnbound))
+        assertEquals(false, noticeAfter(sharing, ServiceUnbound)) // the share goes on; its end posts D21's notice
+        assertEquals(false, noticeAfter(sharing, Stop, ServiceUnbound))
+    }
+
+    /** D21's resume notice for a share lost with protection on and nothing to fall back on. */
+    private fun lostAfter(s: ModeState, vararg e: ModeEvent): Boolean {
+        val old = run(s, *e.dropLast(1).toTypedArray())
+        return CaptureModeMachine.lostShare(old, CaptureModeMachine.reduce(old, e.last()))
+    }
+
+    @Test
+    fun aShareLostWithNoFallbackPostsTheResumeNotice() {
+        assertEquals(true, lostAfter(sharing.copy(serviceBound = false), ShareEnded))
+        assertEquals(true, lostAfter(sharing.copy(serviceBound = false, shareSurvivesScreenOff = true), ScreenOff))
+        assertEquals(true, lostAfter(sharing, ServiceUnbound, ShareEnded))
+        assertEquals(false, lostAfter(sharing, ShareEnded))
+        assertEquals(false, lostAfter(sharing, ScreenOff)) // API 35+: resumes at screen-on
+        assertEquals(false, lostAfter(sharing.copy(keepProtecting = false), ShareEnded)) // switch off: the OFF posts it
     }
 }

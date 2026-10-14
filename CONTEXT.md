@@ -11,7 +11,8 @@
 - **Probe**: briefly removing one mask to check whether the content under it changed.
 - **Masking episode**: the screen going from no masks to at least one, whatever the preset; the unit the Log counts. Probes don't end it, and masks that return within a few seconds of the screen clearing continue it.
 - **Sensitivity**: the Parent-set score threshold above which a frame or tile is flagged.
-- **Log entry**: a local record kept 7 days, scalars only, never pixels. Kinds: masked, protection on, protection off (with reason), unanalyzable, tamper attempt, app blocked (escalation), blocked open.
+- **Log entry**: a local record kept 7 days, scalars only, never pixels. Kinds: masked, protection on, protection off (with reason), unanalyzable, screen share stopped, Sin protección, tamper attempt, app blocked (escalation), blocked open.
+- **Sin protección**: a stretch where Protection was on and nothing could capture (accessibility off, app stopped, phone restarted), from its start until capture or the Parent comes back; Status shows it red as "Protección interrumpida" while it lasts. Boot to first unlock is not one.
 - **Episode app**: the app a masking episode (or unanalyzable stretch) is counted against: the app on screen under the strongest mask when it began. Named in the Log, never what was in it; unknown when Sophiel can't see windows.
 - **Unanalyzable**: a screen that returns only black frames (`FLAG_SECURE`), so it can't be judged.
 - **Guard**: Sophiel closing a system page that could turn it off (its accessibility toggle, its "Appear on top" permission, its App info page, its uninstall dialog, its Stop in Active apps) and asking for the PIN instead. Armed whenever a PIN exists and no Unlock is active; a page is guarded only while the thing it turns off is on.

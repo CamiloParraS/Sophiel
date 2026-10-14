@@ -9,7 +9,7 @@ data class Entry(val at: Long, val kind: String, val fields: List<String>) {
     fun line() = (listOf(at.toString(), kind) + fields).joinToString(",")
 }
 
-/** `OFF` reasons. */
+/** `OFF` reasons. D54: the screen and system ones, and the inferred ones, only with the switch off. */
 object OffReason {
     const val USER = "USER"
     const val SCREEN_OFF = "SCREEN_OFF"
@@ -18,11 +18,22 @@ object OffReason {
     const val APP_CLOSED = "APP_CLOSED" // inferred: force-stop or crash
 }
 
+/** Why a Sin protección stretch (D54) began. */
+object GapReason {
+    const val ACCESSIBILITY_OFF = "ACCESSIBILITY_OFF"
+    const val APP_CLOSED = OffReason.APP_CLOSED // inferred, like the OFF
+    const val RESTARTED = OffReason.RESTARTED
+}
+
+/** A Sin protección stretch still open: protection on, nothing capturing, since [at]. */
+data class Gap(val at: Long, val reason: String)
+
 /**
  * The Parent's Log (D39): `filesDir/log.csv`, wall clock, 7 days. Reads filter by age; older lines
  * leave the file once per process, in [recoverGap], so an append never reads it (masks log on the
  * frame lane). The last-alive heartbeat lives behind [read]/[write] (SharedPreferences in the app;
- * null removes a key) so an ON with no OFF can be closed on the next start.
+ * null removes a key) so a capture that died can be closed on the next start, and so does an open
+ * Sin protección stretch (D54), which is written when it ends.
  */
 class EventLog(
     private val file: File,
@@ -30,34 +41,61 @@ class EventLog(
     private val read: (String) -> String?,
     private val write: (Map<String, String?>) -> Unit,
     private val bootCount: () -> Int,
+    private val bootedAt: () -> Long, // wall clock at boot
     private val zone: ZoneId = ZoneId.systemDefault(),
 ) {
-    private var running = false // a heartbeat that races the OFF must not re-arm the gap check
+    private var running = false // a heartbeat that races the session's end must not re-arm the gap check
 
-    @Synchronized fun on(preset: String, sensitivity: String) {
-        add(wall(), "ON", preset, sensitivity)
-        running = true
-        heartbeat()
+    /** The Parent's Start (D54: not a resume after a stretch). */
+    @Synchronized fun on(preset: String, sensitivity: String) = add(wall(), "ON", preset, sensitivity)
+
+    @Synchronized fun off(reason: String) = add(wall(), "OFF", reason)
+
+    /** A capture session opened or closed: the heartbeat runs only in between. */
+    @Synchronized fun capturing(on: Boolean) {
+        running = on
+        if (on) heartbeat() else write(mapOf(ALIVE to null, BOOT to null))
     }
 
-    @Synchronized fun off(reason: String) {
-        add(wall(), "OFF", reason)
-        running = false
-        write(mapOf(ALIVE to null, BOOT to null))
-    }
-
-    /** Once a minute while running. */
+    /** Once a minute while capturing. */
     @Synchronized fun heartbeat() {
         if (running) write(mapOf(ALIVE to wall().toString(), BOOT to bootCount().toString()))
     }
 
-    /** On app start: an ON that never got its OFF ends at its last heartbeat. */
-    @Synchronized fun recoverGap() {
+    /**
+     * On app start: a capture that never closed ends at its last heartbeat. Switch off (M6): an OFF.
+     * Switch on (D54): protection is still on, so a Sin protección stretch: a restart's ends at the boot
+     * (boot to first unlock is not a gap), an app stopped stays open until capture comes back.
+     */
+    @Synchronized fun recoverGap(keepProtecting: Boolean) {
         prune()
         val at = read(ALIVE)?.toLongOrNull() ?: return
-        add(at, "OFF", if (read(BOOT)?.toIntOrNull() != bootCount()) OffReason.RESTARTED else OffReason.APP_CLOSED)
+        val restarted = read(BOOT)?.toIntOrNull() != bootCount()
         write(mapOf(ALIVE to null, BOOT to null))
+        when {
+            !keepProtecting -> add(at, "OFF", if (restarted) OffReason.RESTARTED else OffReason.APP_CLOSED)
+            // ponytail: the shutdown is not recorded; alive at the last heartbeat, the process ran up to it within a
+            // minute, so a phone left off overnight is not "8 h". Record ACTION_SHUTDOWN if that minute matters.
+            restarted -> addGap(at, minOf(bootedAt(), at + HEARTBEAT_MS), GapReason.RESTARTED)
+            else -> gapOpened(GapReason.APP_CLOSED, at)
+        }
     }
+
+    /** D54: a Sin protección stretch began; kept on disk until [gapClosed]. An open one keeps its start and reason. */
+    @Synchronized fun gapOpened(reason: String, at: Long = wall()) {
+        if (gap() == null) write(mapOf(GAP_AT to at.toString(), GAP_WHY to reason))
+    }
+
+    /** Capture or protection is back: the open stretch is written, stamped at its start, with its length. */
+    @Synchronized fun gapClosed() {
+        val g = gap() ?: return
+        write(mapOf(GAP_AT to null, GAP_WHY to null))
+        addGap(g.at, wall(), g.reason)
+    }
+
+    @Synchronized fun gap(): Gap? = read(GAP_AT)?.toLongOrNull()?.let { Gap(it, read(GAP_WHY) ?: GapReason.ACCESSIBILITY_OFF) }
+
+    private fun addGap(from: Long, to: Long, reason: String) = add(from, "UNPROTECTED", ((to - from).coerceAtLeast(0) / 1_000).toString(), reason)
 
     @Synchronized fun masked(preset: String, count: Int, score: Float) =
         add(wall(), "MASKED", preset, count.toString(), "%.2f".format(java.util.Locale.ROOT, score))
@@ -71,7 +109,7 @@ class EventLog(
     /** The last 7 days, in file order. */
     @Synchronized fun entries(): List<Entry> = load().filter { it.at >= wall() - WEEK_MS }
 
-    /** The last line written: Status shows "Se detuvo" when it is an OFF the user didn't cause. */
+    /** The last line written: Status shows "Se detuvo" when it is an OFF the user didn't cause (switch off). */
     fun last(): Entry? = entries().lastOrNull()
 
     fun countToday(): Int {
@@ -103,8 +141,11 @@ class EventLog(
 
     private companion object {
         const val WEEK_MS = 7 * 24 * 3_600_000L
+        const val HEARTBEAT_MS = 60_000L // = CaptureSession's
         const val ALIVE = "last_alive"
         const val BOOT = "last_boot"
+        const val GAP_AT = "gap_at"
+        const val GAP_WHY = "gap_reason"
     }
 }
 

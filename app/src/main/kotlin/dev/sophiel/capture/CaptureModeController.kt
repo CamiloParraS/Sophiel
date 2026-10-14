@@ -12,6 +12,7 @@ import android.os.PowerManager
 import android.util.Log
 import dev.sophiel.AppContainer
 import dev.sophiel.R
+import dev.sophiel.log.GapReason
 import dev.sophiel.log.OffReason
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,7 +24,7 @@ import kotlinx.coroutines.launch
  * Drives [CaptureModeMachine] (SPEC.md §4.7) and makes the one [CaptureSession] follow it: frames from
  * the share, then from display shots once it ends, masks and tracker carried over (D54). Process-wide
  * in [AppContainer], because the session outlives the share's [ProjectionService]. Also the one place
- * the Log's ON / OFF are written. Main thread only.
+ * the Log's ON / OFF and Sin protección stretches are written. Main thread only.
  */
 class CaptureModeController(context: Context, private val container: AppContainer) {
     private val context = context.applicationContext
@@ -31,7 +32,8 @@ class CaptureModeController(context: Context, private val container: AppContaine
 
     private val _state = MutableStateFlow(
         ModeState(
-            protecting = container.protection.protecting,
+            // Switch off, protection ended with the share; a new process has none, so it ended (recoverGap wrote the OFF).
+            protecting = container.protection.protecting && container.settings.value.keepProtecting,
             screenOn = power.isInteractive,
             serviceBound = serviceBound(),
             keepProtecting = container.settings.value.keepProtecting,
@@ -43,6 +45,8 @@ class CaptureModeController(context: Context, private val container: AppContaine
     private var session: CaptureSession? = null
 
     init {
+        container.protection.protecting = _state.value.protecting
+        followGap(_state.value) // back from a kill: a stretch to open, or a recovered one to end
         this.context.registerReceiver(object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) =
                 onEvent(if (intent.action == Intent.ACTION_SCREEN_ON) ModeEvent.ScreenOn else ModeEvent.ScreenOff)
@@ -65,6 +69,8 @@ class CaptureModeController(context: Context, private val container: AppContaine
 
     /** The share's projection is acquired (SPEC.md §4.4 RUNNING): Start is complete. */
     fun shareStarted(projection: MediaProjection) {
+        // D54: the Parent's Start: from off, or ending a Sin protección stretch (not a return from slow mode).
+        if (!_state.value.protecting || container.log.gap() != null) container.settings.value.let { container.log.on(it.preset.name, it.sensitivity.name) }
         val live = session
         if (live != null && !live.sharing) {
             live.startShare(projection) // D54: from accessibility, the same session: projection first, then the shots stop
@@ -101,25 +107,37 @@ class CaptureModeController(context: Context, private val container: AppContaine
         Log.i(TAG, "$e: capture mode ${old.mode} -> ${new.mode}, protecting=${new.protecting} screenOn=${new.screenOn}")
         if (new.protecting != old.protecting) container.protection.protecting = new.protecting
         applyToSession(old, new)
+        // After the session: closing it writes an open unanalyzable stretch, which goes before the stretch and the OFF.
+        followGap(new)
         if (old.protecting && !new.protecting) context.cancelResumeNotification() // a stale "tap to resume" must not start a session; the OFF below may post its own
         if (CaptureModeMachine.slowMode(old, new)) { // D54: the Parent can ask for the fast mode back; Sophiel never does
             container.log.shareStopped()
             context.postResumeNotification(R.string.notif_slow_title, R.string.notif_slow_text)
         }
-        // After the session: closing it writes an open unanalyzable stretch, which goes before the OFF.
-        CaptureModeMachine.offReason(old, new, e)?.let { reason ->
-            container.log.off(reason)
-            when (reason) { // D21: offer a one-tap restart; consent is still fresh (SPEC.md §4.2)
-                OffReason.SCREEN_OFF -> context.postResumeNotification(R.string.notif_paused_title, R.string.notif_paused_text)
-                OffReason.SYSTEM -> context.postResumeNotification(R.string.notif_off_title, R.string.notif_off_text)
-            }
+        if (CaptureModeMachine.serviceLost(old, new)) context.postResumeNotification(R.string.notif_interrupted_title, R.string.notif_interrupted_text, resume = false)
+        val reason = CaptureModeMachine.offReason(old, new, e)
+        reason?.let(container.log::off)
+        // D21: offer a one-tap restart; consent is still fresh (SPEC.md §4.2). Switch off it ends protection, switch on without the service a stretch follows (D46).
+        if (reason == OffReason.SYSTEM || reason == OffReason.SCREEN_OFF || CaptureModeMachine.lostShare(old, new)) {
+            if (new.screenOn) context.postResumeNotification(R.string.notif_off_title, R.string.notif_off_text)
+            else context.postResumeNotification(R.string.notif_paused_title, R.string.notif_paused_text)
         }
+    }
+
+    /** D54: open or end the Sin protección stretch. Opened live, it is the service going away (a dead process's is opened by EventLog.recoverGap). */
+    private fun followGap(s: ModeState) {
+        val open = container.log.gap() != null
+        if (CaptureModeMachine.gapOpens(open, s)) container.log.gapOpened(GapReason.ACCESSIBILITY_OFF)
+        if (CaptureModeMachine.gapEnds(open, s)) container.log.gapClosed()
     }
 
     private fun applyToSession(old: ModeState, new: ModeState) {
         val shareEnded = old.mode == CaptureMode.SCREEN_SHARE && new.mode != CaptureMode.SCREEN_SHARE
         if (!new.holdsSession) {
-            session?.close()
+            session?.let {
+                it.close()
+                container.log.capturing(false)
+            }
             session = null
         } else {
             if (session == null && new.mode == CaptureMode.ACCESSIBILITY) session = newSession(null) // a bind, after a restart too
@@ -130,10 +148,9 @@ class CaptureModeController(context: Context, private val container: AppContaine
         if (shareEnded) context.stopService(Intent(context, ProjectionService::class.java))
     }
 
-    /** D39: every session is an ON (and starts the heartbeat), so a restart into accessibility is logged too. */
+    /** D39: the heartbeat runs while a session does, so a dead process's gap can be inferred. */
     private fun newSession(projection: MediaProjection?): CaptureSession {
-        val settings = container.settings.value
-        container.log.on(settings.preset.name, settings.sensitivity.name)
+        container.log.capturing(true)
         return CaptureSession(context, projection, captureSize(context), container)
     }
 

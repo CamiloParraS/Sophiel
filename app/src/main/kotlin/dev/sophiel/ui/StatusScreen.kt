@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import dev.sophiel.R
 import dev.sophiel.capture.CaptureMode
 import dev.sophiel.core.Sensitivity
+import dev.sophiel.log.GapReason
 import dev.sophiel.log.OffReason
 import dev.sophiel.settings.ParentPreset
 import dev.sophiel.ui.theme.Ease
@@ -101,6 +102,20 @@ private fun reasonText(reason: String) = when (reason) {
     else -> R.string.stopped_system_text
 }
 
+@StringRes
+private fun gapTitle(reason: String) = when (reason) {
+    GapReason.APP_CLOSED -> R.string.stopped_app_closed
+    GapReason.RESTARTED -> R.string.stopped_restarted
+    else -> R.string.gap_accessibility
+}
+
+@StringRes
+private fun gapText(reason: String) = when (reason) {
+    GapReason.APP_CLOSED -> R.string.gap_app_closed_text
+    GapReason.RESTARTED -> R.string.stopped_restarted_text
+    else -> R.string.gap_accessibility_text
+}
+
 /**
  * Status (D42, D44, D45): draws a [StatusModel]. Shows only what is wrong; nothing animates when it
  * opens, only state changes (fixing a row, starting, stopping) cross-fade.
@@ -117,7 +132,7 @@ fun StatusScreen(model: StatusModel, door: Door, actions: StatusActions, modifie
             Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(start = 14.dp, end = 14.dp, top = 18.dp, bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(18.dp),
         ) {
-            Hero(model, model.stopped?.let { time.format(Date(it.at)) }.orEmpty())
+            Hero(model, (model.gap?.at ?: model.stopped?.at)?.let { time.format(Date(it)) }.orEmpty())
             when (model.page) {
                 Page.PROTECTED -> {
                     Summary(model)
@@ -146,6 +161,20 @@ fun StatusScreen(model: StatusModel, door: Door, actions: StatusActions, modifie
                     }
                     if (model.missing.isNotEmpty()) PreferenceGroup(title = stringResource(R.string.status_to_restart)) {
                         model.missing.forEach { n -> item { NeedRow(n, false, actions.fix, forcedStop = stoppedReason == OffReason.APP_CLOSED) } }
+                    }
+                }
+                Page.INTERRUPTED -> { // D54: protection is still on; Start brings capture back
+                    val gap = model.gap!!
+                    PreferenceGroup(title = stringResource(R.string.status_what_happened)) {
+                        item {
+                            PrefRow(
+                                stringResource(gapTitle(gap.reason)), description = stringResource(gapText(gap.reason)), icon = R.drawable.ic_warn, iconTint = Palette.RedFg,
+                                end = { Text(time.format(Date(gap.at)), style = MaterialTheme.typography.bodyMedium, color = Palette.Dim) },
+                            )
+                        }
+                    }
+                    if (model.missing.isNotEmpty()) PreferenceGroup(title = stringResource(R.string.status_to_restart)) {
+                        model.missing.forEach { n -> item { NeedRow(n, false, actions.fix, forcedStop = gap.reason == GapReason.APP_CLOSED) } }
                     }
                 }
             }
@@ -197,7 +226,7 @@ private fun Note(@StringRes id: Int) =
     Text(stringResource(id), style = MaterialTheme.typography.bodySmall, color = Palette.Dim, textAlign = TextAlign.Center)
 
 @Composable
-private fun Hero(model: StatusModel, stoppedAt: String) {
+private fun Hero(model: StatusModel, since: String) {
     val blocking = StatusModel.REQUIRED.count { it in model.missing }
     when (model.page) {
         Page.PROTECTED -> StatusPage(
@@ -210,7 +239,8 @@ private fun Hero(model: StatusModel, stoppedAt: String) {
             stringResource(if (Need.SERVICE in model.missing) R.string.status_ready_partial else R.string.status_ready_text), Tone.Ready,
         )
         Page.STARTING -> StatusPage(R.drawable.ic_shield, stringResource(R.string.status_starting), stringResource(R.string.status_starting_text), Tone.Ready, spinner = true)
-        Page.STOPPED -> StatusPage(R.drawable.ic_shield_off, stringResource(R.string.status_stopped), stringResource(R.string.status_stopped_text, stoppedAt), Tone.Warn)
+        Page.STOPPED -> StatusPage(R.drawable.ic_shield_off, stringResource(R.string.status_stopped), stringResource(R.string.status_stopped_text, since), Tone.Warn)
+        Page.INTERRUPTED -> StatusPage(R.drawable.ic_shield_off, stringResource(R.string.status_interrupted), stringResource(R.string.status_interrupted_text, since), Tone.Alert)
     }
 }
 

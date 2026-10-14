@@ -22,6 +22,8 @@
     <string name="notif_stop">Stop</string>
     <string name="notif_paused_title">Sophiel protection paused</string>
     <string name="notif_paused_text">The screen turned off. Tap to resume.</string>
+    <string name="notif_interrupted_title">Protection interrupted</string>
+    <string name="notif_interrupted_text">Tap to turn it back on.</string>
 
     <!-- PIN and door -->
     <string name="pin_title">Enter the PIN</string>
@@ -79,6 +81,11 @@
     <string name="stopped_restarted_text">Protection does not come back by itself</string>
     <string name="stopped_app_closed">The app was closed</string>
     <string name="stopped_app_closed_text">Android stopped it</string>
+    <string name="status_interrupted">Protection interrupted</string>
+    <string name="status_interrupted_text">Nothing has checked the screen since %1$s</string>
+    <string name="gap_accessibility">Accessibility is off</string>
+    <string name="gap_accessibility_text">Without it, Sophiel can\'t keep protecting. Turn it on and tap Start.</string>
+    <string name="gap_app_closed_text">Turn accessibility on and tap Start.</string>
     <string name="status_see_log">See in History</string>
     <string name="status_to_restart">To start again</string>
     <string name="status_review">Review</string>
@@ -155,6 +162,9 @@
     <string name="log_off_restarted">The phone restarted</string>
     <string name="log_share_stopped">Screen sharing stopped</string>
     <string name="log_share_stopped_text">Protection goes on in slow mode</string>
+    <string name="log_gap">Unprotected</string>
+    <string name="log_gap_text">%1$s · %2$s</string>
+    <string name="log_gap_accessibility">Accessibility is off</string>
     <string name="log_empty">Nothing to show yet</string>
     <string name="log_empty_text">The log stays on this phone and is deleted after 7 days.</string>
     <string name="log_clear">Clear log</string>

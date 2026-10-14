@@ -37,14 +37,15 @@ class AppContainer(context: Context) {
 
     private val logPrefs = context.getSharedPreferences("log", Context.MODE_PRIVATE)
 
-    /** D39: the Parent's Log. An ON left open by a dead process is closed here, before any session. */
+    /** D39: the Parent's Log. A capture left open by a dead process is closed here, before any session (D54). */
     val log = EventLog(
         file = File(context.filesDir, "log.csv"),
         wall = System::currentTimeMillis,
         read = { logPrefs.getString(it, null) },
         write = { m -> logPrefs.edit().apply { m.forEach { (k, v) -> if (v == null) remove(k) else putString(k, v) } }.apply() },
         bootCount = { Settings.Global.getInt(context.contentResolver, Settings.Global.BOOT_COUNT, 0) },
-    ).also { it.recoverGap() }
+        bootedAt = { System.currentTimeMillis() - SystemClock.elapsedRealtime() },
+    ).also { it.recoverGap(settings.value.keepProtecting) }
 
     val protection = ProtectionStore(context)
 

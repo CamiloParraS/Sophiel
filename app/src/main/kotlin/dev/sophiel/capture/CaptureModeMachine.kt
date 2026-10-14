@@ -26,6 +26,9 @@ data class ModeState(
 
     /** The capture session lives on: capturing, or protection on with a fallback, waiting for screen-on. */
     val holdsSession get() = mode != CaptureMode.NONE || protecting && canFallBack && !interrupted
+
+    /** Protection on and nothing to read the screen with until a Start (or a bind, after a kill): Sin protección (D54). */
+    val uncovered get() = protecting && !holdsSession
 }
 
 sealed interface ModeEvent {
@@ -75,18 +78,29 @@ object CaptureModeMachine {
         ModeEvent.Stop -> s.copy(protecting = false, mode = CaptureMode.NONE, interrupted = false)
     }
 
-    /**
-     * D39's OFF for [e], or null: only where protection ends (D54) or, until ticket 16 writes a Sin
-     * protección stretch instead, where a share ends with nothing to fall back on.
-     */
-    fun offReason(old: ModeState, new: ModeState, e: ModeEvent): String? {
-        val screen = if (new.screenOn) OffReason.SYSTEM else OffReason.SCREEN_OFF
-        return when {
-            old.protecting && !new.protecting -> if (e == ModeEvent.Stop || e == ModeEvent.SwitchOff) OffReason.USER else screen
-            old.mode == CaptureMode.SCREEN_SHARE && new.mode == CaptureMode.NONE && new.protecting && !new.canFallBack -> screen
-            else -> null
-        }
+    /** D39's OFF for [e], or null: only where protection ends (D54); the screen and system reasons need the switch off. */
+    fun offReason(old: ModeState, new: ModeState, e: ModeEvent): String? = when {
+        !old.protecting || new.protecting -> null
+        e == ModeEvent.Stop || e == ModeEvent.SwitchOff -> OffReason.USER
+        new.screenOn -> OffReason.SYSTEM
+        else -> OffReason.SCREEN_OFF
     }
+
+    /**
+     * A Sin protección stretch (D54) opens when protection is on, the screen on and nothing will capture.
+     * It ends only when capture or protection comes back: one stretch per interruption, screen-offs inside
+     * it included. [open]: one is open now.
+     */
+    fun gapOpens(open: Boolean, s: ModeState) = !open && s.uncovered && s.screenOn
+
+    fun gapEnds(open: Boolean, s: ModeState) = open && !s.uncovered
+
+    /** The service went away and left protection with nothing to capture with: "Protección interrumpida" (D54). */
+    fun serviceLost(old: ModeState, new: ModeState) = old.serviceBound && !new.serviceBound && new.uncovered
+
+    /** A share ended with protection on and nothing to fall back on (switch on, no service): D21's resume notice (D46). */
+    fun lostShare(old: ModeState, new: ModeState) =
+        old.mode == CaptureMode.SCREEN_SHARE && new.mode == CaptureMode.NONE && new.protecting && !new.canFallBack
 
     /** A share ended with the screen on and a fallback took over (D54): the slow-mode notice and the Log's "Compartir pantalla detenido". */
     fun slowMode(old: ModeState, new: ModeState) = old.mode == CaptureMode.SCREEN_SHARE && new.mode == CaptureMode.ACCESSIBILITY

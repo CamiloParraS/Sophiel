@@ -22,6 +22,8 @@
     <string name="notif_stop">Detener</string>
     <string name="notif_paused_title">Protección de Sophiel en pausa</string>
     <string name="notif_paused_text">La pantalla se apagó. Toca para reanudar.</string>
+    <string name="notif_interrupted_title">Protección interrumpida</string>
+    <string name="notif_interrupted_text">Toca para reactivar.</string>
 
     <!-- PIN y puerta -->
     <string name="pin_title">Escribe el PIN</string>
@@ -79,6 +81,11 @@
     <string name="stopped_restarted_text">La protección no vuelve sola</string>
     <string name="stopped_app_closed">La app se cerró</string>
     <string name="stopped_app_closed_text">Android la detuvo</string>
+    <string name="status_interrupted">Protección interrumpida</string>
+    <string name="status_interrupted_text">Nada revisa la pantalla desde las %1$s</string>
+    <string name="gap_accessibility">La accesibilidad está apagada</string>
+    <string name="gap_accessibility_text">Sin ella, Sophiel no sigue protegiendo. Actívala y toca Iniciar.</string>
+    <string name="gap_app_closed_text">Activa la accesibilidad y toca Iniciar.</string>
     <string name="status_see_log">Ver en Historial</string>
     <string name="status_to_restart">Para volver a iniciar</string>
     <string name="status_review">Revisión</string>
@@ -155,6 +162,9 @@
     <string name="log_off_restarted">El teléfono se reinició</string>
     <string name="log_share_stopped">Compartir pantalla detenido</string>
     <string name="log_share_stopped_text">La protección sigue en modo lento</string>
+    <string name="log_gap">Sin protección</string>
+    <string name="log_gap_text">%1$s · %2$s</string>
+    <string name="log_gap_accessibility">La accesibilidad está apagada</string>
     <string name="log_empty">Nada que mostrar aún</string>
     <string name="log_empty_text">El historial se queda en este teléfono y se borra a los 7 días.</string>
     <string name="log_clear">Borrar historial</string>

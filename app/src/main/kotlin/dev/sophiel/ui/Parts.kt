@@ -168,7 +168,7 @@ fun Tag(text: String, kind: TagKind = TagKind.Neutral, modifier: Modifier = Modi
     Text(text, modifier.clip(CircleShape).background(bg).padding(horizontal = 10.dp, vertical = 2.dp), style = MaterialTheme.typography.bodySmall, color = fg)
 }
 
-enum class Tone { Ok, Off, Ready, Warn }
+enum class Tone { Ok, Off, Ready, Warn, Alert }
 
 /** AdwStatusPage: big symbolic icon in a disc, title, one line. Colours and icon cross-fade when the state changes. */
 @Composable
@@ -179,6 +179,7 @@ fun StatusPage(@DrawableRes icon: Int, title: String, text: String, tone: Tone, 
         Tone.Off -> Palette.Btn to Palette.Dim
         Tone.Ready -> Palette.tint(primary) to primary
         Tone.Warn -> Palette.tint(Palette.Orange, .15f) to Palette.Orange
+        Tone.Alert -> Palette.tint(Palette.Red, .15f) to Palette.RedFg
     }
     val fade = motion<Color>(tween(200))
     val disc by animateColorAsState(bg, fade, label = "disc")
