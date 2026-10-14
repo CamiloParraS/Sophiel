@@ -4,9 +4,9 @@
 
 **Blocked by:** 12, 14, 15, 16, 17, 18
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] V1 (a)-(d), V2 and V3 pass on A and B, or each failure has a ticket
-- [ ] `aapt dump permissions` shows no `INTERNET` and no new permission
-- [ ] `:safecore:test` and app JVM tests pass
-- [ ] CLAUDE.md "Current state" updated; NEXT points to deliverable 2 (tamper guard)
+- [x] V1 (a)-(d), V2 and V3 pass on A and B, or each failure has a ticket
+- [x] `aapt dump permissions` shows no `INTERNET` and no new permission
+- [x] `:safecore:test` and app JVM tests pass
+- [x] CLAUDE.md "Current state" updated; NEXT points to deliverable 2 (tamper guard)
