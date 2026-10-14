@@ -131,6 +131,15 @@ fun SetupWizard(container: AppContainer, resumes: Int, fix: (Need) -> Unit, star
                 }) {
                     PreferenceGroup {
                         item { NeedStepRow(Need.SERVICE, R.string.wiz_service_row, R.string.wiz_service_row_text, bound) }
+                        item {
+                            val settings = container.settings.state.collectAsState().value
+                            SwitchRow(
+                                stringResource(R.string.set_keep), settings.keepProtecting && bound,
+                                { v -> container.settings.update { it.copy(keepProtecting = v) } },
+                                description = stringResource(if (bound) R.string.wiz_keep_text else R.string.needs_full_mask),
+                                icon = R.drawable.ic_shield, enabled = bound,
+                            )
+                        }
                         item { PrefRow(stringResource(R.string.wiz_shortcut), description = stringResource(R.string.wiz_shortcut_text), icon = R.drawable.ic_warn) }
                         item { GreyedSwitchHelp(appInfo) }
                     }

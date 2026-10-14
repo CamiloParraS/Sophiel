@@ -109,7 +109,7 @@
     <string name="tag_working">Funcionando</string>
     <string name="tag_enabled">Activados</string>
     <string name="need_overlay_missing">Sin permiso: Android no deja dibujar la máscara</string>
-    <string name="need_service_missing">Apagada: la máscara se verá algo transparente</string>
+    <string name="need_service_missing">Apagada: la máscara se verá algo transparente y no seguirá protegiendo tras apagar la pantalla o reiniciar</string>
     <string name="need_service_forced">Se apaga cuando la app se cierra a la fuerza</string>
     <string name="need_notifications_missing">No verás el aviso cuando se pause</string>
     <string name="fix_allow">Permitir</string>
@@ -216,7 +216,8 @@
     <string name="wiz_app_info">Abrir info de la app</string>
     <string name="wiz_overlay_text">Sophiel tapa lo que no debe verse con una máscara sobre las otras apps. Sin este permiso no puede funcionar.</string>
     <string name="wiz_overlay_row">Busca Sophiel en la lista y activa el permiso</string>
-    <string name="wiz_service_text">Hace que la máscara sea totalmente opaca.</string>
+    <string name="wiz_service_text">Hace que la máscara sea totalmente opaca y sigue protegiendo tras apagar la pantalla o reiniciar.</string>
+    <string name="wiz_keep_text">Sophiel sigue tapando contenido aunque se apague la pantalla o se reinicie el teléfono, sin pedirte permiso cada vez. En ese modo tapa un poco más lento.</string>
     <string name="wiz_open_accessibility">Abrir Accesibilidad</string>
     <string name="wiz_service_row">Activa Sophiel en Accesibilidad</string>
     <string name="wiz_service_row_text">Búscala en Apps instaladas o Apps descargadas y actívala</string>

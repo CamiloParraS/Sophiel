@@ -4,10 +4,10 @@
 
 **Blocked by:** 11
 
-**Status:** ready-for-agent
+**Status:** built 2026-10-14; wizard V3 flow on A and B still to check
 
-- [ ] Switch on the wizard step, same state as the Ajustes switch, greyed without the service
-- [ ] Copy updated in the wizard and "Recomendado" item
-- [ ] Spanish strings, English in `values-en/`
+- [x] Switch on the wizard step, same state as the Ajustes switch, greyed without the service
+- [x] Copy updated in the wizard and "Recomendado" item
+- [x] Spanish strings, English in `values-en/`
 - [ ] Wizard still passes its M6 V3 flow on A and B
-- [ ] Ends buildable
+- [x] Ends buildable

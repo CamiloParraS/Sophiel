@@ -109,7 +109,7 @@
     <string name="tag_working">Working</string>
     <string name="tag_enabled">On</string>
     <string name="need_overlay_missing">No permission: Android will not let the mask be drawn</string>
-    <string name="need_service_missing">Off: the mask will look slightly see-through</string>
+    <string name="need_service_missing">Off: the mask will look slightly see-through and protection won\'t continue after the screen turns off or the phone restarts</string>
     <string name="need_service_forced">It turns off when the app is force-stopped</string>
     <string name="need_notifications_missing">You will not see the notice when it pauses</string>
     <string name="fix_allow">Allow</string>
@@ -216,7 +216,8 @@
     <string name="wiz_app_info">Open App info</string>
     <string name="wiz_overlay_text">Sophiel covers what shouldn\'t be seen with a mask over other apps. It can\'t work without this permission.</string>
     <string name="wiz_overlay_row">Find Sophiel in the list and turn the permission on</string>
-    <string name="wiz_service_text">Makes the mask fully opaque.</string>
+    <string name="wiz_service_text">Makes the mask fully opaque and keeps protecting after the screen turns off or the phone restarts.</string>
+    <string name="wiz_keep_text">Sophiel keeps covering content even when the screen turns off or the phone restarts, without asking permission each time. In this mode it covers a little slower.</string>
     <string name="wiz_open_accessibility">Open Accessibility</string>
     <string name="wiz_service_row">Turn Sophiel on in Accessibility</string>
     <string name="wiz_service_row_text">Find it under Installed apps or Downloaded apps and turn it on</string>
