@@ -26,5 +26,5 @@
 ## Device check, 2026-10-14 (B, by the human)
 
 - V3 steps 1-5 done on B. Step 5 (reboot): the Log showed "Unprotected · The phone restarted · 22 s" (English UI): last heartbeat to boot, under the 60 s cap; boot-to-unlock not counted.
-- Not recorded: whether step 5 ran with accessibility on (masks back without opening Sophiel). A pending for all steps.
+- Step 5 ran with accessibility on, as intended. A pending for all steps.
 - **Found, open:** reboot with accessibility **off** and protection on: nothing resumes, and the live stretch ("La accesibilidad está apagada") opens only when Sophiel is opened, so unlock-to-open time is not counted. Starting it at boot would count boot-to-unlock instead (no unlock time without a receiver). Decide before ticket 19.
