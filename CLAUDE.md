@@ -32,7 +32,7 @@ NEXT:               Build M8 deliverable 1 (capture modes, SPEC §4.7, D54/D55):
                     check on A and B is still to do (list in the ticket notes); 14 done on B 2026-10-12 (slow-mode
                     notice, SHARE_STOPPED, projection handed to the live session; service back on does not
                     resume until Start); 15 checked on B (A pending); 16 built 2026-10-14 (Sin protección stretch, red Status,
-                    interrupted notice; JVM green), V3 on A and B still to do (list in the ticket notes); next ticket 17. After M8: UI polish, then M7: soak on A and B, feel numbers per preset, LIMITATIONS.md (from SPEC §7), README,
+                    interrupted notice), V3 checked on B, A still to do (list in the ticket notes); next ticket 17. After M8: UI polish, then M7: soak on A and B, feel numbers per preset, LIMITATIONS.md (from SPEC §7), README,
                     demo runbook + video. M7 has no tickets yet. M6 history below, map at
                     .scratch/m6-parent-app/map.md (decisions D38-D45).
                     Build tickets done: 09 settings, 10 cover path, 12 PinStore + unlock, 13 event log,
