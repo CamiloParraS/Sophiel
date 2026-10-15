@@ -92,7 +92,8 @@ class BlockActivity : ComponentActivity() {
                                     container.pin, SystemClock::elapsedRealtime,
                                     onUnlocked = {
                                         container.escalation.end(app) // the count restarts too
-                                        finish() // back to Home, under this screen
+                                        packageManager.getLaunchIntentForPackage(app)?.let(::startActivity) // back to the app, not the Home under this screen
+                                        finish()
                                     },
                                     onCancel = { pinOpen = false },
                                 )
