@@ -4,7 +4,7 @@
 
 **Blocked by:** 20
 
-**Status:** built, awaiting the device check on A (ready-for-human)
+**Status:** done (2026-10-14)
 
 - [x] Service config per SPEC §4.1: `typeWindowStateChanged` from all packages (no `packageNames`, no content events), `flagReportViewIds`; node text read only on Settings, package-installer, SystemUI and Samsung-accessibility windows, only to find "Sophiel"
 - [x] Page matching is pure logic, JVM-tested on ticket 20's recorded fields (A and B), never class names alone
@@ -13,7 +13,7 @@
 - [x] Log kind **Intento de apagar** (time + target); the same target within 60 s merges into one entry with a count, JVM-tested; row in the existing Log ("Otros")
 - [x] Copy "y protege los ajustes de Sophiel" in the wizard's accessibility step and the "Máscara completa" Recomendado item (D56); Spanish, English in `values-en/`
 - [x] `isAccessibilityTool="true"` only if ticket 20 found B hides the dialog
-- [ ] Checked on A: the page closes to the PIN pad, a correct PIN returns to it and the toggle works
+- [x] Checked on A: the page closes to the PIN pad, a correct PIN returns to it and the toggle works
 - [x] Ends buildable
 
 ## Notes (agent, 2026-10-14)
@@ -35,4 +35,6 @@ Built in 6cf1989 + review fixes. No device was attached, so the A check is open.
 - Opening accessibility showed the PIN pad. A correct PIN went on as normal; Cancel went to the home screen.
 - Recents → Settings after that showed the PIN pad again.
 - Guard delay not measured; "pretty much instant".
-- Open: whether the pad fired on the Accessibility menu itself or only on Sophiel's page, and whether the switch works after the PIN.
+- The pad fires on Installed apps → Sophiel (the service page), not on the menu before it.
+- After a correct PIN: back on the page, the switch turned the service off, and the guard did not come back. Sophiel then showed the Unlock banner with its 2 min countdown.
+- Not tried on device: turning the service back on from Status → "Activar" with a PIN set and no Unlock (the pad must not show). It goes to ticket 23's V4 run.
