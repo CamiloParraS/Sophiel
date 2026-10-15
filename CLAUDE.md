@@ -30,8 +30,9 @@ NEXT:               M8 deliverable 1 (capture modes) done: ticket 19 closed 2026
                     on B): a stretch found after a reboot with accessibility off starts at the boot.
                     Deliverables 2-5 are tickets 20-31 in .scratch/m8-solution-fit/issues/, one deliverable
                     at a time, each ending in a device check: 20-23 guard, 24 episode app, 25-28
-                    escalation + rules, 29-31 Log + report + M8 sign-off. Next: ticket 20 (human: confirm
-                    the guarded pages on A and B), then 21. After M8: UI polish, then M7: soak on A and B, feel numbers per preset, LIMITATIONS.md (from SPEC §7), README,
+                    escalation + rules, 29-31 Log + report + M8 sign-off. 20 done (B captures). 21 built
+                    (accessibility page guard, ui/BlockActivity), awaiting the human check on A (see its
+                    notes); then 22. After M8: UI polish, then M7: soak on A and B, feel numbers per preset, LIMITATIONS.md (from SPEC §7), README,
                     demo runbook + video. M7 has no tickets yet. M6 history below, map at
                     .scratch/m6-parent-app/map.md (decisions D38-D45).
                     Build tickets done: 09 settings, 10 cover path, 12 PinStore + unlock, 13 event log,

@@ -34,4 +34,16 @@ class UnlockTest {
         u.lockNow()
         assertFalse(u.unlocked())
     }
+
+    @Test fun `a guard unlock survives leaving the app, still ends at 2 min, a later gated action makes it normal`() {
+        u.extend(survivesLeaving = true)
+        u.onActivityStop(changingConfigurations = false)
+        assertTrue(u.unlocked())
+        now = Unlock.WINDOW_MS
+        assertFalse(u.unlocked())
+        u.extend(survivesLeaving = true)
+        u.extend() // a gated action inside Sophiel: D38 again
+        u.onActivityStop(changingConfigurations = false)
+        assertFalse(u.unlocked())
+    }
 }

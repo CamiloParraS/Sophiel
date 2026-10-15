@@ -25,6 +25,11 @@ object GapReason {
     const val RESTARTED = OffReason.RESTARTED
 }
 
+/** What a tamper attempt (D56) tried to turn off. Ticket 22 adds the other pages. */
+object TamperTarget {
+    const val ACCESSIBILITY = "ACCESSIBILITY"
+}
+
 /** A Sin protección stretch still open: protection on, nothing capturing, since [at]. */
 data class Gap(val at: Long, val reason: String)
 
@@ -117,6 +122,20 @@ class EventLog(
     /** D54: the share ended with the screen on and capture went on by display shots. */
     @Synchronized fun shareStopped() = add(wall(), "SHARE_STOPPED")
 
+    /**
+     * D56: the guard closed a page. The same target within 60 s of an entry's first attempt adds to its count,
+     * rewriting that line; rare, and never on the frame lane.
+     */
+    @Synchronized fun tamper(target: String) {
+        val now = wall()
+        val all = load()
+        val i = all.indexOfLast { it.kind == "TAMPER" && it.fields.firstOrNull() == target && now - it.at < MERGE_MS }
+        if (i < 0) return add(now, "TAMPER", target, "1")
+        val e = all[i]
+        val merged = e.copy(fields = listOf(target, ((e.fields.getOrNull(1)?.toIntOrNull() ?: 1) + 1).toString()))
+        file.writeText(all.mapIndexed { j, it -> if (j == i) merged else it }.joinToString("") { it.line() + "\n" })
+    }
+
     /** The last 7 days, in file order. */
     @Synchronized fun entries(): List<Entry> = load().filter { it.at >= wall() - WEEK_MS }
 
@@ -153,6 +172,7 @@ class EventLog(
     private companion object {
         const val WEEK_MS = 7 * 24 * 3_600_000L
         const val HEARTBEAT_MS = 60_000L // = CaptureSession's
+        const val MERGE_MS = 60_000L
         const val ALIVE = "last_alive"
         const val BOOT = "last_boot"
         const val GAP_AT = "gap_at"

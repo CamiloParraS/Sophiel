@@ -1,0 +1,2 @@
+  mCurrentFocus=Window{87b63f2 u0 com.google.android.packageinstaller/com.android.packageinstaller.v2.ui.UninstallLaunch}
+  mFocusedApp=ActivityRecord{137943098 u0 com.google.android.packageinstaller/com.android.packageinstaller.v2.ui.UninstallLaunch t4211}

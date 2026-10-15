@@ -29,6 +29,7 @@ sealed interface LogRow {
     class Off(override val at: Long, val reason: String) : LogRow
     class ShareStopped(override val at: Long) : LogRow
     class Unprotected(override val at: Long, val seconds: Int, val reason: String) : LogRow
+    class Tamper(override val at: Long, val target: String, val count: Int) : LogRow
 }
 
 /** One local day: its counters, the colour of its highest band (null = grey), and its rows, newest first. */
@@ -86,6 +87,7 @@ class LogModel(val days: List<LogDay>, val empty: Boolean) {
                 "OFF" -> LogRow.Off(e.at, f.getOrElse(0) { "" })
                 "SHARE_STOPPED" -> LogRow.ShareStopped(e.at)
                 "UNPROTECTED" -> LogRow.Unprotected(e.at, f.getOrNull(0)?.toIntOrNull() ?: 0, f.getOrElse(1) { "" })
+                "TAMPER" -> LogRow.Tamper(e.at, f.getOrElse(0) { "" }, f.getOrNull(1)?.toIntOrNull() ?: 1)
                 else -> null
             }
         }

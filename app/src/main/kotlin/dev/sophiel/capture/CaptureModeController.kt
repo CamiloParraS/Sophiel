@@ -48,8 +48,10 @@ class CaptureModeController(context: Context, private val container: AppContaine
         container.protection.protecting = _state.value.protecting
         followGap(_state.value, found = true) // back from a kill or a reboot: a stretch to open, or a recovered one to end
         this.context.registerReceiver(object : BroadcastReceiver() {
-            override fun onReceive(context: Context, intent: Intent) =
+            override fun onReceive(context: Context, intent: Intent) {
+                if (intent.action == Intent.ACTION_SCREEN_OFF) container.unlock.lockNow() // D56: the guard's Unlock outlives the app, not the screen
                 onEvent(if (intent.action == Intent.ACTION_SCREEN_ON) ModeEvent.ScreenOn else ModeEvent.ScreenOff)
+            }
         }, IntentFilter(Intent.ACTION_SCREEN_OFF).apply { addAction(Intent.ACTION_SCREEN_ON) })
         // Rotation must resize, never recreate the display (SPEC.md §4.2); in accessibility mode no service of ours that lives as long as the session gets it.
         this.context.registerComponentCallbacks(object : ComponentCallbacks {

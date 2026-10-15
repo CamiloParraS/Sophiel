@@ -197,4 +197,19 @@ class EventLogTest {
         log().recoverGap(keepProtecting = false)
         assertEquals(1, log().entries().size)
     }
+    @Test fun `a tamper attempt on the same target within 60 s merges into one entry with a count`() {
+        val l = log()
+        l.tamper(TamperTarget.ACCESSIBILITY)
+        val first = now
+        now += 30_000
+        l.masked("BALANCED", 1, 0.9f) // another kind in between does not split it
+        l.tamper(TamperTarget.ACCESSIBILITY)
+        now += 29_999
+        l.tamper(TamperTarget.ACCESSIBILITY)
+        assertEquals(listOf(Entry(first, "TAMPER", listOf("ACCESSIBILITY", "3"))), l.entries().filter { it.kind == "TAMPER" })
+        now = first + 60_000 // 60 s after the entry's first attempt: a new entry
+        l.tamper(TamperTarget.ACCESSIBILITY)
+        assertEquals(listOf("3", "1"), l.entries().filter { it.kind == "TAMPER" }.map { it.fields[1] })
+        assertEquals(2, l.entries().indexOfFirst { it.kind == "MASKED" } + 1) // order kept: TAMPER, MASKED, TAMPER
+    }
 }

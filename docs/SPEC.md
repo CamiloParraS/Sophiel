@@ -244,8 +244,9 @@ The highest-risk area. Implement exactly as specified; it is already built and v
 <!-- D32: hosts the opaque mask window. M8: display shots, window list, window-state events (D54-D58). -->
 <service android:name=".capture.MaskWindowService" android:exported="false"
          android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE" />
-<!-- M8 (D58): the block screen. -->
-<activity android:name=".ui.BlockActivity" android:exported="false" android:excludeFromRecents="true" />
+<!-- M8 (D56, D58): the guard's PIN pad, then the block screen. Its own task, so finishing returns to the page below. -->
+<activity android:name=".ui.BlockActivity" android:exported="false" android:excludeFromRecents="true"
+          android:launchMode="singleInstance" android:taskAffinity="" />
 <!-- M8 (D57): labels for the Log, the Apps list. Not QUERY_ALL_PACKAGES. -->
 <queries>
     <intent>

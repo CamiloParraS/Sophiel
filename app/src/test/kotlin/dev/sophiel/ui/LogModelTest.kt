@@ -81,6 +81,15 @@ class LogModelTest {
     }
 
     @Test
+    fun tamperAttemptReadsTargetAndCountUnderOthers() {
+        val day = model(Entry(at(6, 8), "TAMPER", listOf("ACCESSIBILITY", "2"))).days.last()
+        val row = day.rows.single() as LogRow.Tamper
+        assertEquals("ACCESSIBILITY", row.target)
+        assertEquals(2, row.count)
+        assertEquals(1, day.rows(LogFilter.OTHERS).size)
+    }
+
+    @Test
     fun lengthsReadInTheirLargestUnits() {
         assertEquals("45 s", LogModel.length(45))
         assertEquals("12 min", LogModel.length(754))

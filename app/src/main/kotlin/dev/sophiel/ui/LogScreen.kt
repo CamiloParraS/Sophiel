@@ -283,6 +283,14 @@ private fun EntryRow(row: LogRow) {
             description = stringResource(R.string.log_gap_text, stringResource(gapText(row.reason)), LogModel.length(row.seconds)),
             icon = R.drawable.ic_shield_off, iconTint = Palette.RedFg, end = clock,
         )
+        is LogRow.Tamper -> {
+            val target = stringResource(R.string.log_tamper_accessibility) // the only target until ticket 22
+            PrefRow(
+                stringResource(R.string.log_tamper),
+                description = if (row.count > 1) stringResource(R.string.log_gap_text, target, pluralStringResource(R.plurals.log_times, row.count, row.count)) else target,
+                icon = R.drawable.ic_lock, iconTint = Palette.Orange, end = clock,
+            )
+        }
         is LogRow.Off -> PrefRow(
             stringResource(R.string.log_off), description = stringResource(offText(row.reason)),
             icon = if (row.reason == OffReason.SCREEN_OFF) R.drawable.ic_moon else R.drawable.ic_power, end = clock,

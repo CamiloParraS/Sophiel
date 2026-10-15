@@ -11,11 +11,21 @@ import kotlinx.coroutines.flow.asStateFlow
 class Unlock(private val clock: () -> Long) {
     private val _endsAt = MutableStateFlow<Long?>(null)
     val endsAt: StateFlow<Long?> = _endsAt.asStateFlow()
+    private var survivesLeaving = false
 
-    /** A correct PIN, or any PIN-gated action while unlocked: the window runs 2 min from now. */
-    fun extend() { _endsAt.value = clock() + WINDOW_MS }
+    /**
+     * A correct PIN, or any PIN-gated action while unlocked: the window runs 2 min from now. [survivesLeaving]:
+     * the guard's PIN (D56), so the Parent can use the page Sophiel stepped aside for; screen-off still ends it.
+     */
+    fun extend(survivesLeaving: Boolean = false) {
+        this.survivesLeaving = survivesLeaving
+        _endsAt.value = clock() + WINDOW_MS
+    }
 
-    fun lockNow() { _endsAt.value = null }
+    fun lockNow() {
+        survivesLeaving = false
+        _endsAt.value = null
+    }
 
     fun unlocked(): Boolean {
         val end = _endsAt.value ?: return false
@@ -25,7 +35,7 @@ class Unlock(private val clock: () -> Long) {
     }
 
     /** `MainActivity.onStop`: rotation recreates the activity, leaving or screen off does not. */
-    fun onActivityStop(changingConfigurations: Boolean) { if (!changingConfigurations) lockNow() }
+    fun onActivityStop(changingConfigurations: Boolean) { if (!changingConfigurations && !survivesLeaving) lockNow() }
 
     companion object { const val WINDOW_MS = 120_000L }
 }

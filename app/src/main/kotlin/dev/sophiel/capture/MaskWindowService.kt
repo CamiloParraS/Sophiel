@@ -10,7 +10,12 @@ import android.view.Display
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityWindowInfo
 import androidx.annotation.RequiresApi
+import android.os.SystemClock
+import dev.sophiel.R
 import dev.sophiel.SophielApp
+import dev.sophiel.guard.GuardNode
+import dev.sophiel.guard.GuardPages
+import dev.sophiel.ui.BlockActivity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.asExecutor
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,7 +30,8 @@ import kotlin.coroutines.resume
  * builds may start on the 0.79 app overlay without it. M8 (D54): its [displayShot]s are the frames
  * while no share runs.
  *
- * No event types. Window content only for [appWindowShot] (ticket 16): ids and bounds, never nodes
+ * Window content for [appWindowShot] (ticket 16): ids and bounds. Window-state events for the tamper guard
+ * (D56, [guard]): node text only on Settings windows, only nodes holding the service's label
  * (res/xml/mask_window_service.xml).
  */
 class MaskWindowService : AccessibilityService() {
@@ -61,7 +67,48 @@ class MaskWindowService : AccessibilityService() {
         })
     }
 
-    override fun onAccessibilityEvent(event: AccessibilityEvent?) = Unit
+    private var guardedAt = 0L
+
+    // Bound with its page open: the Parent just turned the service on there (the wizard too, its PIN already
+    // made), and turning on is never blocked (D56). Cleared by the first window that is not the page.
+    private var boundOnPage = true
+
+    override fun onAccessibilityEvent(event: AccessibilityEvent?) {
+        if (event?.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) guard(event)
+    }
+
+    /**
+     * D56: armed while a PIN exists and no Unlock is active; this page turns the service off, and it is on, or
+     * no event would come. Covers the page with [BlockActivity] and logs the attempt.
+     */
+    private fun guard(event: AccessibilityEvent) {
+        val pkg = event.packageName?.toString() ?: return
+        if (!GuardPages.reads(pkg)) {
+            boundOnPage = false
+            return
+        }
+        val container = (application as SophielApp).container
+        if (!container.pin.exists() || container.unlock.unlocked()) return
+        val label = getString(R.string.mask_window_service_label)
+        // ponytail: one look at the event; a page whose title draws after its window-state event is missed. Retry
+        // once after a short delay if A shows that.
+        val root = event.source ?: rootInActiveWindow ?: return
+        val nodes = root.findAccessibilityNodeInfosByText(label).map { GuardNode(it.text?.toString(), it.viewIdResourceName) }
+        val target = GuardPages.match(pkg, nodes, label)
+        if (target == null) {
+            boundOnPage = false
+            return
+        }
+        if (boundOnPage) return
+        BlockActivity.guard(this) // every time: a single instance, so a repeat lands on the same screen
+        // One page sends more than one event; one attempt is one count. Off main: tamper rewrites the file.
+        val now = SystemClock.elapsedRealtime()
+        if (now - guardedAt < SAME_ATTEMPT_MS) return
+        guardedAt = now
+        Log.i("Sophiel", "guard: $target in $pkg")
+        Dispatchers.IO.asExecutor().execute { container.log.tamper(target) }
+    }
+
     override fun onInterrupt() = Unit
 
     /**
@@ -102,6 +149,7 @@ class MaskWindowService : AccessibilityService() {
     }
 
     companion object {
+        private const val SAME_ATTEMPT_MS = 2_000L
         private val current = MutableStateFlow<MaskWindowService?>(null)
 
         /** Non-null while bound (D41: bound, not just ticked in Accessibility settings). */

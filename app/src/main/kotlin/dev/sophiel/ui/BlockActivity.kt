@@ -1,0 +1,79 @@
+package dev.sophiel.ui
+
+import android.content.Context
+import android.content.Intent
+import android.graphics.Color
+import android.os.Bundle
+import android.os.SystemClock
+import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
+import androidx.activity.compose.BackHandler
+import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
+import androidx.compose.material3.Text
+import androidx.compose.ui.text.style.TextAlign
+import dev.sophiel.R
+import dev.sophiel.SophielApp
+import dev.sophiel.ui.theme.Palette
+import dev.sophiel.ui.theme.SophielTheme
+
+/**
+ * The guard's screen (D56): over a page that could turn Sophiel off, "Este ajuste está protegido" and the PIN pad.
+ * A right PIN starts an Unlock that survives leaving the app and finishes, so Sophiel steps aside, back to the page.
+ * Cancel and Back go Home. Its own task (`taskAffinity=""`, single instance), so finishing returns to the page.
+ * D58's block screen joins it in ticket 25.
+ */
+class BlockActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT),
+        )
+        val container = (application as SophielApp).container
+        setContent {
+            SophielTheme {
+                BackHandler(onBack = ::goHome)
+                Column(
+                    Modifier.fillMaxSize().background(Palette.Win).safeDrawingPadding().verticalScroll(rememberScrollState()).padding(18.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterVertically),
+                ) {
+                    SIcon(R.drawable.ic_lock, Palette.Orange, 40.dp)
+                    Text(stringResource(R.string.guard_title), style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center)
+                    PinPrompt(
+                        container.pin, SystemClock::elapsedRealtime,
+                        onUnlocked = {
+                            container.unlock.extend(survivesLeaving = true)
+                            finish()
+                        },
+                        onCancel = ::goHome,
+                    )
+                }
+            }
+        }
+    }
+
+    private fun goHome() {
+        startActivity(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        finish()
+    }
+
+    companion object {
+        fun guard(context: Context) =
+            context.startActivity(Intent(context, BlockActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    }
+}

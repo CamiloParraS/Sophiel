@@ -2,7 +2,7 @@
     <string name="app_name">Sophiel</string>
 
     <string name="mask_window_service_label">Sophiel opaque masks</string>
-    <string name="mask_window_service_description">Draws Sophiel\'s masks fully opaque. With \"Peek under mask\" on, it screenshots the app under a mask to check it, in memory only. Reads no text and receives no events.</string>
+    <string name="mask_window_service_description">Draws Sophiel\'s masks fully opaque and protects its settings. With \"Peek under mask\" on, it screenshots the app under a mask to check it, in memory only. Receives window changes and reads text only in Settings, to find Sophiel.</string>
 
     <!-- Status -->
     <string name="status_idle">Not protecting</string>
@@ -109,7 +109,7 @@
     <string name="tag_working">Working</string>
     <string name="tag_enabled">On</string>
     <string name="need_overlay_missing">No permission: Android will not let the mask be drawn</string>
-    <string name="need_service_missing">Off: the mask will look slightly see-through and protection won\'t continue after the screen turns off or the phone restarts</string>
+    <string name="need_service_missing">Off: the mask will look slightly see-through, protection won\'t continue after the screen turns off or the phone restarts, and Sophiel\'s settings won\'t be protected</string>
     <string name="need_service_forced">It turns off when the app is force-stopped</string>
     <string name="need_notifications_missing">You will not see the notice when it pauses</string>
     <string name="fix_allow">Allow</string>
@@ -165,6 +165,13 @@
     <string name="log_gap">Unprotected</string>
     <string name="log_gap_text">%1$s · %2$s</string>
     <string name="log_gap_accessibility">Accessibility is off</string>
+    <string name="log_tamper">Tried to turn off</string>
+    <string name="log_tamper_accessibility">Sophiel in Accessibility</string>
+    <plurals name="log_times">
+        <item quantity="one">%d time</item>
+        <item quantity="other">%d times</item>
+    </plurals>
+    <string name="guard_title">This setting is protected</string>
     <string name="log_empty">Nothing to show yet</string>
     <string name="log_empty_text">The log stays on this phone and is deleted after 7 days.</string>
     <string name="log_clear">Clear log</string>
@@ -216,7 +223,7 @@
     <string name="wiz_app_info">Open App info</string>
     <string name="wiz_overlay_text">Sophiel covers what shouldn\'t be seen with a mask over other apps. It can\'t work without this permission.</string>
     <string name="wiz_overlay_row">Find Sophiel in the list and turn the permission on</string>
-    <string name="wiz_service_text">Makes the mask fully opaque and keeps protecting after the screen turns off or the phone restarts.</string>
+    <string name="wiz_service_text">Makes the mask fully opaque, keeps protecting after the screen turns off or the phone restarts, and protects Sophiel\'s settings.</string>
     <string name="wiz_keep_text">Sophiel keeps covering content even when the screen turns off or the phone restarts, without asking permission each time. In this mode it covers a little slower.</string>
     <string name="wiz_open_accessibility">Open Accessibility</string>
     <string name="wiz_service_row">Turn Sophiel on in Accessibility</string>

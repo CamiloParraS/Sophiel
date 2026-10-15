@@ -1,0 +1,4 @@
+  mCurrentFocus=null
+  mFocusedApp=null
+  mCurrentFocus=Window{43d1608 u0 Check background activity}
+  mFocusedApp=ActivityRecord{177945096 u0 com.sec.android.app.launcher/com.android.quickstep.RecentsActivity t4205}
