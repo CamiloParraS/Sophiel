@@ -39,7 +39,7 @@ private const val DEBUG_TAPS = 7
  * Seven taps on the version label open the debug menu, in every build (D38).
  */
 @Composable
-fun SettingsScreen(container: AppContainer, door: Door, onBack: () -> Unit, onHistory: () -> Unit, onDebug: () -> Unit) {
+fun SettingsScreen(container: AppContainer, door: Door, onBack: () -> Unit, onHistory: () -> Unit, onApps: () -> Unit, onDebug: () -> Unit) {
     var changingPin by rememberSaveable { mutableStateOf(false) }
     if (changingPin) {
         // Already behind the door, so no current PIN is asked.
@@ -88,6 +88,14 @@ fun SettingsScreen(container: AppContainer, door: Door, onBack: () -> Unit, onHi
                         { v -> door.pass { container.settings.update { it.copy(keepProtecting = v) } } },
                         description = stringResource(if (bound) R.string.set_keep_text else R.string.needs_full_mask),
                         icon = R.drawable.ic_shield, enabled = bound,
+                    )
+                }
+            }
+            PreferenceGroup {
+                item {
+                    PrefRow(
+                        stringResource(R.string.set_apps), description = stringResource(R.string.set_apps_text), icon = R.drawable.ic_block,
+                        onClick = { door.pass(onApps) }, end = { SIcon(R.drawable.ic_chev) },
                     )
                 }
             }

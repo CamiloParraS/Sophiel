@@ -212,4 +212,25 @@ class EventLogTest {
         assertEquals(listOf("3", "1"), l.entries().filter { it.kind == "TAMPER" }.map { it.fields[1] })
         assertEquals(2, l.entries().indexOfFirst { it.kind == "MASKED" } + 1) // order kept: TAMPER, MASKED, TAMPER
     }
+
+    @Test fun `a blocked open merges per app and reason within 60 s, like a tamper attempt`() {
+        val l = log()
+        l.blockedOpen("com.instagram.android", BlockReason.RULE)
+        val first = now
+        now += 10_000
+        l.tamper(TamperTarget.ACCESSIBILITY) // another kind does not merge into it
+        l.blockedOpen("com.instagram.android", BlockReason.RULE)
+        l.blockedOpen("com.android.chrome", BlockReason.RULE) // another app is its own entry
+        l.blockedOpen("com.instagram.android", BlockReason.ESCALATION) // and so is another reason
+        now = first + 60_000
+        l.blockedOpen("com.instagram.android", BlockReason.RULE)
+        assertEquals(
+            listOf(
+                listOf("com.instagram.android", "RULE", "2"), listOf("com.android.chrome", "RULE", "1"),
+                listOf("com.instagram.android", "ESCALATION", "1"), listOf("com.instagram.android", "RULE", "1"),
+            ),
+            l.entries().filter { it.kind == "BLOCKED_OPEN" }.map { it.fields },
+        )
+        assertEquals(listOf("ACCESSIBILITY", "1"), l.entries().single { it.kind == "TAMPER" }.fields)
+    }
 }

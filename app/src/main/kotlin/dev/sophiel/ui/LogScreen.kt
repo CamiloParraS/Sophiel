@@ -51,6 +51,8 @@ import dev.sophiel.R
 import dev.sophiel.log.EventLog
 import dev.sophiel.log.GapReason
 import dev.sophiel.log.OffReason
+import dev.sophiel.log.BlockReason
+import dev.sophiel.settings.appLabel
 import dev.sophiel.log.TamperTarget
 import dev.sophiel.ui.theme.Ease
 import dev.sophiel.ui.theme.Palette
@@ -116,9 +118,16 @@ fun LogScreen(log: EventLog, door: Door, onBack: () -> Unit) {
         value = withContext(Dispatchers.IO) {
             val m = LogModel.of(log.entries(), System.currentTimeMillis(), zone)
             // D57: labels at read time, in the phone's language; an uninstalled app shows its package.
-            val apps = m.days.flatMap { it.rows }.mapNotNull { (it as? LogRow.Masked)?.app ?: (it as? LogRow.Unanalyzable)?.app }
+            val apps = m.days.flatMap { it.rows }.mapNotNull {
+                when (it) {
+                    is LogRow.Masked -> it.app
+                    is LogRow.Unanalyzable -> it.app
+                    is LogRow.BlockedOpen -> it.app
+                    else -> null
+                }
+            }
             m to apps.filter(String::isNotEmpty).toSet().associateWith { pkg ->
-                runCatching { pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString() }.getOrDefault(pkg)
+                appLabel(pm, pkg)
             }
         }
     }
@@ -318,6 +327,14 @@ private fun EntryRow(row: LogRow, labels: Map<String, String>) {
                 stringResource(R.string.log_tamper),
                 description = if (row.count > 1) stringResource(R.string.log_gap_text, target, pluralStringResource(R.plurals.log_times, row.count, row.count)) else target,
                 icon = R.drawable.ic_lock, iconTint = Palette.Orange, end = clock,
+            )
+        }
+        is LogRow.BlockedOpen -> {
+            val why = stringResource(R.string.log_gap_text, label(row.app), stringResource(if (row.reason == BlockReason.ESCALATION) R.string.log_blocked_escalation else R.string.log_blocked_rule))
+            PrefRow(
+                stringResource(R.string.log_blocked_open),
+                description = if (row.count > 1) stringResource(R.string.log_gap_text, why, pluralStringResource(R.plurals.log_times, row.count, row.count)) else why,
+                icon = R.drawable.ic_block, iconTint = Palette.Orange, end = clock,
             )
         }
         is LogRow.Off -> PrefRow(

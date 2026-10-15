@@ -11,6 +11,7 @@ import dev.sophiel.feed.SpikeModel
 import dev.sophiel.log.EventLog
 import dev.sophiel.pin.PinStore
 import dev.sophiel.pin.Unlock
+import dev.sophiel.settings.AppRules
 import dev.sophiel.settings.ProtectionStore
 import dev.sophiel.settings.SettingsRepository
 import java.io.File
@@ -48,6 +49,9 @@ class AppContainer(context: Context) {
     ).also { it.recoverGap(settings.value.keepProtecting) }
 
     val protection = ProtectionStore(context)
+
+    /** D58: Normal / Bloqueada per app, enforced by [dev.sophiel.capture.MaskWindowService]. */
+    val appRules = AppRules(context)
 
     /** Ticket 09: a Sophiel screen fills the display; capture hides the masks and pauses. */
     val ownScreens = OwnScreens()

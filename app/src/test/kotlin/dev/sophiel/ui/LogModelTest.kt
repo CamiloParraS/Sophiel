@@ -90,6 +90,14 @@ class LogModelTest {
     }
 
     @Test
+    fun blockedOpenReadsAppReasonAndCountUnderOthers() {
+        val day = model(Entry(at(6, 8), "BLOCKED_OPEN", listOf("com.instagram.android", "RULE", "3"))).days.last()
+        val row = day.rows.single() as LogRow.BlockedOpen
+        assertEquals(listOf("com.instagram.android", "RULE", "3"), listOf(row.app, row.reason, row.count.toString()))
+        assertEquals(1, day.rows(LogFilter.OTHERS).size)
+    }
+
+    @Test
     fun episodeAppIsTheLastFieldAndOldLinesReadAsBlank() {
         val day = model(
             Entry(at(6, 8), "MASKED", listOf("BALANCED", "2", "0.80", "com.android.chrome")),

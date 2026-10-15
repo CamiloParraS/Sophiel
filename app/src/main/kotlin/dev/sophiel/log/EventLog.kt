@@ -34,6 +34,12 @@ object TamperTarget {
     const val ACTIVE_APPS = "ACTIVE_APPS"
 }
 
+/** Why a blocked app's open was stopped (D58). */
+object BlockReason {
+    const val RULE = "RULE" // the Parent set it Bloqueada
+    const val ESCALATION = "ESCALATION"
+}
+
 /** A Sin protección stretch still open: protection on, nothing capturing, since [at]. */
 data class Gap(val at: Long, val reason: String)
 
@@ -127,19 +133,11 @@ class EventLog(
     /** D54: the share ended with the screen on and capture went on by display shots. */
     @Synchronized fun shareStopped() = add(wall(), "SHARE_STOPPED")
 
-    /**
-     * D56: the guard closed a page. The same target within 60 s of an entry's first attempt adds to its count,
-     * rewriting that line; rare, and never on the frame lane.
-     */
-    @Synchronized fun tamper(target: String) {
-        val now = wall()
-        val all = load()
-        val i = all.indexOfLast { it.kind == "TAMPER" && it.fields.firstOrNull() == target && now - it.at < MERGE_MS }
-        if (i < 0) return add(now, "TAMPER", target, "1")
-        val e = all[i]
-        val merged = e.copy(fields = listOf(target, ((e.fields.getOrNull(1)?.toIntOrNull() ?: 1) + 1).toString()))
-        file.writeText(all.mapIndexed { j, it -> if (j == i) merged else it }.joinToString("") { it.line() + "\n" })
-    }
+    /** D56: the guard closed a page. Merged as [merge] says. */
+    @Synchronized fun tamper(target: String) = merge("TAMPER", target)
+
+    /** D58: a blocked app came to the front and was sent Home. Merged per app and reason, as [merge] says. */
+    @Synchronized fun blockedOpen(app: String, reason: String) = merge("BLOCKED_OPEN", app, reason)
 
     /** The last 7 days, in file order. */
     @Synchronized fun entries(): List<Entry> = load().filter { it.at >= wall() - WEEK_MS }
@@ -159,6 +157,21 @@ class EventLog(
         val all = load()
         val fresh = all.filter { it.at >= wall() - WEEK_MS }
         if (fresh.size != all.size) file.writeText(fresh.joinToString("") { it.line() + "\n" })
+    }
+
+    /**
+     * An entry of [kind] with the same [key] within 60 s of its first attempt adds to its count (the last field),
+     * rewriting that line; rare, and never on the frame lane.
+     */
+    private fun merge(kind: String, vararg key: String) {
+        val now = wall()
+        val all = load()
+        val k = key.toList()
+        val i = all.indexOfLast { it.kind == kind && it.fields.dropLast(1) == k && now - it.at < MERGE_MS }
+        if (i < 0) return add(now, kind, *key, "1")
+        val e = all[i]
+        val merged = e.copy(fields = k + ((e.fields.last().toIntOrNull() ?: 1) + 1).toString())
+        file.writeText(all.mapIndexed { j, it -> if (j == i) merged else it }.joinToString("") { it.line() + "\n" })
     }
 
     private fun add(at: Long, kind: String, vararg fields: String) {

@@ -174,11 +174,16 @@
     <string name="log_tamper_app_info">Info de la app de Sophiel</string>
     <string name="log_tamper_uninstall">Desinstalar Sophiel</string>
     <string name="log_tamper_active_apps">Apps activas</string>
+    <string name="log_blocked_open">Apertura bloqueada</string>
+    <string name="log_blocked_rule">la bloqueó el Padre</string>
+    <string name="log_blocked_escalation">la bloqueó Sophiel</string>
     <plurals name="log_times">
         <item quantity="one">%d vez</item>
         <item quantity="other">%d veces</item>
     </plurals>
     <string name="guard_title">Este ajuste está protegido</string>
+    <string name="block_rule">El Padre bloqueó esta app</string>
+    <string name="block_home">Ir al inicio</string>
     <string name="log_empty">Nada que mostrar aún</string>
     <string name="log_empty_text">El historial se queda en este teléfono y se borra a los 7 días.</string>
     <string name="log_clear">Borrar historial</string>
@@ -211,6 +216,12 @@
     <string name="set_change_pin_text">No se puede recuperar: guárdalo bien</string>
     <string name="set_history">Historial</string>
     <string name="set_history_text">Lo que se tapó esta semana</string>
+    <string name="set_apps">Apps</string>
+    <string name="set_apps_text">Bloquear apps</string>
+    <string name="apps_search">Buscar apps</string>
+    <string name="app_rule_normal">Normal</string>
+    <string name="app_rule_blocked">Bloqueada</string>
+    <string name="needs_service">Necesita el servicio de accesibilidad</string>
     <string name="group_privacy">Privacidad</string>
     <string name="set_no_internet">Sin internet</string>
     <string name="set_no_internet_text">Nada sale del teléfono. Las imágenes nunca se guardan.</string>

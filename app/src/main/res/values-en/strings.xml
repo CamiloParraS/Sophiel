@@ -174,11 +174,16 @@
     <string name="log_tamper_app_info">App info for Sophiel</string>
     <string name="log_tamper_uninstall">Uninstalling Sophiel</string>
     <string name="log_tamper_active_apps">Active apps</string>
+    <string name="log_blocked_open">Blocked open</string>
+    <string name="log_blocked_rule">blocked by the Parent</string>
+    <string name="log_blocked_escalation">blocked by Sophiel</string>
     <plurals name="log_times">
         <item quantity="one">%d time</item>
         <item quantity="other">%d times</item>
     </plurals>
     <string name="guard_title">This setting is protected</string>
+    <string name="block_rule">The Parent blocked this app</string>
+    <string name="block_home">Go to Home</string>
     <string name="log_empty">Nothing to show yet</string>
     <string name="log_empty_text">The log stays on this phone and is deleted after 7 days.</string>
     <string name="log_clear">Clear log</string>
@@ -211,6 +216,12 @@
     <string name="set_change_pin_text">It can\'t be recovered: keep it safe</string>
     <string name="set_history">History</string>
     <string name="set_history_text">What was covered this week</string>
+    <string name="set_apps">Apps</string>
+    <string name="set_apps_text">Block apps</string>
+    <string name="apps_search">Search apps</string>
+    <string name="app_rule_normal">Normal</string>
+    <string name="app_rule_blocked">Blocked</string>
+    <string name="needs_service">Needs the accessibility service</string>
     <string name="group_privacy">Privacy</string>
     <string name="set_no_internet">No internet</string>
     <string name="set_no_internet_text">Nothing leaves the phone. Images are never saved.</string>

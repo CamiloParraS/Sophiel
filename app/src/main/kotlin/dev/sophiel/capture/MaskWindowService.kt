@@ -16,6 +16,9 @@ import dev.sophiel.R
 import dev.sophiel.SophielApp
 import dev.sophiel.guard.GuardNode
 import dev.sophiel.guard.GuardPages
+import dev.sophiel.log.BlockReason
+import dev.sophiel.settings.AppRule
+import dev.sophiel.settings.excludedApps
 import dev.sophiel.ui.BlockActivity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.asExecutor
@@ -33,7 +36,7 @@ import kotlin.coroutines.resume
  *
  * Window content for [appWindowShot] (ticket 16): ids and bounds; for [appAt] (D57) the root's package only. Window-state events for the tamper guard
  * (D56, [guard]): node text only on Settings windows, only nodes holding the service's label
- * (res/xml/mask_window_service.xml).
+ * (res/xml/mask_window_service.xml). The same events' package enforces per-app rules (D58, [block]).
  */
 class MaskWindowService : AccessibilityService() {
     override fun onServiceConnected() {
@@ -68,14 +71,39 @@ class MaskWindowService : AccessibilityService() {
         })
     }
 
-    private val guardedAt = mutableMapOf<String, Long>()
+    private val attemptAt = mutableMapOf<String, Long>()
 
     // Bound with its page open: the Parent just turned the service on there (the wizard too, its PIN already
     // made), and turning on is never blocked (D56). Cleared by the first window that is not the page.
     private var boundOnPage = true
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        if (event?.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) guard(event)
+        if (event?.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
+        block(event)
+        guard(event)
+    }
+
+    /**
+     * D58: a Bloqueada app came to the front while protection is on (an Unlock too): Home, then the block screen over
+     * it. Settings is excluded, so this never meets [guard]'s pages.
+     */
+    private fun block(event: AccessibilityEvent) {
+        val pkg = event.packageName?.toString() ?: return
+        val container = (application as SophielApp).container
+        if (container.appRules.rule(pkg) != AppRule.BLOCKED || !container.captureModes.state.value.protecting) return
+        if (pkg in excludedApps(this)) return // blocked before it became the launcher or dialer: it must not trap the phone
+        BlockActivity.block(this, pkg) // Home and the block screen, every time, like the guard
+        if (!newAttempt("block:$pkg")) return
+        Log.i("Sophiel", "block: $pkg")
+        Dispatchers.IO.asExecutor().execute { container.log.blockedOpen(pkg, BlockReason.RULE) }
+    }
+
+    /** One page or open sends more than one event; one attempt is one count. */
+    private fun newAttempt(key: String): Boolean {
+        val now = SystemClock.elapsedRealtime()
+        if (now - (attemptAt[key] ?: -SAME_ATTEMPT_MS) < SAME_ATTEMPT_MS) return false
+        attemptAt[key] = now
+        return true
     }
 
     /**
@@ -105,12 +133,9 @@ class MaskWindowService : AccessibilityService() {
         }
         if (boundOnPage) return
         BlockActivity.guard(this) // every time: a single instance, so a repeat lands on the same screen
-        // One page sends more than one event; one attempt is one count. Off main: tamper rewrites the file.
-        val now = SystemClock.elapsedRealtime()
-        if (now - (guardedAt[target] ?: -SAME_ATTEMPT_MS) < SAME_ATTEMPT_MS) return
-        guardedAt[target] = now
+        if (!newAttempt(target)) return
         Log.i("Sophiel", "guard: $target in $pkg")
-        Dispatchers.IO.asExecutor().execute { container.log.tamper(target) }
+        Dispatchers.IO.asExecutor().execute { container.log.tamper(target) } // off main: it rewrites the file
     }
 
     /** A list row's title ("Appear on top" on A): its switch sits two levels up, in the row's widget frame. */

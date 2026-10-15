@@ -75,6 +75,7 @@ import dev.sophiel.ui.GearButton
 import dev.sophiel.ui.HeaderBar
 import dev.sophiel.ui.DebugMenu
 import dev.sophiel.ui.DebugPage
+import dev.sophiel.ui.AppsScreen
 import dev.sophiel.ui.LogScreen
 import dev.sophiel.ui.SettingsScreen
 import dev.sophiel.ui.PillButton
@@ -151,16 +152,18 @@ class MainActivity : ComponentActivity() {
         // Behind the door: rotation keeps them, a relock closes them all (D38).
         var logOpen by rememberSaveable { mutableStateOf(false) }
         var settingsOpen by rememberSaveable { mutableStateOf(false) }
+        var appsOpen by rememberSaveable { mutableStateOf(false) }
         var debugOpen by rememberSaveable { mutableStateOf(false) }
         var debugPage by rememberSaveable { mutableStateOf<DebugPage?>(null) }
         LaunchedEffect(door.unlocked) {
-            if (!door.unlocked) { logOpen = false; settingsOpen = false; debugOpen = false; debugPage = null }
+            if (!door.unlocked) { logOpen = false; appsOpen = false; settingsOpen = false; debugOpen = false; debugPage = null }
         }
-        BackHandler(logOpen || settingsOpen || debugOpen) {
+        BackHandler(logOpen || appsOpen || settingsOpen || debugOpen) {
             when {
                 debugPage != null -> debugPage = null
                 debugOpen -> debugOpen = false
                 logOpen -> logOpen = false
+                appsOpen -> appsOpen = false
                 else -> settingsOpen = false
             }
         }
@@ -185,8 +188,12 @@ class MainActivity : ComponentActivity() {
             LogScreen(container.log, door, onBack = { logOpen = false })
             return
         }
+        if (appsOpen) {
+            AppsScreen(container, door, onBack = { appsOpen = false })
+            return
+        }
         if (settingsOpen) {
-            SettingsScreen(container, door, onBack = { settingsOpen = false }, onHistory = { logOpen = true }, onDebug = { debugOpen = true })
+            SettingsScreen(container, door, onBack = { settingsOpen = false }, onHistory = { logOpen = true }, onApps = { appsOpen = true }, onDebug = { debugOpen = true })
             return
         }
         val actions = remember {

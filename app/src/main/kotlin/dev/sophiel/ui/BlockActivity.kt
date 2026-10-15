@@ -24,9 +24,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.material3.Text
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.text.style.TextAlign
 import dev.sophiel.R
 import dev.sophiel.SophielApp
+import dev.sophiel.settings.appLabel
 import dev.sophiel.ui.theme.Palette
 import dev.sophiel.ui.theme.SophielTheme
 
@@ -34,9 +38,17 @@ import dev.sophiel.ui.theme.SophielTheme
  * The guard's screen (D56): over a page that could turn Sophiel off, "Este ajuste está protegido" and the PIN pad.
  * A right PIN starts an Unlock that survives leaving the app and finishes, so Sophiel steps aside, back to the page.
  * Cancel and Back go Home. Its own task (`taskAffinity=""`, single instance), so finishing returns to the page.
- * D58's block screen joins it in ticket 25.
+ * D58's block screen, over Home: the blocked app's icon and label, "El Padre bloqueó esta app", Ir al inicio, no PIN.
  */
 class BlockActivity : ComponentActivity() {
+    private var blocked by mutableStateOf<String?>(null) // the blocked app's package; null: the guard
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent) // a recreation (rotation) must read this one, not the first
+        blocked = intent.getStringExtra(EXTRA_APP) // a single instance: a later guard or block lands here
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge(
@@ -44,6 +56,7 @@ class BlockActivity : ComponentActivity() {
             navigationBarStyle = SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT),
         )
         val container = (application as SophielApp).container
+        blocked = intent.getStringExtra(EXTRA_APP)
         setContent {
             SophielTheme {
                 BackHandler(onBack = ::goHome)
@@ -52,16 +65,24 @@ class BlockActivity : ComponentActivity() {
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterVertically),
                 ) {
-                    SIcon(R.drawable.ic_lock, Palette.Orange, 40.dp)
-                    Text(stringResource(R.string.guard_title), style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center)
-                    PinPrompt(
-                        container.pin, SystemClock::elapsedRealtime,
-                        onUnlocked = {
-                            container.unlock.extend(survivesLeaving = true)
-                            finish()
-                        },
-                        onCancel = ::goHome,
-                    )
+                    val app = blocked
+                    if (app != null) {
+                        AppIcon(app, 56.dp)
+                        Text(appLabel(packageManager, app), style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center)
+                        Text(stringResource(R.string.block_rule), style = MaterialTheme.typography.bodyLarge, color = Palette.Dim, textAlign = TextAlign.Center)
+                        PillButton(stringResource(R.string.block_home), ::goHome, style = PillStyle.Suggested)
+                    } else {
+                        SIcon(R.drawable.ic_lock, Palette.Orange, 40.dp)
+                        Text(stringResource(R.string.guard_title), style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center)
+                        PinPrompt(
+                            container.pin, SystemClock::elapsedRealtime,
+                            onUnlocked = {
+                                container.unlock.extend(survivesLeaving = true)
+                                finish()
+                            },
+                            onCancel = ::goHome,
+                        )
+                    }
                 }
             }
         }
@@ -73,7 +94,20 @@ class BlockActivity : ComponentActivity() {
     }
 
     companion object {
+        private const val EXTRA_APP = "app"
+
         fun guard(context: Context) =
             context.startActivity(Intent(context, BlockActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+
+        /**
+         * D58: [app] came to the front and is blocked: Home, then this screen over it, in one ordered start. A global
+         * Home action is asynchronous and could land over the screen.
+         */
+        fun block(context: Context, app: String) = context.startActivities(
+            arrayOf(
+                Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                Intent(context, BlockActivity::class.java).putExtra(EXTRA_APP, app).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            ),
+        )
     }
 }
