@@ -76,5 +76,6 @@ class GuardPagesTest {
         val row = listOf(GuardNode("Sophiel", "com.android.systemui:id/fgs_manager_app_item_label"))
         assertEquals(TamperTarget.ACTIVE_APPS, GuardPages.match(systemui, row, label))
         assertNull(GuardPages.match(systemui, emptyList(), label))
+        assertNull(GuardPages.match(systemui, listOf(GuardNode("Huawei Health", row[0].viewId)), label))
     }
 }

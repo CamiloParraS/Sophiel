@@ -67,7 +67,7 @@ class MaskWindowService : AccessibilityService() {
         })
     }
 
-    private var guardedAt = 0L
+    private val guardedAt = mutableMapOf<String, Long>()
 
     // Bound with its page open: the Parent just turned the service on there (the wizard too, its PIN already
     // made), and turning on is never blocked (D56). Cleared by the first window that is not the page.
@@ -106,8 +106,8 @@ class MaskWindowService : AccessibilityService() {
         BlockActivity.guard(this) // every time: a single instance, so a repeat lands on the same screen
         // One page sends more than one event; one attempt is one count. Off main: tamper rewrites the file.
         val now = SystemClock.elapsedRealtime()
-        if (now - guardedAt < SAME_ATTEMPT_MS) return
-        guardedAt = now
+        if (now - (guardedAt[target] ?: -SAME_ATTEMPT_MS) < SAME_ATTEMPT_MS) return
+        guardedAt[target] = now
         Log.i("Sophiel", "guard: $target in $pkg")
         Dispatchers.IO.asExecutor().execute { container.log.tamper(target) }
     }

@@ -27,20 +27,21 @@ object GuardPages {
      */
     fun match(pkg: String, nodes: List<GuardNode>, serviceLabel: String): String? = when (pkg) {
         in SETTINGS -> settings(nodes, serviceLabel)
-        in INSTALLER -> if (nodes.any { it.viewId?.endsWith(":id/app_label") == true }) TamperTarget.UNINSTALL else null
-        SYSTEMUI -> if (nodes.any { it.viewId == ACTIVE_APP_LABEL }) TamperTarget.ACTIVE_APPS else null
+        in INSTALLER -> if (nodes.any { it.text == APP && it.viewId?.endsWith(":id/app_label") == true }) TamperTarget.UNINSTALL else null
+        SYSTEMUI -> if (nodes.any { it.text == APP && it.viewId == ACTIVE_APP_LABEL }) TamperTarget.ACTIVE_APPS else null
         else -> null
     }
 
     private fun settings(nodes: List<GuardNode>, serviceLabel: String): String? = when {
         nodes.any { it.text == serviceLabel && it.viewId != ROW_TITLE } -> TamperTarget.ACCESSIBILITY
-        nodes.none { it.viewId == HEADER } -> null
+        nodes.none { it.text == APP && it.viewId == HEADER } -> null
         nodes.any { it.viewId == FORCE_STOP } -> TamperTarget.APP_INFO
         // Appear on top: guarded only while granted, so granting it is never blocked.
         nodes.any { it.viewId == PERMISSION_TEXT } && nodes.any { it.viewId == SWITCH && it.checked } -> TamperTarget.OVERLAY
         else -> null
     }
 
+    private const val APP = "Sophiel" // the app label (app_name, not translated)
     private const val ROW_TITLE = "android:id/title"
     private const val HEADER = "com.android.settings:id/entity_header_title"
     private const val FORCE_STOP = "com.android.settings:id/forcestop_button"
