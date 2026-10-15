@@ -108,7 +108,7 @@ class MaskWindowService : AccessibilityService() {
         val container = (application as SophielApp).container
         if (!container.captureModes.state.value.protecting) return
         val rule = container.appRules.rule(pkg) == AppRule.BLOCKED
-        if (!rule && !(container.settings.value.escalate && container.escalation.until(pkg) != null)) return // D58: by rule, or escalated
+        if (!rule && !(container.settings.value.escalate && container.appRules.rule(pkg) == AppRule.NORMAL && container.escalation.until(pkg) != null)) return // D58: by rule, or escalated
         if (pkg in excludedApps(this)) return // blocked before it became the launcher or dialer: it must not trap the phone
         val window = event.source?.window // null for a splash screen's events, before the app's own
         if (window != null && !smallerThanDisplay(window)) {
@@ -128,6 +128,7 @@ class MaskWindowService : AccessibilityService() {
     fun blockNow(pkg: String) = main.post {
         val inFront = windows.any { it.type == AccessibilityWindowInfo.TYPE_APPLICATION && it.root?.packageName == pkg }
         if (inFront && !resolving) {
+            newAttempt("block:$pkg") // this is the block; the app'"'"'s next events are not another open
             resolving = true
             resolve(pkg, 0, sawPopUp = false)
         }

@@ -290,9 +290,9 @@ class CaptureSession(
 
     /** D58: a masked episode counts against [app] unless it is trusted, excluded or already blocked; the third in 10 min blocks it at once. */
     private fun escalate(app: String) {
-        if (!settings.escalate || container.appRules.rule(app) != AppRule.NORMAL || app in excludedApps(appContext)) return
+        if (MaskWindowService.instance == null || !settings.escalate || container.appRules.rule(app) != AppRule.NORMAL || app in excludedApps(appContext)) return
         if (!container.escalation.hit(app)) return
-        container.log.appBlocked(app, Escalation.BLOCK_MS.div(60_000).toInt())
+        container.log.appBlocked(app, Escalation.BLOCK_MIN)
         MaskWindowService.instance?.blockNow(app)
     }
 

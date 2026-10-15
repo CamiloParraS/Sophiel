@@ -54,6 +54,7 @@ class Escalation(private val wall: () -> Long, read: () -> Map<String, Long>, pr
     companion object {
         const val HITS = 3
         const val WINDOW_MS = 10 * 60_000L
-        const val BLOCK_MS = 15 * 60_000L
+        const val BLOCK_MIN = 15
+        const val BLOCK_MS = BLOCK_MIN * 60_000L
     }
 }
