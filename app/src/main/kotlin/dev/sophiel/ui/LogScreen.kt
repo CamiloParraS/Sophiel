@@ -158,93 +158,89 @@ fun LogScreen(log: EventLog, door: Door, onBack: () -> Unit) {
 @Composable
 private fun Content(model: LogModel, labels: Map<String, String>, zone: ZoneId, modifier: Modifier, onClear: () -> Unit) {
     val locale = Locale.getDefault()
-    val context = LocalContext.current
-    val time = remember { DateFormat.getTimeFormat(context) }
-    var selected by rememberSaveable { mutableIntStateOf(model.days.lastIndex) }
     var filter by rememberSaveable { mutableStateOf(LogFilter.ALL) }
-    val day = model.days[selected]
-    val dayTitle = DateFormat.getBestDateTimePattern(locale, "EEEEdMMMM").let { p ->
-        day.date.format(java.time.format.DateTimeFormatter.ofPattern(p, locale)).replaceFirstChar { it.titlecase(locale) }
-    }
+    val week = model.week
+    val label = { app: String -> labels[app] ?: app }
     Column(
         modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(start = 14.dp, end = 14.dp, top = 18.dp, bottom = 16.dp).navigationBarsPadding(),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        Column {
-            Text(
-                pluralStringResource(R.plurals.log_week, model.weekMasked, model.weekMasked),
-                Modifier.padding(start = 4.dp, bottom = 6.dp), style = MaterialTheme.typography.labelMedium, color = Palette.Dim,
-            )
-            val today = model.days.last()
-            today.topApp?.let { (app, n) ->
-                Text(
-                    stringResource(R.string.log_top_app, today.masked, labels[app] ?: app, n),
-                    Modifier.padding(start = 4.dp, bottom = 6.dp), style = MaterialTheme.typography.labelMedium, color = Palette.Dim,
-                )
-            }
-            Row(Modifier.fillMaxWidth().selectableGroup(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                model.days.forEachIndexed { i, d -> DayCell(d, i == selected, Modifier.weight(1f)) { selected = i } }
-            }
+        Text(stringResource(R.string.log_week_title), Modifier.padding(start = 4.dp), style = MaterialTheme.typography.labelMedium, color = Palette.Dim)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Stat(week.masked, R.string.log_stat_masked, Modifier.weight(1f))
+            Stat(week.intentos, R.string.log_stat_attempts, Modifier.weight(1f))
+            Stat(week.bloqueos, R.string.log_stat_blocks, Modifier.weight(1f))
         }
-        Text(
-            if (day.today) stringResource(R.string.log_today_title, if (locale.language == "en") dayTitle else dayTitle.replaceFirstChar { it.lowercase(locale) }) else dayTitle,
-            style = MaterialTheme.typography.titleMedium,
-        )
+        week.perApp.firstOrNull()?.let { (app, n) ->
+            Text(stringResource(R.string.log_top_app, label(app), n), Modifier.padding(start = 4.dp), style = MaterialTheme.typography.labelMedium, color = Palette.Dim)
+        }
+        DayBars(model.days)
+        if (week.perApp.isNotEmpty()) {
+            Text(stringResource(R.string.log_by_app), Modifier.padding(start = 4.dp), style = MaterialTheme.typography.labelMedium, color = Palette.Dim)
+            AppBars(week.perApp.take(5), label)
+        }
         SegmentedControl(
             listOf(R.string.log_filter_all, R.string.log_filter_masked, R.string.log_filter_others).map { stringResource(it) },
             filter.ordinal, { filter = LogFilter.entries[it] },
         )
-        // A busy day has hundreds of rows, all composed at once in this scroll: show a page, add a page per tap.
-        var shown by rememberSaveable(selected, filter) { mutableIntStateOf(PAGE) }
-        Crossfade(selected to filter, animationSpec = motion(tween(110)), label = "day") { (s, f) ->
-            val d = model.days[s]
-            val rows = d.rows(f)
-            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Stat(d.masked, R.string.log_stat_masked, Modifier.weight(1f))
-                    Stat(d.unanalyzable, R.string.log_stat_unchecked, Modifier.weight(1f))
-                    Stat(d.off, R.string.log_stat_off, Modifier.weight(1f))
-                }
-                if (rows.isEmpty()) Text(
-                    stringResource(if (f == LogFilter.MASKED) R.string.log_nothing_masked else R.string.log_nothing),
-                    Modifier.fillMaxWidth().padding(vertical = 18.dp), style = MaterialTheme.typography.bodyMedium, color = Palette.Dim, textAlign = TextAlign.Center,
-                )
-                // One group per clock hour, titled with its start ("14:00"), newest first.
-                rows.take(shown).groupBy { Instant.ofEpochMilli(it.at).atZone(zone).truncatedTo(ChronoUnit.HOURS).toInstant().toEpochMilli() }
-                    .forEach { (hour, inHour) -> PreferenceGroup(title = time.format(Date(hour))) { inHour.forEach { r -> item { EntryRow(r, labels) } } } }
-                if (rows.size > shown) PillButton(
-                    stringResource(R.string.log_more, rows.size - shown), { shown += PAGE }, Modifier.align(Alignment.CenterHorizontally),
-                )
+        // A busy week has hundreds of rows, all composed at once in this scroll: show a page, add a page per tap.
+        var shown by rememberSaveable(filter) { mutableIntStateOf(PAGE) }
+        val days = model.days.asReversed().map { it to it.rows(filter) }.filter { it.second.isNotEmpty() }
+        val total = days.sumOf { it.second.size }
+        if (days.isEmpty()) Text(
+            stringResource(if (filter == LogFilter.MASKED) R.string.log_nothing_masked else R.string.log_nothing),
+            Modifier.fillMaxWidth().padding(vertical = 18.dp), style = MaterialTheme.typography.bodyMedium, color = Palette.Dim, textAlign = TextAlign.Center,
+        )
+        var left = shown
+        for ((d, rows) in days) {
+            if (left <= 0) break
+            val day = rows.take(left)
+            left -= day.size
+            val title = if (d.today) stringResource(R.string.log_today) else DateFormat.getBestDateTimePattern(locale, "EEEEdMMMM").let { p ->
+                d.date.format(java.time.format.DateTimeFormatter.ofPattern(p, locale)).replaceFirstChar { it.titlecase(locale) }
             }
+            PreferenceGroup(title = pluralStringResource(R.plurals.log_day_total, d.masked, title, d.masked)) { day.forEach { r -> item { EntryRow(r, labels) } } }
         }
+        if (total > shown) PillButton(
+            stringResource(R.string.log_more, total - shown), { shown += PAGE }, Modifier.align(Alignment.CenterHorizontally),
+        )
         PillButton(stringResource(R.string.log_clear), onClear, Modifier.align(Alignment.CenterHorizontally), style = PillStyle.Destructive, icon = R.drawable.ic_trash)
     }
 }
 
+/** D59: masked episodes per day, 7 bars, today last; the bar takes the colour of the day's highest band (D44). */
 @Composable
-private fun DayCell(day: LogDay, on: Boolean, modifier: Modifier, onClick: () -> Unit) {
-    val primary = MaterialTheme.colorScheme.primary
-    val shape = RoundedCornerShape(14.dp)
-    val fade = motion<Color>(tween(150))
-    val fill by animateColorAsState(if (on) primary else Palette.Card, fade, label = "day")
-    val edge by animateColorAsState(if (on) Color.Transparent else Palette.Border, fade, label = "edge")
-    val ink by animateColorAsState(if (on) Color.White else Palette.Fg, fade, label = "ink")
-    val weekday by animateColorAsState(if (on) Color.White.copy(alpha = .8f) else Palette.Dim, fade, label = "weekday")
-    val bar by animateColorAsState(if (on) Color.White.copy(alpha = .85f) else day.top.color(), fade, label = "bar")
-    Column(
-        modifier.clip(shape).background(fill).border(1.dp, edge, shape)
-            .selectable(on, role = Role.Tab, onClick = onClick).padding(vertical = 7.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text(
-            if (day.today) stringResource(R.string.log_today) else day.date.dayOfWeek.getDisplayName(TextStyle.NARROW, Locale.getDefault()).uppercase(),
-            style = MaterialTheme.typography.labelSmall, color = weekday, maxLines = 1,
-        )
-        Text(day.date.dayOfMonth.toString(), style = MaterialTheme.typography.titleMedium, color = ink)
-        Box(Modifier.height(18.dp).padding(top = 2.dp), contentAlignment = Alignment.BottomCenter) {
-            // The bar grows with the day's masked count and takes the colour of its highest band (D44).
-            val h = if (day.masked == 0) 3.dp else (4 + day.masked * 3.5f).coerceAtMost(16f).dp
-            Box(Modifier.width(14.dp).height(h).clip(RoundedCornerShape(3.dp)).background(bar))
+private fun DayBars(days: List<LogDay>) {
+    val most = days.maxOf { it.masked }.coerceAtLeast(1)
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+        days.forEach { d ->
+            Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(d.masked.toString(), style = MaterialTheme.typography.labelSmall, color = Palette.Dim)
+                Box(Modifier.height(56.dp), contentAlignment = Alignment.BottomCenter) {
+                    val h = if (d.masked == 0) 3.dp else (4 + 52f * d.masked / most).dp
+                    Box(Modifier.width(16.dp).height(h).clip(RoundedCornerShape(3.dp)).background(d.top.color()))
+                }
+                Text(
+                    d.date.dayOfWeek.getDisplayName(TextStyle.NARROW, Locale.getDefault()).uppercase(),
+                    style = MaterialTheme.typography.labelSmall, color = if (d.today) MaterialTheme.colorScheme.primary else Palette.Dim, maxLines = 1,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AppBars(apps: List<Pair<String, Int>>, label: (String) -> String) {
+    val most = apps.first().second
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        apps.forEach { (app, n) ->
+            Column {
+                Row {
+                    Text(label(app), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 1)
+                    Text(n.toString(), style = MaterialTheme.typography.bodyMedium, color = Palette.Dim)
+                }
+                Box(Modifier.padding(top = 3.dp).fillMaxWidth(n.toFloat() / most).height(6.dp).clip(RoundedCornerShape(3.dp)).background(MaterialTheme.colorScheme.primary))
+            }
         }
     }
 }

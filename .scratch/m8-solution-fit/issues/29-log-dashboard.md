@@ -4,11 +4,11 @@
 
 **Blocked by:** 28
 
-**Status:** ready-for-agent
+**Status:** built; device check on A pending
 
-- [ ] The counting (per day, per app, per kind, for a period; "Hoy" = since local midnight; only what is in the 7-day Log) is one pure function, JVM-tested, so ticket 30's report reuses it
-- [ ] Summary chips, 7-day bars, Por app list
-- [ ] Day headers with the day's total; the filter unchanged
-- [ ] Spanish strings, English in `values-en/`
+- [x] The counting (per day, per app, per kind, for a period; "Hoy" = since local midnight; only what is in the 7-day Log) is one pure function, JVM-tested, so ticket 30's report reuses it
+- [x] Summary chips, 7-day bars, Por app list
+- [x] Day headers with the day's total; the filter unchanged
+- [x] Spanish strings, English in `values-en/`
 - [ ] Checked on A: the dashboard's counts match the rows
-- [ ] Ends buildable
+- [x] Ends buildable

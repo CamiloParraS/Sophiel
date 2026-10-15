@@ -53,9 +53,36 @@ class LogDay(val date: LocalDate, val today: Boolean, val rows: List<LogRow>) {
     }
 }
 
+/**
+ * D59: what a period holds, counted from rows (so the dashboard and the report agree with the list). [intentos] are
+ * tamper attempts, [bloqueos] a block placed or an open stopped; both count merged lines by their count.
+ * [perApp] is masked episodes per known app, most first (blank apps are left out, as in [LogDay.topApp]).
+ */
+class LogCounts(val masked: Int, val unchecked: Int, val unprotected: Int, val intentos: Int, val bloqueos: Int, val perApp: List<Pair<String, Int>>) {
+    companion object {
+        fun of(days: List<LogDay>): LogCounts {
+            val rows = days.flatMap { it.rows }
+            val perApp = rows.mapNotNull { (it as? LogRow.Masked)?.app?.takeIf(String::isNotEmpty) }
+                .groupingBy { it }.eachCount().entries.sortedByDescending { it.value }.map { it.key to it.value }
+            return LogCounts(
+                masked = rows.count { it is LogRow.Masked },
+                unchecked = rows.count { it is LogRow.Unanalyzable },
+                unprotected = rows.count { it is LogRow.Unprotected },
+                intentos = rows.sumOf { (it as? LogRow.Tamper)?.count ?: 0 },
+                bloqueos = rows.sumOf { when (it) { is LogRow.AppBlocked -> 1; is LogRow.BlockedOpen -> it.count; else -> 0 } },
+                perApp = perApp,
+            )
+        }
+    }
+}
+
 /** The Log screen (D39, D44), pure: entries + now + zone -> the last 7 local days, oldest first, today last. */
 class LogModel(val days: List<LogDay>, val empty: Boolean) {
     val weekMasked = days.sumOf { it.masked }
+
+    /** "Hoy" is since local midnight (the last day); the week is every day held. */
+    val today get() = LogCounts.of(days.takeLast(1))
+    val week get() = LogCounts.of(days)
 
     companion object {
         const val PRECISE = "PRECISE"

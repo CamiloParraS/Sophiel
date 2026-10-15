@@ -136,4 +136,26 @@ class LogModelTest {
         assertTrue(!m.empty)
         assertEquals(0, m.weekMasked)
     }
+
+    @Test
+    fun countsPerPeriodPerAppAndKind() {
+        val m = model(
+            Entry(at(5, 9), "MASKED", listOf("BALANCED", "1", "0.9", "a")),
+            Entry(at(6, 9), "MASKED", listOf("BALANCED", "1", "0.9", "b")),
+            Entry(at(6, 10), "MASKED", listOf("BALANCED", "1", "0.9", "b")),
+            Entry(at(6, 10), "MASKED", listOf("BALANCED", "1", "0.9", "")),
+            Entry(at(6, 11), "TAMPER", listOf("OVERLAY", "3")),
+            Entry(at(5, 11), "APP_BLOCKED", listOf("a", "30")),
+            Entry(at(6, 11), "BLOCKED_OPEN", listOf("a", "RULE", "2")),
+            Entry(at(6, 12), "UNPROTECTED", listOf("60", "ACCESSIBILITY_OFF")),
+        )
+        val w = m.week
+        assertEquals(4, w.masked)
+        assertEquals(listOf("b" to 2, "a" to 1), w.perApp)
+        assertEquals(3, w.intentos)
+        assertEquals(3, w.bloqueos)
+        assertEquals(1, w.unprotected)
+        assertEquals(3, m.today.masked)
+        assertEquals(2, m.today.bloqueos)
+    }
 }
