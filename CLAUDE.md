@@ -34,8 +34,8 @@ NEXT:               M8 deliverable 1 (capture modes) done: ticket 19 closed 2026
                     (accessibility page guard, ui/BlockActivity; checked on A 2026-10-14). 22 built, 23 (guard
                     verification, V4) done 2026-10-15. 24 (episode app, D57) done 2026-10-15 (V5 passed).
                     Deliverable 4 (D58): 25 done 2026-10-15 (rule blocks, Apps screen, Apertura bloqueada;
-                    checked on A). 26 trusted apps built, 27 escalation done (checked on A 2026-10-15). 28 = V6 on A and B
-                    (JVM tests and no-INTERNET pass); then deliverable 5 (Log dashboard + report, tickets 29-31). After M8: UI polish, then M7: soak on A and B, feel numbers per preset, LIMITATIONS.md (from SPEC §7), README,
+                    checked on A). 26 trusted apps built, 27 escalation done (checked on A 2026-10-15). 28 = V6 passed on A and B
+                    (2026-10-15); deliverable 4 done. Next: deliverable 5 (Log dashboard + report, tickets 29-31). After M8: UI polish, then M7: soak on A and B, feel numbers per preset, LIMITATIONS.md (from SPEC §7), README,
                     demo runbook + video. M7 has no tickets yet. M6 history below, map at
                     .scratch/m6-parent-app/map.md (decisions D38-D45).
                     Build tickets done: 09 settings, 10 cover path, 12 PinStore + unlock, 13 event log,
