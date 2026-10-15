@@ -5,6 +5,8 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Rect
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.view.Display
 import android.view.accessibility.AccessibilityEvent
@@ -99,17 +101,60 @@ class MaskWindowService : AccessibilityService() {
 
     /**
      * D58: a Bloqueada app came to the front while protection is on (an Unlock too): Home, then the block screen over
-     * it. Settings is excluded, so this never meets [guard]'s pages.
+     * it ([resolve] first, unless its window is known fullscreen). Settings is excluded, so this never meets [guard]'s pages.
      */
     private fun block(event: AccessibilityEvent) {
         val pkg = event.packageName?.toString() ?: return
         val container = (application as SophielApp).container
         if (container.appRules.rule(pkg) != AppRule.BLOCKED || !container.captureModes.state.value.protecting) return
         if (pkg in excludedApps(this)) return // blocked before it became the launcher or dialer: it must not trap the phone
-        BlockActivity.block(this, pkg) // Home and the block screen, every time, like the guard
+        val window = event.source?.window // null for a splash screen's events, before the app's own
+        if (window != null && !smallerThanDisplay(window)) {
+            main.removeCallbacksAndMessages(null) // fullscreen: nothing to wait for
+            resolving = false
+            BlockActivity.block(this, pkg) // Home and the block screen, every time, like the guard
+        } else if (!resolving) { // a pop-up's own Backs send more events
+            resolving = true
+            resolve(pkg, 0, sawPopUp = false)
+        }
         if (!newAttempt("block:$pkg")) return
         Log.i("Sophiel", "block: $pkg")
         Dispatchers.IO.asExecutor().execute { container.log.blockedOpen(pkg, BlockReason.RULE) }
+    }
+
+    private val main = Handler(Looper.getMainLooper())
+    private var resolving = false
+
+    /**
+     * A blocked app whose window is not known yet (a splash screen) or is a pop-up window (One UI pop-up view). A pop-up
+     * stays above Home and the block screen, usable with a tap: close it first, then Home and the block screen. Back
+     * sent while it has focus closes it or sends it behind (A: Calculator at once; Chrome took two, the first went back
+     * a page). The block screen must not start before: it takes the focus, and nothing gives it back to the pop-up.
+     * A splash screen's events look the same for both, so the window list is polled until the app's window shows (A:
+     * fullscreen ~1 s, its first screen visible 0.2-0.3 s before the block screen; a pop-up ~1.5 s, unfocused while it
+     * zooms in). Human decision 2026-10-15, over a tap gesture (new capability) or an overlay over the pop-up.
+     */
+    private fun resolve(pkg: String, tick: Int, sawPopUp: Boolean) {
+        // A pop-up also lists its caption handle (One UI "MSHandler", a small window of the same package): the largest is the app.
+        val own = windows.filter { it.type == AccessibilityWindowInfo.TYPE_APPLICATION && it.root?.packageName == pkg }
+        val window = own.maxByOrNull { it.boundsInScreen().run { width() * height() } }
+        val popUp = window != null && smallerThanDisplay(window)
+        // ponytail: gives up after MAX_RESOLVE_TICKS (an app that eats Back), the pop-up then stays over the block screen.
+        if ((window == null && sawPopUp) || (window != null && !popUp) || tick == MAX_RESOLVE_TICKS) {
+            if (sawPopUp) Log.i("Sophiel", "block: $pkg pop-up ${if (window == null) "closed" else "still open"} after $tick ticks")
+            resolving = false
+            BlockActivity.block(this, pkg)
+            return
+        }
+        val back = popUp && own.any { it.isFocused } && performGlobalAction(GLOBAL_ACTION_BACK)
+        main.postDelayed({ resolve(pkg, tick + 1, sawPopUp || popUp) }, if (back) BACK_LAND_MS else RESOLVE_TICK_MS)
+    }
+
+    /** A pop-up (or a split screen half): Back reaches it. */
+    private fun smallerThanDisplay(window: AccessibilityWindowInfo): Boolean {
+        val b = window.boundsInScreen()
+        val display = resources.displayMetrics
+        return b.width() < display.widthPixels || b.height() < display.heightPixels
     }
 
     /** One page or open sends more than one event; one attempt is one count. */
@@ -205,6 +250,9 @@ class MaskWindowService : AccessibilityService() {
 
     companion object {
         private const val SAME_ATTEMPT_MS = 2_000L
+        private const val RESOLVE_TICK_MS = 50L
+        private const val BACK_LAND_MS = 300L // a Back lands and the window list updates (A)
+        private const val MAX_RESOLVE_TICKS = 60
         private val current = MutableStateFlow<MaskWindowService?>(null)
 
         /** Non-null while bound (D41: bound, not just ticked in Accessibility settings). */

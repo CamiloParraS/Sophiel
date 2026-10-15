@@ -43,3 +43,13 @@ protection off lets the app open; the Log shows one "Apertura bloqueada" for sev
 **A check (human, 2026-10-15):** passed. A blocked app opened from the launcher and from Recents lands on the block
 screen, and Home never landed over it. Rotation keeps the block screen. With protection off the app opens. Several
 opens within a minute are one Log entry.
+
+**Pop-up fix (agent, 2026-10-15):** a Bloqueada app opened as a One UI pop-up stayed above the block screen, usable.
+Root cause: a pop-up stays above Home and fullscreen tasks, and the block screen started at the app's splash event
+takes the focus, so nothing reaches the pop-up. Splash events are identical for pop-up and fullscreen opens; making
+the block screen unfocusable leaves no focus, moving it behind focuses the launcher. Fix (human choice, over a tap
+gesture or an overlay over the pop-up): `MaskWindowService.resolve` polls the window list until the app's window shows,
+then fullscreen: block screen; pop-up: Back while it has focus until it's gone, then the block screen. An event whose
+window is known fullscreen still blocks at once. Cost, A: a fullscreen open now shows its first screen 0.2-0.3 s before
+the block screen (was 0: blocked at the splash). Checked on A with X, 2x each: pop-up closed by one Back after ~2.3 s,
+block screen focused; fullscreen blocked. A pop-up from the edge panel checked on A by the human. Not checked: B.
