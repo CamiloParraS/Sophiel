@@ -17,6 +17,7 @@ data class ParentSettings(
     val peekUnderMask: Boolean = true, // D34, default on in M8 (ticket 17); peekMode() still needs canShoot()
     val showLabel: Boolean = true, // D28
     val keepProtecting: Boolean = true, // "Seguir protegiendo siempre" (D54)
+    val escalate: Boolean = true, // "Bloquear apps que muestran contenido explícito repetidamente" (D58)
 )
 
 /**
@@ -37,6 +38,7 @@ class SettingsRepository(context: Context) {
             .putBoolean(PEEK, s.peekUnderMask)
             .putBoolean(LABEL, s.showLabel)
             .putBoolean(KEEP, s.keepProtecting)
+            .putBoolean(ESCALATE, s.escalate)
             .apply()
     }
 
@@ -49,6 +51,7 @@ class SettingsRepository(context: Context) {
             peekUnderMask = prefs.getBoolean(PEEK, d.peekUnderMask),
             showLabel = prefs.getBoolean(LABEL, d.showLabel),
             keepProtecting = prefs.getBoolean(KEEP, d.keepProtecting),
+            escalate = prefs.getBoolean(ESCALATE, d.escalate),
         )
     }
 
@@ -58,5 +61,6 @@ class SettingsRepository(context: Context) {
         const val PEEK = "peek_under_mask"
         const val LABEL = "show_label"
         const val KEEP = "keep_protecting"
+        const val ESCALATE = "escalate"
     }
 }

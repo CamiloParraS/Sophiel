@@ -31,6 +31,7 @@ sealed interface LogRow {
     class ShareStopped(override val at: Long) : LogRow
     class Unprotected(override val at: Long, val seconds: Int, val reason: String) : LogRow
     class Tamper(override val at: Long, val target: String, val count: Int) : LogRow
+    class AppBlocked(override val at: Long, val app: String, val minutes: Int) : LogRow
     class BlockedOpen(override val at: Long, val app: String, val reason: String, val count: Int) : LogRow
 }
 
@@ -94,6 +95,7 @@ class LogModel(val days: List<LogDay>, val empty: Boolean) {
                 "SHARE_STOPPED" -> LogRow.ShareStopped(e.at)
                 "UNPROTECTED" -> LogRow.Unprotected(e.at, f.getOrNull(0)?.toIntOrNull() ?: 0, f.getOrElse(1) { "" })
                 "TAMPER" -> LogRow.Tamper(e.at, f.getOrElse(0) { "" }, f.getOrNull(1)?.toIntOrNull() ?: 1)
+                "APP_BLOCKED" -> LogRow.AppBlocked(e.at, f.getOrElse(0) { "" }, f.getOrNull(1)?.toIntOrNull() ?: 0)
                 "BLOCKED_OPEN" -> LogRow.BlockedOpen(e.at, f.getOrElse(0) { "" }, f.getOrElse(1) { "" }, f.getOrNull(2)?.toIntOrNull() ?: 1)
                 else -> null
             }

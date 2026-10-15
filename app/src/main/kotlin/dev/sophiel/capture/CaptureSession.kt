@@ -36,6 +36,9 @@ import dev.sophiel.feed.NudeNet
 import dev.sophiel.feed.SpikeModel
 import dev.sophiel.feed.unsafeScore
 import dev.sophiel.log.Episodes
+import dev.sophiel.settings.AppRule
+import dev.sophiel.settings.Escalation
+import dev.sophiel.settings.excludedApps
 import dev.sophiel.log.Stretches
 import dev.sophiel.settings.ParentPreset
 import kotlinx.coroutines.CoroutineScope
@@ -278,7 +281,19 @@ class CaptureSession(
         // ponytail: an episode keeps its first app; one that carries across an app switch within 3 s is counted
         // against the first (D57, SPEC §7 item 24). Split episodes on an app change if the Parent needs it exact.
         val at = strongest()
-        offLane { container.log.masked(preset, count, score, at?.let { (x, y) -> appAt(x, y) }) }
+        offLane {
+            val app = at?.let { (x, y) -> appAt(x, y) }
+            container.log.masked(preset, count, score, app)
+            if (app != null) escalate(app)
+        }
+    }
+
+    /** D58: a masked episode counts against [app] unless it is trusted, excluded or already blocked; the third in 10 min blocks it at once. */
+    private fun escalate(app: String) {
+        if (!settings.escalate || container.appRules.rule(app) != AppRule.NORMAL || app in excludedApps(appContext)) return
+        if (!container.escalation.hit(app)) return
+        container.log.appBlocked(app, Escalation.BLOCK_MS.div(60_000).toInt())
+        MaskWindowService.instance?.blockNow(app)
     }
 
     /** D57: blank without the service. */

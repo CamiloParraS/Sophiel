@@ -123,6 +123,7 @@ fun LogScreen(log: EventLog, door: Door, onBack: () -> Unit) {
                     is LogRow.Masked -> it.app
                     is LogRow.Unanalyzable -> it.app
                     is LogRow.BlockedOpen -> it.app
+                    is LogRow.AppBlocked -> it.app
                     else -> null
                 }
             }
@@ -329,6 +330,11 @@ private fun EntryRow(row: LogRow, labels: Map<String, String>) {
                 icon = R.drawable.ic_lock, iconTint = Palette.Orange, end = clock,
             )
         }
+        is LogRow.AppBlocked -> PrefRow(
+            stringResource(R.string.log_app_blocked),
+            description = stringResource(R.string.log_gap_text, label(row.app), stringResource(R.string.minutes_short, row.minutes)),
+            icon = R.drawable.ic_block, iconTint = Palette.Orange, end = clock,
+        )
         is LogRow.BlockedOpen -> {
             val why = stringResource(R.string.log_gap_text, label(row.app), stringResource(if (row.reason == BlockReason.ESCALATION) R.string.log_blocked_escalation else R.string.log_blocked_rule))
             PrefRow(

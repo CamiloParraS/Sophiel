@@ -311,5 +311,6 @@ private fun statusScreen(controller: ProjectionController, container: AppContain
     val model = StatusModel.of(
         StatusInput(state.phase, bound, overlay, notifications, last, settings.preset, settings.sensitivity, Build.VERSION.SDK_INT, mode.mode, gap),
     )
-    StatusScreen(model, door, actions, modifier)
+    val blocks by container.escalation.blocks.collectAsState()
+    StatusScreen(model, door, actions, modifier, blocks)
 }

@@ -269,4 +269,10 @@
     <string name="wiz_start_text">Inicia la protección. Después verás el estado aquí.</string>
     <string name="wiz_entire">Elige «Pantalla completa»</string>
     <string name="wiz_entire_text">Si Android ofrece «Una sola app», elige «Pantalla completa» para que Sophiel vea todo.</string>
+    <string name="block_escalation">Bloqueada por Sophiel · vuelve en %1$d min</string>
+    <string name="block_pin">Desbloquear con PIN</string>
+    <string name="status_app_blocked">%1$s bloqueada · %2$d min</string>
+    <string name="log_app_blocked">App bloqueada</string>
+    <string name="minutes_short">%d min</string>
+    <string name="apps_escalate">Bloquear apps que muestran contenido explícito repetidamente</string>
 </resources>

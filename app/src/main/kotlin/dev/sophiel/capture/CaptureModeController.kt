@@ -99,7 +99,10 @@ class CaptureModeController(context: Context, private val container: AppContaine
     fun uiOpened() = onEvent(ModeEvent.UiOpened)
 
     /** The Parent's PIN Stop. */
-    fun stop() = onEvent(ModeEvent.Stop)
+    fun stop() {
+        container.escalation.clear() // D58
+        onEvent(ModeEvent.Stop)
+    }
 
     private fun onEvent(e: ModeEvent) {
         val old = _state.value

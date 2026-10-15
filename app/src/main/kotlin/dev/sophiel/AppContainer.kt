@@ -12,6 +12,7 @@ import dev.sophiel.log.EventLog
 import dev.sophiel.pin.PinStore
 import dev.sophiel.pin.Unlock
 import dev.sophiel.settings.AppRules
+import dev.sophiel.settings.Escalation
 import dev.sophiel.settings.ProtectionStore
 import dev.sophiel.settings.SettingsRepository
 import java.io.File
@@ -52,6 +53,15 @@ class AppContainer(context: Context) {
 
     /** D58: Normal / Bloqueada per app, enforced by [dev.sophiel.capture.MaskWindowService]. */
     val appRules = AppRules(context)
+
+    private val escalationPrefs = context.getSharedPreferences("escalation", Context.MODE_PRIVATE)
+
+    /** D58: repeated episodes block an app; end times on the wall clock, kept across a reboot. */
+    val escalation = Escalation(
+        wall = System::currentTimeMillis,
+        read = { escalationPrefs.all.mapNotNull { (k, v) -> (v as? Long)?.let { k to it } }.toMap() },
+        write = { m -> escalationPrefs.edit().clear().apply { m.forEach { (k, v) -> putLong(k, v) } }.apply() },
+    )
 
     /** Ticket 09: a Sophiel screen fills the display; capture hides the masks and pauses. */
     val ownScreens = OwnScreens()

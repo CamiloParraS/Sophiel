@@ -269,4 +269,10 @@
     <string name="wiz_start_text">Start protection. You\'ll see its status here afterwards.</string>
     <string name="wiz_entire">Pick \"Entire screen\"</string>
     <string name="wiz_entire_text">If Android offers \"A single app\", pick \"Entire screen\" so Sophiel sees everything.</string>
+    <string name="block_escalation">Blocked by Sophiel · back in %1$d min</string>
+    <string name="block_pin">Unlock with PIN</string>
+    <string name="status_app_blocked">%1$s blocked · %2$d min</string>
+    <string name="log_app_blocked">App blocked</string>
+    <string name="minutes_short">%d min</string>
+    <string name="apps_escalate">Block apps that repeatedly show explicit content</string>
 </resources>

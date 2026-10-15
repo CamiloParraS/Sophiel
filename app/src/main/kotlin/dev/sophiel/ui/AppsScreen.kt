@@ -85,6 +85,12 @@ fun AppsScreen(container: AppContainer, door: Door, onBack: () -> Unit) {
                 },
             )
         }
+        val settings by container.settings.state.collectAsState()
+        SwitchRow(
+            stringResource(R.string.apps_escalate), settings.escalate && bound,
+            { v -> door.pass { container.settings.update { it.copy(escalate = v) }; if (!v) container.escalation.clear() } },
+            Modifier.padding(top = 10.dp), enabled = bound,
+        )
         Text(
             stringResource(R.string.apps_trust_warning), style = MaterialTheme.typography.bodySmall, color = Palette.Dim,
             modifier = Modifier.padding(start = 14.dp, end = 14.dp, top = 10.dp),

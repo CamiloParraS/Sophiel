@@ -24,12 +24,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.material3.Text
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.text.style.TextAlign
 import dev.sophiel.R
 import dev.sophiel.SophielApp
+import dev.sophiel.settings.AppRule
 import dev.sophiel.settings.appLabel
 import dev.sophiel.ui.theme.Palette
 import dev.sophiel.ui.theme.SophielTheme
@@ -69,8 +73,33 @@ class BlockActivity : ComponentActivity() {
                     if (app != null) {
                         AppIcon(app, 56.dp)
                         Text(appLabel(packageManager, app), style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center)
-                        Text(stringResource(R.string.block_rule), style = MaterialTheme.typography.bodyLarge, color = Palette.Dim, textAlign = TextAlign.Center)
+                        val blocks by container.escalation.blocks.collectAsState()
+                        val now by tickingNow(System::currentTimeMillis)
+                        // D58: a rule beats escalation; only an escalation block has a PIN.
+                        val until = blocks[app]?.takeIf { container.appRules.rule(app) != AppRule.BLOCKED }
+                        val minutes = until?.let { ((it - now).coerceAtLeast(0) + 59_999) / 60_000 }
+                        val ended = until != null && until <= now
+                        LaunchedEffect(ended) { if (ended) goHome() } // ended while showing
+                        Text(
+                            if (minutes != null) stringResource(R.string.block_escalation, minutes) else stringResource(R.string.block_rule),
+                            style = MaterialTheme.typography.bodyLarge, color = Palette.Dim, textAlign = TextAlign.Center,
+                        )
                         PillButton(stringResource(R.string.block_home), ::goHome, style = PillStyle.Suggested)
+                        if (until != null) {
+                            var pinOpen by remember { mutableStateOf(false) }
+                            if (pinOpen) {
+                                PinPrompt(
+                                    container.pin, SystemClock::elapsedRealtime,
+                                    onUnlocked = {
+                                        container.escalation.end(app) // the count restarts too
+                                        finish() // back to Home, under this screen
+                                    },
+                                    onCancel = { pinOpen = false },
+                                )
+                            } else {
+                                PillButton(stringResource(R.string.block_pin), { pinOpen = true })
+                            }
+                        }
                     } else {
                         SIcon(R.drawable.ic_lock, Palette.Orange, 40.dp)
                         Text(stringResource(R.string.guard_title), style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center)

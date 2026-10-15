@@ -43,6 +43,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import dev.sophiel.R
+import dev.sophiel.settings.appLabel
 import dev.sophiel.capture.CaptureMode
 import dev.sophiel.core.Sensitivity
 import dev.sophiel.log.GapReason
@@ -121,7 +122,7 @@ private fun gapText(reason: String) = when (reason) {
  * opens, only state changes (fixing a row, starting, stopping) cross-fade.
  */
 @Composable
-fun StatusScreen(model: StatusModel, door: Door, actions: StatusActions, modifier: Modifier = Modifier) {
+fun StatusScreen(model: StatusModel, door: Door, actions: StatusActions, modifier: Modifier = Modifier, blocks: Map<String, Long> = emptyMap()) {
     val context = LocalContext.current
     val time = remember { DateFormat.getTimeFormat(context) }
     val stoppedReason = model.stopped?.fields?.firstOrNull().orEmpty()
@@ -133,6 +134,19 @@ fun StatusScreen(model: StatusModel, door: Door, actions: StatusActions, modifie
             verticalArrangement = Arrangement.spacedBy(18.dp),
         ) {
             Hero(model, (model.gap?.at ?: model.stopped?.at)?.let { time.format(Date(it)) }.orEmpty())
+            val now by tickingNow(System::currentTimeMillis, active = blocks.isNotEmpty())
+            val active = blocks.filterValues { it > now }
+            // D59: one orange line per escalation block, counting down.
+            if (active.isNotEmpty()) PreferenceGroup {
+                active.forEach { (pkg, until) ->
+                    item {
+                        PrefRow(
+                            stringResource(R.string.status_app_blocked, appLabel(context.packageManager, pkg), (until - now + 59_999) / 60_000),
+                            icon = R.drawable.ic_block, iconTint = Palette.Orange,
+                        )
+                    }
+                }
+            }
             when (model.page) {
                 Page.PROTECTED -> {
                     Summary(model)

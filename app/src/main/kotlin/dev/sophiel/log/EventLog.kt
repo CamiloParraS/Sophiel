@@ -139,6 +139,9 @@ class EventLog(
     /** D58: a blocked app came to the front and was sent Home. Merged per app and reason, as [merge] says. */
     @Synchronized fun blockedOpen(app: String, reason: String) = merge("BLOCKED_OPEN", app, reason)
 
+    /** D58: Sophiel blocked [app] for [minutes] after repeated episodes; one line per block. */
+    @Synchronized fun appBlocked(app: String, minutes: Int) = add(wall(), "APP_BLOCKED", app, minutes.toString())
+
     /** The last 7 days, in file order. */
     @Synchronized fun entries(): List<Entry> = load().filter { it.at >= wall() - WEEK_MS }
 
