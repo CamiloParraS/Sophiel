@@ -19,11 +19,14 @@ import dev.sophiel.guard.GuardPages
 import dev.sophiel.log.BlockReason
 import dev.sophiel.settings.AppRule
 import dev.sophiel.settings.excludedApps
+import dev.sophiel.settings.trustedInFront
 import dev.sophiel.ui.BlockActivity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.asExecutor
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.getAndUpdate
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 
@@ -50,6 +53,7 @@ class MaskWindowService : AccessibilityService() {
 
     override fun onUnbind(intent: Intent?): Boolean {
         current.value = null
+        trustedFrontFlow.value = false
         onChange?.invoke()
         modes.serviceChanged()
         return super.onUnbind(intent)
@@ -81,6 +85,16 @@ class MaskWindowService : AccessibilityService() {
         if (event?.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
         block(event)
         guard(event)
+        updateTrusted()
+    }
+
+    /** D58: after every window change, whether only De confianza apps are in front. Package names only, as [appAt]. */
+    private fun updateTrusted() {
+        val container = (application as SophielApp).container
+        val rules = container.appRules.state.value
+        val front = windows.filter { it.type == AccessibilityWindowInfo.TYPE_APPLICATION }.map { it.root?.packageName?.toString() }
+        val trusted = rules.containsValue(AppRule.TRUSTED) && trustedInFront(front, rules, excludedApps(this))
+        if (trustedFrontFlow.getAndUpdate { trusted } != trusted) Log.i("Sophiel", if (trusted) "trusted app in front: scanning stops" else "scanning resumes")
     }
 
     /**
@@ -201,6 +215,11 @@ class MaskWindowService : AccessibilityService() {
          * one-time read on resume stays stale. Status's Start gate watches this.
          */
         val bound: StateFlow<MaskWindowService?> = current
+
+        private val trustedFrontFlow = MutableStateFlow(false)
+
+        /** D58: only De confianza app windows are on screen (false without the service): no masks, no inference. */
+        val trustedFront: StateFlow<Boolean> = trustedFrontFlow.asStateFlow()
 
         /** Set by the live [OverlayController]: the masks follow the service off and back on (D32, D42). */
         @Volatile var onChange: (() -> Unit)? = null

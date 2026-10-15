@@ -221,6 +221,8 @@
     <string name="apps_search">Buscar apps</string>
     <string name="app_rule_normal">Normal</string>
     <string name="app_rule_blocked">Bloqueada</string>
+    <string name="app_rule_trusted">De confianza</string>
+    <string name="apps_trust_warning">Si confías en un navegador, deja pasar cualquier cosa.</string>
     <string name="needs_service">Necesita el servicio de accesibilidad</string>
     <string name="group_privacy">Privacidad</string>
     <string name="set_no_internet">Sin internet</string>

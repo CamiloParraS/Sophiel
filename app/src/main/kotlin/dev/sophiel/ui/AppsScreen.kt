@@ -56,7 +56,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * Ajustes > Apps (D58), behind the door: launchable apps, each Normal or Bloqueada. Changed ones are pinned first as
+ * Ajustes > Apps (D58), behind the door: launchable apps, each Normal, Bloqueada or De confianza. Changed ones are pinned first as
  * they were on opening, so a row does not jump under the finger. Without the service nothing is enforced: rows disabled.
  */
 @Composable
@@ -70,7 +70,7 @@ fun AppsScreen(container: AppContainer, door: Door, onBack: () -> Unit) {
     }
     val pinned = remember { container.appRules.state.value } // the rules on opening
     val rows = loaded?.let { (apps, excluded) -> appList(apps, pinned, excluded, query) }.orEmpty()
-    val options = listOf(stringResource(R.string.app_rule_normal), stringResource(R.string.app_rule_blocked))
+    val options = listOf(stringResource(R.string.app_rule_normal), stringResource(R.string.app_rule_blocked), stringResource(R.string.app_rule_trusted))
     val shape = RoundedCornerShape(12.dp)
     Column(Modifier.fillMaxSize()) {
         HeaderBar(stringResource(R.string.set_apps), start = { FlatIconButton(R.drawable.ic_back, stringResource(R.string.back), onBack) })
@@ -85,6 +85,10 @@ fun AppsScreen(container: AppContainer, door: Door, onBack: () -> Unit) {
                 },
             )
         }
+        Text(
+            stringResource(R.string.apps_trust_warning), style = MaterialTheme.typography.bodySmall, color = Palette.Dim,
+            modifier = Modifier.padding(start = 14.dp, end = 14.dp, top = 10.dp),
+        )
         LazyColumn(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 14.dp), contentPadding = PaddingValues(vertical = 14.dp)) {
             items(rows, key = { it.pkg }) { app ->
                 Row(
@@ -100,7 +104,7 @@ fun AppsScreen(container: AppContainer, door: Door, onBack: () -> Unit) {
                     SegmentedControl(
                         options, AppRule.entries.indexOf(rules[app.pkg] ?: AppRule.NORMAL),
                         { i -> door.pass { container.appRules.set(app.pkg, AppRule.entries[i]) } },
-                        Modifier.width(180.dp), disabled = if (bound) emptySet() else options.indices.toSet(),
+                        Modifier.width(260.dp), disabled = if (bound) emptySet() else options.indices.toSet(),
                     )
                 }
                 Spacer(Modifier.height(1.dp).fillMaxWidth().background(Palette.Border))

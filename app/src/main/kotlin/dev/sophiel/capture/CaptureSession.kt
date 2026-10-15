@@ -119,9 +119,12 @@ class CaptureSession(
         screenOff.value = off
     }
 
-    /** Ticket 09 and D55: our screen in front or the screen off. Frames and shots would see nothing to judge. */
-    private fun paused() = screenOff.value || container.ownScreens.showing.value
-    private val pausedFlow = combine(container.ownScreens.showing, screenOff) { own, off -> own || off }.distinctUntilChanged()
+    /**
+     * Ticket 09, D55 and D58: our screen in front, the screen off, or only trusted apps in front. Frames and shots
+     * would see nothing to judge, or nothing to scan.
+     */
+    private fun paused() = screenOff.value || container.ownScreens.showing.value || MaskWindowService.trustedFront.value
+    private val pausedFlow = combine(container.ownScreens.showing, screenOff, MaskWindowService.trustedFront) { own, off, trusted -> own || off || trusted }.distinctUntilChanged()
 
     @Volatile // read on the lane: it sets the probe timeout
     private var projection = projection
@@ -189,7 +192,7 @@ class CaptureSession(
         shotLoopJob = shotScope.launch {
             pausedFlow.collectLatest { paused ->
                 nextShotAt = null
-                Log.i(TAG, "shot loop ${if (paused) "stopped (screen off or our screen in front)" else "started"}")
+                Log.i(TAG, "shot loop ${if (paused) "stopped (screen off, our screen or a trusted app in front)" else "started"}")
                 if (!paused) shotLoop()
             }
         }
@@ -357,7 +360,8 @@ class CaptureSession(
             }
         }
         scope.launch { // a protected stretch ends at screen-off, as it did when the session ended there (D18)
-            screenOff.collect { if (it) logStretch(stretches.end(SystemClock.elapsedRealtime())) }
+            combine(screenOff, MaskWindowService.trustedFront) { off, trusted -> off || trusted }.distinctUntilChanged()
+                .collect { if (it) logStretch(stretches.end(SystemClock.elapsedRealtime())) }
         }
     }
 

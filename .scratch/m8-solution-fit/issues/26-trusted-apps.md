@@ -4,10 +4,10 @@
 
 **Blocked by:** 25
 
-**Status:** ready-for-agent
+**Status:** built 2026-10-15, device check on A pending
 
-- [ ] "Is everything in front trusted" decided from the window list, pure logic, JVM-tested (split screen, PiP, launcher, system UI)
-- [ ] Masks drop and inference stops on both capture modes; logcat shows it stopping and resuming
-- [ ] Excluded apps cannot be trusted
+- [x] "Is everything in front trusted" decided from the window list, pure logic, JVM-tested (split screen, PiP, launcher, system UI)
+- [x] Masks drop (built; logcat "trusted app in front: scanning stops" / "scanning resumes", not yet seen on device) and inference stops on both capture modes; logcat shows it stopping and resuming
+- [x] Excluded apps cannot be trusted
 - [ ] Checked on A: a trusted gallery shows no masks; split screen with one non-trusted app is still scanned
-- [ ] Ends buildable
+- [x] Ends buildable

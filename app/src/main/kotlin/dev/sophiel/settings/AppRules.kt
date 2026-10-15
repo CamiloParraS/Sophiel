@@ -12,7 +12,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 
 /** A Parent's per-app rule (D58). */
-enum class AppRule { NORMAL, BLOCKED }
+enum class AppRule { NORMAL, BLOCKED, TRUSTED }
 
 /** The per-app rules (D58): package -> rule, Normal ones not stored. Loaded once, held in memory, written through. */
 class AppRules(context: Context) {
@@ -29,6 +29,13 @@ class AppRules(context: Context) {
         prefs.edit().apply { if (rule == AppRule.NORMAL) remove(pkg) else putString(pkg, rule.name) }.apply()
     }
 }
+
+/**
+ * D58: nothing is scanned while every app window in front ([appPackages], null = unreadable) is De confianza. System UI
+ * is not an app window, so it is not in the list; no app window at all is not trusted. [excluded] apps never are.
+ */
+fun trustedInFront(appPackages: List<String?>, rules: Map<String, AppRule>, excluded: Set<String>): Boolean =
+    appPackages.isNotEmpty() && appPackages.all { it != null && it !in excluded && rules[it] == AppRule.TRUSTED }
 
 /** A launchable app, from the MAIN/LAUNCHER `<queries>` (D57). */
 data class AppEntry(val pkg: String, val label: String)
