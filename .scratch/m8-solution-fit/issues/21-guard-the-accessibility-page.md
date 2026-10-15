@@ -37,4 +37,5 @@ Built in 6cf1989 + review fixes. No device was attached, so the A check is open.
 - Guard delay not measured; "pretty much instant".
 - The pad fires on Installed apps → Sophiel (the service page), not on the menu before it.
 - After a correct PIN: back on the page, the switch turned the service off, and the guard did not come back. Sophiel then showed the Unlock banner with its 2 min countdown.
-- Not tried on device: turning the service back on from Status → "Activar" with a PIN set and no Unlock (the pad must not show). It goes to ticket 23's V4 run.
+- Turning on is not blocked: with a PIN set and the service off, Status → "Activar" → Sophiel's page, the human turned the service on and no PIN pad showed.
+- An Unlock started inside Sophiel still ends when the app is left (D38), so Accessibility is guarded again; only the guard's own Unlock survives leaving. Confirmed on A, as intended.
