@@ -27,7 +27,7 @@ object GuardPages {
      */
     fun match(pkg: String, nodes: List<GuardNode>, serviceLabel: String): String? = when (pkg) {
         in SETTINGS -> settings(nodes, serviceLabel)
-        in INSTALLER -> if (nodes.any { it.text == APP && it.viewId?.endsWith(":id/app_label") == true }) TamperTarget.UNINSTALL else null
+        in INSTALLER -> if (nodes.any { it.text == APP && (it.viewId?.endsWith(":id/app_label") == true || it.viewId == ALERT_TITLE) }) TamperTarget.UNINSTALL else null
         SYSTEMUI -> if (nodes.any { it.text == APP && it.viewId == ACTIVE_APP_LABEL }) TamperTarget.ACTIVE_APPS else null
         else -> null
     }
@@ -42,6 +42,7 @@ object GuardPages {
     }
 
     private const val APP = "Sophiel" // the app label (app_name, not translated)
+    private const val ALERT_TITLE = "android:id/alertTitle" // A (Android 11): the old dialog titles itself with the app name
     private const val ROW_TITLE = "android:id/title"
     private const val HEADER = "com.android.settings:id/entity_header_title"
     private const val FORCE_STOP = "com.android.settings:id/forcestop_button"

@@ -68,6 +68,7 @@ class GuardPagesTest {
         val installer = "com.google.android.packageinstaller"
         val mine = listOf(GuardNode("Sophiel", "com.android.packageinstaller:id/app_label"))
         assertEquals(TamperTarget.UNINSTALL, GuardPages.match(installer, mine, label))
+        assertEquals(TamperTarget.UNINSTALL, GuardPages.match(installer, listOf(GuardNode("Sophiel", "android:id/alertTitle")), label)) // A's fixture
         assertNull(GuardPages.match(installer, emptyList(), label))
     }
 
