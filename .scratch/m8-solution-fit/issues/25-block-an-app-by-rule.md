@@ -4,7 +4,7 @@
 
 **Blocked by:** 24
 
-**Status:** built, A check open
+**Status:** done (2026-10-15)
 
 - [x] Per-app rules persisted; the app list comes from ticket 24's `<queries>` launcher intent
 - [x] Excluded from the list (and later from escalation): Sophiel, Settings, the default launcher, the default dialer
@@ -13,12 +13,10 @@
 - [x] Only while protection is on
 - [x] Log kind **Apertura bloqueada** (time + app + reason rule / escalation), 60 s merge as for Intento de apagar, JVM-tested; row in the Log
 - [x] Spanish strings, English in `values-en/`
-- [ ] Checked on A: a blocked app opened from the launcher and from recents lands on the block screen
+- [x] Checked on A: a blocked app opened from the launcher and from recents lands on the block screen
 - [x] Ends buildable
 
 ## Notes (agent, 2026-10-15)
-
-No device was attached, so the A check is open.
 
 - **Rules:** `settings/AppRules` (SharedPreferences `app_rules`, package -> rule, Normal not stored). The list is
   `appList`, pure and JVM-tested: excluded apps out, search on the label, changed ones first as they were when the
@@ -41,3 +39,7 @@ No device was attached, so the A check is open.
 **For the A check:** a Bloqueada app opened from the launcher and from Recents lands on the block screen, not on the
 app, and Home never lands over the block screen. Also: rotating the block screen keeps it (not the PIN pad), and Back and "Ir al inicio" go Home;
 protection off lets the app open; the Log shows one "Apertura bloqueada" for several opens within a minute.
+
+**A check (human, 2026-10-15):** passed. A blocked app opened from the launcher and from Recents lands on the block
+screen, and Home never landed over it. Rotation keeps the block screen. With protection off the app opens. Several
+opens within a minute are one Log entry.
