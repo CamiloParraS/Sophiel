@@ -4,7 +4,7 @@
 
 **Blocked by:** 25
 
-**Status:** built, device check on A pending (2026-10-15)
+**Status:** done (2026-10-15)
 
 - [x] Escalation rule as pure logic, JVM-tested with a fake clock: 3 in a rolling 10 min → 15 min; count restarts after a block; never counts unanalyzable, blank, trusted or excluded apps
 - [x] Block end times persisted on the wall clock, re-checked when the service binds after a reboot
@@ -13,7 +13,7 @@
 - [x] Log kind **App bloqueada** (time + app + minutes, one per block); blocked opens during it log Apertura bloqueada with reason escalation
 - [x] Status line per active block, counting down
 - [x] Spanish strings, English in `values-en/`
-- [ ] Checked on A: three episodes in Gallery block it; the countdown and the PIN unblock work
+- [x] Checked on A: three episodes in Gallery block it; the countdown and the PIN unblock work
 - [x] Ends buildable
 
 ## Notes (agent, 2026-10-15)
