@@ -52,12 +52,14 @@
             </intent-filter>
         </activity>
 
-        <!-- M8: the guard's PIN pad (D56), later the block screen (D58). Its own task, so finishing returns to the page below. -->
+        <!-- M8: the guard's PIN pad (D56), later the block screen (D58). Its own task, so finishing returns to the page below.
+             Not resizeable: it cannot be docked in split screen beside the page it guards. -->
         <activity
             android:name=".ui.BlockActivity"
             android:exported="false"
             android:excludeFromRecents="true"
             android:launchMode="singleInstance"
+            android:resizeableActivity="false"
             android:taskAffinity=""
             android:theme="@style/Theme.Sophiel" />
 
