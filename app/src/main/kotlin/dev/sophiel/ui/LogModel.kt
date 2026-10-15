@@ -23,8 +23,9 @@ enum class LogFilter { ALL, MASKED, OTHERS }
 sealed interface LogRow {
     val at: Long
 
-    class Masked(override val at: Long, val preset: String, val count: Int, val score: Float, val band: Band?) : LogRow
-    class Unanalyzable(override val at: Long, val seconds: Int) : LogRow
+    /** [app]: the Episode app's package (D57), blank when unknown or on a line from before it. */
+    class Masked(override val at: Long, val preset: String, val count: Int, val score: Float, val band: Band?, val app: String) : LogRow
+    class Unanalyzable(override val at: Long, val seconds: Int, val app: String) : LogRow
     class On(override val at: Long, val preset: String, val sensitivity: String) : LogRow
     class Off(override val at: Long, val reason: String) : LogRow
     class ShareStopped(override val at: Long) : LogRow
@@ -38,6 +39,10 @@ class LogDay(val date: LocalDate, val today: Boolean, val rows: List<LogRow>) {
     val unanalyzable = rows.count { it is LogRow.Unanalyzable }
     val off = rows.count { it is LogRow.Off }
     val top: Band? = rows.mapNotNull { (it as? LogRow.Masked)?.band }.maxOrNull()
+
+    /** The app with the most masked episodes and their count, blank apps not counted; a tie goes to the latest. */
+    val topApp: Pair<String, Int>? = rows.mapNotNull { (it as? LogRow.Masked)?.app?.takeIf(String::isNotEmpty) }
+        .groupingBy { it }.eachCount().maxByOrNull { it.value }?.toPair()
 
     fun rows(filter: LogFilter) = when (filter) {
         LogFilter.ALL -> rows
@@ -80,9 +85,9 @@ class LogModel(val days: List<LogDay>, val empty: Boolean) {
                 "MASKED" -> {
                     val preset = f.getOrNull(0) ?: return null
                     val score = f.getOrNull(2)?.toFloatOrNull() ?: return null
-                    LogRow.Masked(e.at, preset, f.getOrNull(1)?.toIntOrNull() ?: 1, score, if (preset == PRECISE) null else Band.of(score))
+                    LogRow.Masked(e.at, preset, f.getOrNull(1)?.toIntOrNull() ?: 1, score, if (preset == PRECISE) null else Band.of(score), f.getOrElse(3) { "" })
                 }
-                "UNANALYZABLE" -> LogRow.Unanalyzable(e.at, f.getOrNull(0)?.toIntOrNull() ?: 0)
+                "UNANALYZABLE" -> LogRow.Unanalyzable(e.at, f.getOrNull(0)?.toIntOrNull() ?: 0, f.getOrElse(1) { "" })
                 "ON" -> LogRow.On(e.at, f.getOrElse(0) { "" }, f.getOrElse(1) { "" })
                 "OFF" -> LogRow.Off(e.at, f.getOrElse(0) { "" })
                 "SHARE_STOPPED" -> LogRow.ShareStopped(e.at)

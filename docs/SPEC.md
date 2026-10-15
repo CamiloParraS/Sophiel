@@ -247,11 +247,15 @@ The highest-risk area. Implement exactly as specified; it is already built and v
 <!-- M8 (D56, D58): the guard's PIN pad, then the block screen. Its own task, so finishing returns to the page below. -->
 <activity android:name=".ui.BlockActivity" android:exported="false" android:excludeFromRecents="true"
           android:launchMode="singleInstance" android:taskAffinity="" />
-<!-- M8 (D57): labels for the Log, the Apps list. Not QUERY_ALL_PACKAGES. -->
+<!-- M8 (D57): labels for the Log, the Apps list. Not QUERY_ALL_PACKAGES. HOME: the launcher counts as an app. -->
 <queries>
     <intent>
         <action android:name="android.intent.action.MAIN" />
         <category android:name="android.intent.category.LAUNCHER" />
+    </intent>
+    <intent>
+        <action android:name="android.intent.action.MAIN" />
+        <category android:name="android.intent.category.HOME" />
     </intent>
 </queries>
 ```

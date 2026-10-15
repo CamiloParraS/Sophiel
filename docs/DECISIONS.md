@@ -1519,6 +1519,8 @@ Amends D39 ("no app names") and D32 (window list read for attribution).
   code naming the ceiling). D39 otherwise unchanged.
 - **Schema:** package appended as the last field of `MASKED` and `UNANALYZABLE` (stamped at stretch
   start). Labels resolved at read time through `PackageManager`; an uninstalled app shows its package.
+- **Amended 2026-10-15 (ticket 24, agent):** `<queries>` also lists MAIN/HOME beside MAIN/LAUNCHER. A launcher
+  usually has no LAUNCHER activity, so without it the launcher (which counts as an app) would show its package.
   Old lines without the field read as blank: no migration. `<queries>` for the MAIN/LAUNCHER intent, not
   `QUERY_ALL_PACKAGES`.
 - **Privacy line** (LIMITATIONS, README): "The Log names the app that was on screen when something was

@@ -111,9 +111,19 @@ private fun gapText(reason: String) = when (reason) {
 fun LogScreen(log: EventLog, door: Door, onBack: () -> Unit) {
     val zone = remember { ZoneId.systemDefault() }
     var version by remember { mutableIntStateOf(0) }
-    val model by produceState<LogModel?>(null, version) {
-        value = withContext(Dispatchers.IO) { LogModel.of(log.entries(), System.currentTimeMillis(), zone) }
+    val pm = LocalContext.current.packageManager
+    val read by produceState<Pair<LogModel, Map<String, String>>?>(null, version) {
+        value = withContext(Dispatchers.IO) {
+            val m = LogModel.of(log.entries(), System.currentTimeMillis(), zone)
+            // D57: labels at read time, in the phone's language; an uninstalled app shows its package.
+            val apps = m.days.flatMap { it.rows }.mapNotNull { (it as? LogRow.Masked)?.app ?: (it as? LogRow.Unanalyzable)?.app }
+            m to apps.filter(String::isNotEmpty).toSet().associateWith { pkg ->
+                runCatching { pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString() }.getOrDefault(pkg)
+            }
+        }
     }
+    val model = read?.first
+    val labels = read?.second.orEmpty()
     var confirm by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     Column(Modifier.fillMaxSize()) {
@@ -125,7 +135,7 @@ fun LogScreen(log: EventLog, door: Door, onBack: () -> Unit) {
             m.empty -> Column(Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.Center) {
                 StatusPage(R.drawable.ic_list, stringResource(R.string.log_empty), stringResource(R.string.log_empty_text), Tone.Off)
             }
-            else -> Content(m, zone, Modifier.weight(1f), onClear = { confirm = true })
+            else -> Content(m, labels, zone, Modifier.weight(1f), onClear = { confirm = true })
         }
     }
     if (confirm) ConfirmDialog(
@@ -136,7 +146,7 @@ fun LogScreen(log: EventLog, door: Door, onBack: () -> Unit) {
 }
 
 @Composable
-private fun Content(model: LogModel, zone: ZoneId, modifier: Modifier, onClear: () -> Unit) {
+private fun Content(model: LogModel, labels: Map<String, String>, zone: ZoneId, modifier: Modifier, onClear: () -> Unit) {
     val locale = Locale.getDefault()
     val context = LocalContext.current
     val time = remember { DateFormat.getTimeFormat(context) }
@@ -155,6 +165,13 @@ private fun Content(model: LogModel, zone: ZoneId, modifier: Modifier, onClear: 
                 pluralStringResource(R.plurals.log_week, model.weekMasked, model.weekMasked),
                 Modifier.padding(start = 4.dp, bottom = 6.dp), style = MaterialTheme.typography.labelMedium, color = Palette.Dim,
             )
+            val today = model.days.last()
+            today.topApp?.let { (app, n) ->
+                Text(
+                    stringResource(R.string.log_top_app, today.masked, labels[app] ?: app, n),
+                    Modifier.padding(start = 4.dp, bottom = 6.dp), style = MaterialTheme.typography.labelMedium, color = Palette.Dim,
+                )
+            }
             Row(Modifier.fillMaxWidth().selectableGroup(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                 model.days.forEachIndexed { i, d -> DayCell(d, i == selected, Modifier.weight(1f)) { selected = i } }
             }
@@ -184,7 +201,7 @@ private fun Content(model: LogModel, zone: ZoneId, modifier: Modifier, onClear: 
                 )
                 // One group per clock hour, titled with its start ("14:00"), newest first.
                 rows.take(shown).groupBy { Instant.ofEpochMilli(it.at).atZone(zone).truncatedTo(ChronoUnit.HOURS).toInstant().toEpochMilli() }
-                    .forEach { (hour, inHour) -> PreferenceGroup(title = time.format(Date(hour))) { inHour.forEach { r -> item { EntryRow(r) } } } }
+                    .forEach { (hour, inHour) -> PreferenceGroup(title = time.format(Date(hour))) { inHour.forEach { r -> item { EntryRow(r, labels) } } } }
                 if (rows.size > shown) PillButton(
                     stringResource(R.string.log_more, rows.size - shown), { shown += PAGE }, Modifier.align(Alignment.CenterHorizontally),
                 )
@@ -232,8 +249,10 @@ private fun Stat(n: Int, @StringRes label: Int, modifier: Modifier) {
 }
 
 @Composable
-private fun EntryRow(row: LogRow) {
+private fun EntryRow(row: LogRow, labels: Map<String, String>) {
     val time = DateFormat.getTimeFormat(LocalContext.current).format(java.util.Date(row.at))
+    val unknown = stringResource(R.string.log_app_unknown)
+    val label = { app: String -> if (app.isEmpty()) unknown else labels[app] ?: app }
     val clock = @Composable { Text(time, style = MaterialTheme.typography.bodyMedium, color = Palette.Dim) }
     when (row) {
         is LogRow.Masked -> {
@@ -243,7 +262,8 @@ private fun EntryRow(row: LogRow) {
             val review = stringResource(presetName(row.preset))
             Column {
                 PrefRow(
-                    stringResource(R.string.log_masked), description = pluralStringResource(R.plurals.log_parts, row.count, row.count),
+                    stringResource(R.string.log_masked),
+                    description = stringResource(R.string.log_app_line, label(row.app), pluralStringResource(R.plurals.log_parts, row.count, row.count)),
                     icon = R.drawable.ic_shield, iconTint = tint, onClick = { open = !open },
                     end = {
                         Column(horizontalAlignment = Alignment.End) {
@@ -267,7 +287,7 @@ private fun EntryRow(row: LogRow) {
             }
         }
         is LogRow.Unanalyzable -> PrefRow(
-            stringResource(R.string.log_unchecked), description = stringResource(R.string.log_unchecked_text, row.seconds),
+            stringResource(R.string.log_unchecked), description = stringResource(R.string.log_unchecked_text, label(row.app), row.seconds),
             icon = R.drawable.ic_block, end = clock,
         )
         is LogRow.On -> PrefRow(

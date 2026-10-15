@@ -41,6 +41,7 @@ import dev.sophiel.settings.ParentPreset
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.asExecutor
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -262,13 +263,29 @@ class CaptureSession(
     private val episodes = Episodes()
     private val stretches = Stretches()
 
-    /** D39: [anyMasked] is the tracker / box state (probing and peeking count), not what is drawn. */
-    private fun reportMasked(anyMasked: Boolean, preset: String, count: Int, score: Float) {
-        if (episodes.update(anyMasked, SystemClock.elapsedRealtime())) container.log.masked(preset, count, score)
+    @Volatile // set off the lane, read at close() too
+    private var stretchApp: String? = null // D57: the app on screen when the open stretch began
+
+    /**
+     * D39: [anyMasked] is the tracker / box state (probing and peeking count), not what is drawn. [strongest]: the
+     * screen pixel under the highest-scoring mask, asked only when an episode starts, to name its app (D57).
+     */
+    private fun reportMasked(anyMasked: Boolean, preset: String, count: Int, score: Float, strongest: () -> Pair<Int, Int>?) {
+        if (!episodes.update(anyMasked, SystemClock.elapsedRealtime())) return
+        // ponytail: an episode keeps its first app; one that carries across an app switch within 3 s is counted
+        // against the first (D57, SPEC §7 item 24). Split episodes on an app change if the Parent needs it exact.
+        val at = strongest()
+        offLane { container.log.masked(preset, count, score, at?.let { (x, y) -> appAt(x, y) }) }
     }
 
+    /** D57: blank without the service. */
+    private fun appAt(x: Int, y: Int) = MaskWindowService.instance?.appAt(x, y)
+
+    /** The window root is a call into the other app, which may be busy: frames must not wait for it (D57). */
+    private fun offLane(block: () -> Unit) = Dispatchers.IO.asExecutor().execute(block)
+
     private fun logStretch(done: Stretches.Done?) {
-        if (done != null) container.log.unanalyzable(System.currentTimeMillis() - done.startedAgoMs, done.seconds)
+        if (done != null) container.log.unanalyzable(System.currentTimeMillis() - done.startedAgoMs, done.seconds, stretchApp)
     }
 
     // Written by TileLoop's publish (scope lane), read by resize (main thread).
@@ -357,7 +374,13 @@ class CaptureSession(
         inFlight = scope.launch {
             try {
                 val protectedFrame = isProtected(bitmap)
+                val opening = protectedFrame && !stretches.open
                 logStretch(stretches.frame(protectedFrame, SystemClock.elapsedRealtime()))
+                // No mask on a secure screen: its app is the one at the screen's centre (D57).
+                if (opening) {
+                    stretchApp = null
+                    realMetrics().let { offLane { stretchApp = appAt(it.widthPixels / 2, it.heightPixels / 2) } }
+                }
                 val status = if (protectedFrame) {
                     Log.d(TAG, "protected content (mostly-black frame, likely FLAG_SECURE)")
                     overlay.updateBoxes(emptyList())
@@ -475,6 +498,7 @@ class CaptureSession(
         private var peeking = false // ticket 16: a window shot or its verdicts in flight
         private var lastShotAt = 0L
         private var peak = 0f // highest raw score judged since the last report: the masked entry's score
+        private val scores = HashMap<Int, Float>() // each tile's last raw score: the strongest mask names the Episode app (D57)
 
         suspend fun run(frame: Bitmap): String {
             cancelStillCheck() // a frame came: the screen is not still
@@ -482,6 +506,7 @@ class CaptureSession(
             val judging = Grid(preset, frame.width, frame.height, container.threshold())
             if (grid != judging) { // rotation, preset or threshold change (D40)
                 grid = judging
+                scores.clear()
                 if (coverNext || shown.any { it != CLEAR }) { // coverNext: the judge before us had masks
                     coverNext = false
                     // Anything masked: every new tile will probe (D29), but not yet. The first frames
@@ -701,6 +726,7 @@ class CaptureSession(
 
         private fun apply(v: TileVerdict, showsMask: Boolean) {
             peak = maxOf(peak, v.score)
+            scores[v.index] = v.score
             if (tracker.onTile(now(), v, showsMask)) {
                 Log.i(TAG, "mask episode tile=${v.index} frameToMaskMs=${now() - frameAvailableAt}")
             }
@@ -758,7 +784,11 @@ class CaptureSession(
             probing = PROBING in states
             drawMasks()
             // After the draw is posted: the Log write is disk I/O, and the mask must not wait for it.
-            reportMasked(masking, grid.preset.name, states.count { it != CLEAR }, peak)
+            reportMasked(masking, grid.preset.name, states.count { it != CLEAR }, peak) {
+                val (preset, w, h) = grid
+                states.indices.filter { states[it] != CLEAR }.maxByOrNull { scores[it] ?: 0f }
+                    ?.let { preset.tileRect(it, w, h) }?.let { r -> frameToScreen()((r.left + r.right) / 2, (r.top + r.bottom) / 2) }
+            }
             peak = 0f
             // Every path into PEEKING (neighbour rule, owed probe, rotation) publishes after it.
             if (PEEKING in states) peek()
@@ -878,7 +908,8 @@ class CaptureSession(
             return true
         }
 
-        private fun masksOf(detections: List<Detection>) = detections.filter { it.unsafe && it.score >= BOX_MASK_SCORE }.map {
+        // Strongest first: at an episode's start only one list holds boxes, so its first names the app (D57).
+        private fun masksOf(detections: List<Detection>) = detections.filter { it.unsafe && it.score >= BOX_MASK_SCORE }.sortedByDescending { it.score }.map {
             val b = toDisplayFraction(it.box)
             val dx = b.width() * BOX_PAD
             val dy = b.height() * BOX_PAD
@@ -888,7 +919,9 @@ class CaptureSession(
         // Only on change: a redraw is captured, and a static screen would then send frames forever (D18).
         private fun draw() {
             val rects = shotBoxes + frameBoxes
-            reportMasked(rects.isNotEmpty(), "PRECISE", rects.size, score)
+            reportMasked(rects.isNotEmpty(), "PRECISE", rects.size, score) {
+                rects.firstOrNull()?.let { b -> realMetrics().let { (b.centerX() * it.widthPixels).toInt() to (b.centerY() * it.heightPixels).toInt() } }
+            }
             if (rects == drawn) return
             if (drawn.isEmpty()) confirmedAt = SystemClock.elapsedRealtime() // a fresh mask starts its hold
             drawn = rects

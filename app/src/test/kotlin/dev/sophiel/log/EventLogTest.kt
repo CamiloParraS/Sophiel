@@ -51,12 +51,12 @@ class EventLogTest {
     @Test fun `entries are scalars in a csv line and read back`() {
         val l = log()
         l.on("BALANCED", "NORMAL")
-        l.masked("BALANCED", 3, 0.8765f)
-        l.unanalyzable(now - 5_000, 4)
+        l.masked("BALANCED", 3, 0.8765f, "com.android.chrome")
+        l.unanalyzable(now - 5_000, 4, null)
         l.shareStopped()
         l.off(OffReason.USER)
         assertEquals(
-            listOf("ON,BALANCED,NORMAL", "MASKED,BALANCED,3,0.88", "UNANALYZABLE,4", "SHARE_STOPPED", "OFF,USER"),
+            listOf("ON,BALANCED,NORMAL", "MASKED,BALANCED,3,0.88,com.android.chrome", "UNANALYZABLE,4,", "SHARE_STOPPED", "OFF,USER"),
             tmp.root.resolve("log.csv").readLines().map { it.substringAfter(',') },
         )
         assertEquals(OffReason.USER, l.last()!!.fields[0])
@@ -65,14 +65,14 @@ class EventLogTest {
 
     @Test fun `lines older than 7 days are filtered on read and drop at the next start`() {
         val l = log()
-        l.masked("LIGHT", 1, 0.9f)
+        l.masked("LIGHT", 1, 0.9f, null)
         now += 6 * DAY
-        l.masked("LIGHT", 1, 0.9f)
+        l.masked("LIGHT", 1, 0.9f, null)
         assertEquals(2, l.entries().size)
         now += 2 * DAY // the first is now 8 days old, the second 2
         assertEquals(1, l.entries().size) // filtered on read, file untouched
         assertEquals(2, tmp.root.resolve("log.csv").readLines().size)
-        l.masked("LIGHT", 1, 0.9f) // an append never reads or rewrites the file
+        l.masked("LIGHT", 1, 0.9f, null) // an append never reads or rewrites the file
         assertEquals(3, tmp.root.resolve("log.csv").readLines().size)
         log().recoverGap(keepProtecting = true) // app start drops it
         assertEquals(2, tmp.root.resolve("log.csv").readLines().size)
@@ -80,14 +80,14 @@ class EventLogTest {
 
     @Test fun `today counts masked entries since local midnight`() {
         val l = log()
-        l.masked("LIGHT", 1, 0.9f) // 01:00
+        l.masked("LIGHT", 1, 0.9f, null) // 01:00
         l.off(OffReason.USER)
         now += 22 * 3_600_000L // 23:00
-        l.masked("LIGHT", 1, 0.9f)
+        l.masked("LIGHT", 1, 0.9f, null)
         assertEquals(2, l.countToday())
         now += 2 * 3_600_000L // 01:00 next day
         assertEquals(0, l.countToday())
-        l.masked("LIGHT", 1, 0.9f)
+        l.masked("LIGHT", 1, 0.9f, null)
         assertEquals(1, l.countToday())
         l.clear()
         assertEquals(0, l.entries().size)
@@ -181,7 +181,7 @@ class EventLogTest {
         val l = log()
         l.capturing(true)
         now += 5_000
-        l.masked("BALANCED", 1, 0.9f)
+        l.masked("BALANCED", 1, 0.9f, null)
         val wrote = now
         now += 20_000
         log().recoverGap(keepProtecting = true)
@@ -202,7 +202,7 @@ class EventLogTest {
         l.tamper(TamperTarget.ACCESSIBILITY)
         val first = now
         now += 30_000
-        l.masked("BALANCED", 1, 0.9f) // another kind in between does not split it
+        l.masked("BALANCED", 1, 0.9f, null) // another kind in between does not split it
         l.tamper(TamperTarget.ACCESSIBILITY)
         now += 29_999
         l.tamper(TamperTarget.ACCESSIBILITY)

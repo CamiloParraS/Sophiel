@@ -127,6 +127,7 @@
         <item quantity="one">Esta semana · %d vez</item>
         <item quantity="other">Esta semana · %d veces</item>
     </plurals>
+    <string name="log_top_app">%1$d hoy · más en %2$s (%3$d)</string>
     <string name="log_stat_masked">Tapados</string>
     <string name="log_stat_unchecked">Sin revisar</string>
     <string name="log_stat_off">Detenidas</string>
@@ -151,7 +152,9 @@
     <string name="log_band_mid">Seguro</string>
     <string name="log_band_low">Dudoso</string>
     <string name="log_unchecked">No se pudo revisar</string>
-    <string name="log_unchecked_text">La app protege su pantalla · %1$d s</string>
+    <string name="log_unchecked_text">%1$s · protege su pantalla · %2$d s</string>
+    <string name="log_app_unknown">App desconocida</string>
+    <string name="log_app_line">%1$s · %2$s</string>
     <string name="log_on">Protección activada</string>
     <string name="log_on_text">Revisión %1$s · cuidado %2$s</string>
     <string name="log_off">Protección detenida</string>

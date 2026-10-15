@@ -4,7 +4,7 @@ import java.io.File
 import java.time.Instant
 import java.time.ZoneId
 
-/** One line of `log.csv`: `epochMillis,KIND,fields...`. Scalars only (C3): no frames, no app names. */
+/** One line of `log.csv`: `epochMillis,KIND,fields...`. Scalars only (C3): no frames; an app is its package name (D57). */
 data class Entry(val at: Long, val kind: String, val fields: List<String>) {
     fun line() = (listOf(at.toString(), kind) + fields).joinToString(",")
 }
@@ -117,11 +117,12 @@ class EventLog(
 
     private fun addGap(from: Long, to: Long, reason: String) = add(from, "UNPROTECTED", ((to - from).coerceAtLeast(0) / 1_000).toString(), reason)
 
-    @Synchronized fun masked(preset: String, count: Int, score: Float) =
-        add(wall(), "MASKED", preset, count.toString(), "%.2f".format(java.util.Locale.ROOT, score))
+    /** [app]: the Episode app's package (D57), last field; null writes it blank ("App desconocida"). */
+    @Synchronized fun masked(preset: String, count: Int, score: Float, app: String?) =
+        add(wall(), "MASKED", preset, count.toString(), "%.2f".format(java.util.Locale.ROOT, score), app.orEmpty())
 
-    /** D45: written when the stretch ends, stamped at its start. */
-    @Synchronized fun unanalyzable(startedAt: Long, seconds: Int) = add(startedAt, "UNANALYZABLE", seconds.toString())
+    /** D45: written when the stretch ends, stamped at its start, with the app found then (D57). */
+    @Synchronized fun unanalyzable(startedAt: Long, seconds: Int, app: String?) = add(startedAt, "UNANALYZABLE", seconds.toString(), app.orEmpty())
 
     /** D54: the share ended with the screen on and capture went on by display shots. */
     @Synchronized fun shareStopped() = add(wall(), "SHARE_STOPPED")
@@ -212,6 +213,9 @@ class Episodes(private val gapMs: Long = 3_000) { // = TileMaskTracker.RECENT_RE
  */
 class Stretches(private val minMs: Long = 1_000) {
     private var since: Long? = null
+
+    /** A stretch has begun and not ended. */
+    val open get() = since != null
 
     /** How long ago it began and its length in whole seconds, or null. */
     class Done(val startedAgoMs: Long, val seconds: Int)

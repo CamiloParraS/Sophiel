@@ -31,7 +31,7 @@ import kotlin.coroutines.resume
  * builds may start on the 0.79 app overlay without it. M8 (D54): its [displayShot]s are the frames
  * while no share runs.
  *
- * Window content for [appWindowShot] (ticket 16): ids and bounds. Window-state events for the tamper guard
+ * Window content for [appWindowShot] (ticket 16): ids and bounds; for [appAt] (D57) the root's package only. Window-state events for the tamper guard
  * (D56, [guard]): node text only on Settings windows, only nodes holding the service's label
  * (res/xml/mask_window_service.xml).
  */
@@ -128,9 +128,7 @@ class MaskWindowService : AccessibilityService() {
     suspend fun appWindowShot(x: Int, y: Int): Pair<Bitmap, Rect>? {
         // ponytail: one window per shot; a tile under two (split screen, a dialog over part of it) is
         // judged on the top one only. Shoot each window under the tile if that shows up on device.
-        val window = windows
-            .filter { it.type == AccessibilityWindowInfo.TYPE_APPLICATION && it.boundsInScreen().contains(x, y) }
-            .maxByOrNull { it.layer }
+        val window = appWindow(x, y)
         if (window == null) {
             Log.d("Sophiel", "peek: no app window at $x,$y")
             return null
@@ -155,6 +153,16 @@ class MaskWindowService : AccessibilityService() {
             })
         }
     }
+
+    /**
+     * D57: the Episode app, the package of the top app window under screen pixel ([x], [y]). Only the root's
+     * package is read: no text, titles or other nodes. Null under system UI only, or on Sophiel.
+     */
+    fun appAt(x: Int, y: Int): String? = appWindow(x, y)?.root?.packageName?.toString()?.takeIf { it != packageName }
+
+    private fun appWindow(x: Int, y: Int) = windows
+        .filter { it.type == AccessibilityWindowInfo.TYPE_APPLICATION && it.boundsInScreen().contains(x, y) }
+        .maxByOrNull { it.layer }
 
     companion object {
         private const val SAME_ATTEMPT_MS = 2_000L

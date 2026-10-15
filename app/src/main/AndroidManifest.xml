@@ -18,6 +18,18 @@
 
     <!-- DELIBERATELY ABSENT: android.permission.INTERNET (SPEC.md C1) -->
 
+    <!-- M8 (D57): labels for the Log. Not QUERY_ALL_PACKAGES. HOME: the launcher counts as an app. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.HOME" />
+        </intent>
+    </queries>
+
     <application
         android:name=".SophielApp"
         android:allowBackup="true"

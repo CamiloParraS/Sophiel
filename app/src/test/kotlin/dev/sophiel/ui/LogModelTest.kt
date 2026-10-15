@@ -90,6 +90,30 @@ class LogModelTest {
     }
 
     @Test
+    fun episodeAppIsTheLastFieldAndOldLinesReadAsBlank() {
+        val day = model(
+            Entry(at(6, 8), "MASKED", listOf("BALANCED", "2", "0.80", "com.android.chrome")),
+            Entry(at(6, 9), "MASKED", listOf("BALANCED", "2", "0.80")), // before D57
+            Entry(at(6, 10), "UNANALYZABLE", listOf("4", "com.bank")),
+            Entry(at(6, 11), "UNANALYZABLE", listOf("4")),
+        ).days.last()
+        assertEquals(listOf("", "com.bank", "", "com.android.chrome"), day.rows.map {
+            when (it) { is LogRow.Masked -> it.app; is LogRow.Unanalyzable -> it.app; else -> error("") }
+        })
+    }
+
+    @Test
+    fun dayNamesItsTopMaskedAppNotBlankNotUnanalyzable() {
+        fun on(t: Long, app: String) = Entry(t, "MASKED", listOf("BALANCED", "1", "0.80", app))
+        val day = model(
+            on(at(6, 8), "a"), on(at(6, 9), "b"), on(at(6, 10), "b"), on(at(6, 11), ""), on(at(6, 11, 5), ""), on(at(6, 11, 6), ""),
+            Entry(at(6, 11, 7), "UNANALYZABLE", listOf("4", "a")), Entry(at(6, 11, 8), "UNANALYZABLE", listOf("4", "a")),
+        ).days.last()
+        assertEquals("b" to 2, day.topApp)
+        assertNull(model(masked(at(6, 9), "0.80")).days.last().topApp)
+    }
+
+    @Test
     fun lengthsReadInTheirLargestUnits() {
         assertEquals("45 s", LogModel.length(45))
         assertEquals("12 min", LogModel.length(754))

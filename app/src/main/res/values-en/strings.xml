@@ -127,6 +127,7 @@
         <item quantity="one">This week · %d time</item>
         <item quantity="other">This week · %d times</item>
     </plurals>
+    <string name="log_top_app">%1$d today · most in %2$s (%3$d)</string>
     <string name="log_stat_masked">Covered</string>
     <string name="log_stat_unchecked">Unchecked</string>
     <string name="log_stat_off">Stopped</string>
@@ -151,7 +152,9 @@
     <string name="log_band_mid">Sure</string>
     <string name="log_band_low">Unsure</string>
     <string name="log_unchecked">Couldn\'t be checked</string>
-    <string name="log_unchecked_text">The app protects its screen · %1$d s</string>
+    <string name="log_unchecked_text">%1$s · protects its screen · %2$d s</string>
+    <string name="log_app_unknown">Unknown app</string>
+    <string name="log_app_line">%1$s · %2$s</string>
     <string name="log_on">Protection turned on</string>
     <string name="log_on_text">%1$s check · %2$s care</string>
     <string name="log_off">Protection stopped</string>
