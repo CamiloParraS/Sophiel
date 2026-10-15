@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Window content to shoot the app window under a mask (ticket 16): window ids and bounds. Window-state
-     events from every package, no content events; node text read only on Settings windows, only to find
-     Sophiel's service label (tamper guard, D56). isAccessibilityTool: One UI shows no "Stop Sophiel?" dialog
+     events from every package, no content events; node text read only on Settings, package-installer and SystemUI windows, only to find
+     Sophiel's labels and a few view ids (tamper guard, D56). isAccessibilityTool: One UI shows no "Stop Sophiel?" dialog
      (ticket 20, D60). -->
 <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
     android:accessibilityEventTypes="typeWindowStateChanged"

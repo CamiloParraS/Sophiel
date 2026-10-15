@@ -167,6 +167,10 @@
     <string name="log_gap_accessibility">Accessibility is off</string>
     <string name="log_tamper">Tried to turn off</string>
     <string name="log_tamper_accessibility">Sophiel in Accessibility</string>
+    <string name="log_tamper_overlay">Appear on top</string>
+    <string name="log_tamper_app_info">App info for Sophiel</string>
+    <string name="log_tamper_uninstall">Uninstalling Sophiel</string>
+    <string name="log_tamper_active_apps">Active apps</string>
     <plurals name="log_times">
         <item quantity="one">%d time</item>
         <item quantity="other">%d times</item>

@@ -167,6 +167,10 @@
     <string name="log_gap_accessibility">La accesibilidad está apagada</string>
     <string name="log_tamper">Intento de apagar</string>
     <string name="log_tamper_accessibility">Sophiel en Accesibilidad</string>
+    <string name="log_tamper_overlay">Mostrar sobre otras apps</string>
+    <string name="log_tamper_app_info">Info de la app de Sophiel</string>
+    <string name="log_tamper_uninstall">Desinstalar Sophiel</string>
+    <string name="log_tamper_active_apps">Apps activas</string>
     <plurals name="log_times">
         <item quantity="one">%d vez</item>
         <item quantity="other">%d veces</item>

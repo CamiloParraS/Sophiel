@@ -25,9 +25,13 @@ object GapReason {
     const val RESTARTED = OffReason.RESTARTED
 }
 
-/** What a tamper attempt (D56) tried to turn off. Ticket 22 adds the other pages. */
+/** What a tamper attempt (D56) tried to turn off. */
 object TamperTarget {
     const val ACCESSIBILITY = "ACCESSIBILITY"
+    const val OVERLAY = "OVERLAY"
+    const val APP_INFO = "APP_INFO"
+    const val UNINSTALL = "UNINSTALL"
+    const val ACTIVE_APPS = "ACTIVE_APPS"
 }
 
 /** A Sin protección stretch still open: protection on, nothing capturing, since [at]. */

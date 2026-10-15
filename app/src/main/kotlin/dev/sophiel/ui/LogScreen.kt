@@ -51,6 +51,7 @@ import dev.sophiel.R
 import dev.sophiel.log.EventLog
 import dev.sophiel.log.GapReason
 import dev.sophiel.log.OffReason
+import dev.sophiel.log.TamperTarget
 import dev.sophiel.ui.theme.Ease
 import dev.sophiel.ui.theme.Palette
 import dev.sophiel.ui.theme.motion
@@ -284,7 +285,15 @@ private fun EntryRow(row: LogRow) {
             icon = R.drawable.ic_shield_off, iconTint = Palette.RedFg, end = clock,
         )
         is LogRow.Tamper -> {
-            val target = stringResource(R.string.log_tamper_accessibility) // the only target until ticket 22
+            val target = stringResource(
+                when (row.target) {
+                    TamperTarget.OVERLAY -> R.string.log_tamper_overlay
+                    TamperTarget.APP_INFO -> R.string.log_tamper_app_info
+                    TamperTarget.UNINSTALL -> R.string.log_tamper_uninstall
+                    TamperTarget.ACTIVE_APPS -> R.string.log_tamper_active_apps
+                    else -> R.string.log_tamper_accessibility
+                },
+            )
             PrefRow(
                 stringResource(R.string.log_tamper),
                 description = if (row.count > 1) stringResource(R.string.log_gap_text, target, pluralStringResource(R.plurals.log_times, row.count, row.count)) else target,

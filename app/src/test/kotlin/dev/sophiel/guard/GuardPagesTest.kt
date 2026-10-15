@@ -37,8 +37,44 @@ class GuardPagesTest {
     @Test fun `only the settings windows are read`() {
         assertTrue(GuardPages.reads(settings))
         assertTrue(GuardPages.reads("com.samsung.accessibility"))
+        assertTrue(GuardPages.reads("com.google.android.packageinstaller"))
+        assertTrue(GuardPages.reads("com.android.systemui"))
         assertFalse(GuardPages.reads("com.whatsapp"))
         assertFalse(GuardPages.reads("dev.sophiel"))
         assertNull(GuardPages.match("com.whatsapp", listOf(GuardNode(label, null)), label))
+    }
+
+    // Ticket 20's B captures p2..p5. The app label is "Sophiel"; the nodes are a search for it plus the ids below.
+    private val header = GuardNode("Sophiel", "com.android.settings:id/entity_header_title")
+
+    @Test fun `app info is the app info target`() {
+        val p2 = listOf(header, GuardNode("", "com.android.settings:id/forcestop_button"), GuardNode("", "com.android.settings:id/uninstall_button"))
+        assertEquals(TamperTarget.APP_INFO, GuardPages.match(settings, p2, label))
+    }
+
+    @Test fun `appear on top is guarded only while granted`() {
+        val title = GuardNode("This permission allows an app...", "com.android.settings:id/title")
+        val on = listOf(header, title, GuardNode("", "android:id/switch_widget", checked = true))
+        val off = listOf(header, title, GuardNode("", "android:id/switch_widget", checked = false))
+        assertEquals(TamperTarget.OVERLAY, GuardPages.match(settings, on, label))
+        assertNull(GuardPages.match(settings, off, label))
+    }
+
+    @Test fun `a settings page that only shows the app header is not guarded`() {
+        assertNull(GuardPages.match(settings, listOf(header, GuardNode("", "android:id/switch_widget", checked = true)), label))
+    }
+
+    @Test fun `the uninstall dialog for Sophiel is guarded, another app's is not`() {
+        val installer = "com.google.android.packageinstaller"
+        val mine = listOf(GuardNode("Sophiel", "com.android.packageinstaller:id/app_label"))
+        assertEquals(TamperTarget.UNINSTALL, GuardPages.match(installer, mine, label))
+        assertNull(GuardPages.match(installer, emptyList(), label))
+    }
+
+    @Test fun `active apps is guarded when it lists Sophiel`() {
+        val systemui = "com.android.systemui"
+        val row = listOf(GuardNode("Sophiel", "com.android.systemui:id/fgs_manager_app_item_label"))
+        assertEquals(TamperTarget.ACTIVE_APPS, GuardPages.match(systemui, row, label))
+        assertNull(GuardPages.match(systemui, emptyList(), label))
     }
 }

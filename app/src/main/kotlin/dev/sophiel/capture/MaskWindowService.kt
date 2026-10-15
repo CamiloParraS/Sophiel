@@ -93,7 +93,10 @@ class MaskWindowService : AccessibilityService() {
         // ponytail: one look at the event; a page whose title draws after its window-state event is missed. Retry
         // once after a short delay if A shows that.
         val root = event.source ?: rootInActiveWindow ?: return
-        val nodes = root.findAccessibilityNodeInfosByText(label).map { GuardNode(it.text?.toString(), it.viewIdResourceName) }
+        // The app label ("Sophiel") also matches the service label, which contains it.
+        val found = root.findAccessibilityNodeInfosByText(getString(R.string.app_name)) +
+            GuardPages.IDS.flatMap { root.findAccessibilityNodeInfosByViewId(it) }
+        val nodes = found.map { GuardNode(it.text?.toString(), it.viewIdResourceName, it.isChecked) }
         val target = GuardPages.match(pkg, nodes, label)
         if (target == null) {
             boundOnPage = false
