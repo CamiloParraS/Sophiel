@@ -4,14 +4,14 @@
 
 **Blocked by:** 23
 
-**Status:** built, device check (V5) on A and B open (2026-10-15)
+**Status:** done (2026-10-15)
 
 - [x] Package appended as the last field of `MASKED` and `UNANALYZABLE` (stamped at stretch start); old lines without it read as blank, no migration (JVM test)
 - [x] Episodes are not split by an app change: an episode keeps its first app, with a `ponytail:` comment naming the ceiling (D57)
 - [x] `<queries>` for the MAIN/LAUNCHER intent (SPEC §4.1), not `QUERY_ALL_PACKAGES`; labels resolved at read time, an uninstalled app shows its package
 - [x] Only `window.root.packageName` is read: no text, titles or nodes; the `EventLog` doc comment "no app names" goes
 - [x] Log rows show the app; the summary line names today's top app
-- [ ] SPEC M8 V5 on A and B: Gallery and Chrome episodes show their labels; split screen names the app under the strongest mask; started without the service, rows read "App desconocida"
+- [x] SPEC M8 V5 on A and B: Gallery and Chrome episodes show their labels; split screen names the app under the strongest mask; started without the service, rows read "App desconocida"
 - [x] CLAUDE.md "Current state" updated; NEXT points to deliverable 4
 - [x] Ends buildable
 
@@ -29,3 +29,5 @@
 **For the V5 check (A and B):** Gallery and Chrome episodes show their labels; split screen names the app under the
 strongest mask; a debug build started without the service reads "App desconocida"; a launcher-screen episode shows the
 launcher's label, not its package.
+
+**V5 (human, 2026-10-15):** passed; the Log names the app where it hid something.

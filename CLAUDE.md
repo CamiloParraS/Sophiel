@@ -32,8 +32,8 @@ NEXT:               M8 deliverable 1 (capture modes) done: ticket 19 closed 2026
                     at a time, each ending in a device check: 20-23 guard, 24 episode app, 25-28
                     escalation + rules, 29-31 Log + report + M8 sign-off. 20 done (B captures). 21 done
                     (accessibility page guard, ui/BlockActivity; checked on A 2026-10-14). 22 built, 23 (guard
-                    verification, V4) done 2026-10-15. 24 (episode app, D57) built 2026-10-15: V5 device check on A
-                    and B open (notes in the ticket). Next: 24's V5 check, then deliverable 4 (tickets 25-28). After M8: UI polish, then M7: soak on A and B, feel numbers per preset, LIMITATIONS.md (from SPEC §7), README,
+                    verification, V4) done 2026-10-15. 24 (episode app, D57) done 2026-10-15 (V5 passed).
+                    Next: deliverable 4, escalation + per-app rules (D58), tickets 25-28, starting with 25. After M8: UI polish, then M7: soak on A and B, feel numbers per preset, LIMITATIONS.md (from SPEC §7), README,
                     demo runbook + video. M7 has no tickets yet. M6 history below, map at
                     .scratch/m6-parent-app/map.md (decisions D38-D45).
                     Build tickets done: 09 settings, 10 cover path, 12 PinStore + unlock, 13 event log,
