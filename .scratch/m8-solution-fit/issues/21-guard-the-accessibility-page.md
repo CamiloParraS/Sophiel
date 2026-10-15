@@ -29,3 +29,10 @@ Built in 6cf1989 + review fixes. No device was attached, so the A check is open.
 - **Service description** updated: it said "reads no text and receives no events", which is no longer true.
 
 **For the A check:** guard delay (event → PIN pad), whether the page's title is drawn by the time the event arrives (`ponytail:` in `MaskWindowService.guard`), and Recents → Settings straight after Back.
+
+## Device check on A (human, 2026-10-14)
+
+- Opening accessibility showed the PIN pad. A correct PIN went on as normal; Cancel went to the home screen.
+- Recents → Settings after that showed the PIN pad again.
+- Guard delay not measured; "pretty much instant".
+- Open: whether the pad fired on the Accessibility menu itself or only on Sophiel's page, and whether the switch works after the PIN.
