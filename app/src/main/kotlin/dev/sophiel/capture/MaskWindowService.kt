@@ -8,6 +8,7 @@ import android.os.Build
 import android.util.Log
 import android.view.Display
 import android.view.accessibility.AccessibilityEvent
+import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityWindowInfo
 import androidx.annotation.RequiresApi
 import android.os.SystemClock
@@ -96,7 +97,7 @@ class MaskWindowService : AccessibilityService() {
         // The app label ("Sophiel") also matches the service label, which contains it.
         val found = root.findAccessibilityNodeInfosByText(getString(R.string.app_name)) +
             GuardPages.IDS.flatMap { root.findAccessibilityNodeInfosByViewId(it) }
-        val nodes = found.map { GuardNode(it.text?.toString(), it.viewIdResourceName, it.isChecked) }
+        val nodes = found.map { GuardNode(it.text?.toString(), it.viewIdResourceName, it.isChecked || rowSwitchOn(it)) }
         val target = GuardPages.match(pkg, nodes, label)
         if (target == null) {
             boundOnPage = false
@@ -111,6 +112,10 @@ class MaskWindowService : AccessibilityService() {
         Log.i("Sophiel", "guard: $target in $pkg")
         Dispatchers.IO.asExecutor().execute { container.log.tamper(target) }
     }
+
+    /** A list row's title ("Appear on top" on A): its switch sits two levels up, in the row's widget frame. */
+    private fun rowSwitchOn(title: AccessibilityNodeInfo): Boolean =
+        title.parent?.parent?.findAccessibilityNodeInfosByViewId("android:id/switch_widget")?.any { it.isChecked } == true
 
     override fun onInterrupt() = Unit
 

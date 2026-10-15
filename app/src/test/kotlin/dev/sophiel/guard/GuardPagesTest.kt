@@ -64,6 +64,18 @@ class GuardPagesTest {
         assertNull(GuardPages.match(settings, listOf(header, GuardNode("", "android:id/switch_widget", checked = true)), label))
     }
 
+    @Test fun `app info on A is guarded by its button bar`() {
+        val nodes = listOf(GuardNode("Sophiel", "com.android.settings:id/entity_header_title"), GuardNode("", "com.android.settings:id/button_bar"))
+        assertEquals(TamperTarget.APP_INFO, GuardPages.match("com.android.settings", nodes, label))
+    }
+
+    @Test fun `appear on top list on A is guarded while Sophiel's row is on`() {
+        val list = GuardNode("", "com.android.settings:id/apps_list")
+        fun row(on: Boolean) = GuardNode("Sophiel", "android:id/title", checked = on)
+        assertEquals(TamperTarget.OVERLAY, GuardPages.match("com.android.settings", listOf(list, row(true)), label))
+        assertNull(GuardPages.match("com.android.settings", listOf(list, row(false)), label))
+    }
+
     @Test fun `the uninstall dialog for Sophiel is guarded, another app's is not`() {
         val installer = "com.google.android.packageinstaller"
         val mine = listOf(GuardNode("Sophiel", "com.android.packageinstaller:id/app_label"))

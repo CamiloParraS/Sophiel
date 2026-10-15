@@ -18,7 +18,7 @@ object GuardPages {
     fun reads(pkg: String) = pkg in SETTINGS || pkg in INSTALLER || pkg == SYSTEMUI
 
     /** View ids the service looks up besides the text search; they tell App info and Appear on top apart without words. */
-    val IDS = listOf(FORCE_STOP, SWITCH, PERMISSION_TEXT)
+    val IDS = listOf(FORCE_STOP, BUTTON_BAR, SWITCH, PERMISSION_TEXT, APPS_LIST)
 
     /**
      * [nodes]: those holding the app label or the service label, plus those with [IDS]. The service page shows
@@ -34,8 +34,11 @@ object GuardPages {
 
     private fun settings(nodes: List<GuardNode>, serviceLabel: String): String? = when {
         nodes.any { it.text == serviceLabel && it.viewId != ROW_TITLE } -> TamperTarget.ACCESSIBILITY
+        // A (Android 11): Appear on top is an app list; Sophiel's row [checked] is its own switch (the service reads it).
+        nodes.any { it.viewId == APPS_LIST } && nodes.any { it.text == APP && it.viewId == ROW_TITLE && it.checked } -> TamperTarget.OVERLAY
         nodes.none { it.text == APP && it.viewId == HEADER } -> null
-        nodes.any { it.viewId == FORCE_STOP } -> TamperTarget.APP_INFO
+        // A (Android 11) has no forcestop_button, only a button bar.
+        nodes.any { it.viewId == FORCE_STOP || it.viewId == BUTTON_BAR } -> TamperTarget.APP_INFO
         // Appear on top: guarded only while granted, so granting it is never blocked.
         nodes.any { it.viewId == PERMISSION_TEXT } && nodes.any { it.viewId == SWITCH && it.checked } -> TamperTarget.OVERLAY
         else -> null
@@ -46,6 +49,8 @@ object GuardPages {
     private const val ROW_TITLE = "android:id/title"
     private const val HEADER = "com.android.settings:id/entity_header_title"
     private const val FORCE_STOP = "com.android.settings:id/forcestop_button"
+    private const val BUTTON_BAR = "com.android.settings:id/button_bar"
+    private const val APPS_LIST = "com.android.settings:id/apps_list"
     private const val SWITCH = "android:id/switch_widget"
     private const val PERMISSION_TEXT = "com.android.settings:id/title"
     private const val ACTIVE_APP_LABEL = "com.android.systemui:id/fgs_manager_app_item_label"
