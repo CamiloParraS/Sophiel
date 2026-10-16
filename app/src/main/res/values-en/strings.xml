@@ -64,7 +64,6 @@
     </plurals>
     <string name="status_ready">Ready to start</string>
     <string name="status_ready_partial">With a slightly see-through mask</string>
-    <string name="status_ready_text">Everything is in order</string>
     <string name="status_starting_text">Android will ask for permission to capture the screen</string>
     <string name="status_what_will_happen">What will happen</string>
     <string name="status_capture_permission">Capture permission</string>
@@ -87,6 +86,10 @@
     <string name="gap_accessibility_text">Without it, Sophiel can\'t keep protecting. Turn it on and tap Start.</string>
     <string name="gap_app_closed_text">Turn accessibility on and tap Start.</string>
     <string name="status_see_log">See in History</string>
+    <string name="proof_today">covered today</string>
+    <string name="proof_last">Last: %1$s</string>
+    <string name="proof_none">Nothing to cover yet</string>
+    <string name="proof_see">See history</string>
     <string name="status_to_restart">To start again</string>
     <string name="status_review">Review</string>
     <string name="status_care">Care</string>
@@ -109,7 +112,7 @@
     <string name="tag_working">Working</string>
     <string name="tag_enabled">On</string>
     <string name="need_overlay_missing">No permission: Android will not let the mask be drawn</string>
-    <string name="need_service_missing">Off: the mask will look slightly see-through, protection won\'t continue after the screen turns off or the phone restarts, and Sophiel\'s settings won\'t be protected</string>
+    <string name="need_service_missing">Off · for full coverage</string>
     <string name="need_service_forced">It turns off when the app is force-stopped</string>
     <string name="need_notifications_missing">You will not see the notice when it pauses</string>
     <string name="fix_allow">Allow</string>

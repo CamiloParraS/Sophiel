@@ -62,6 +62,7 @@ import dev.sophiel.capture.ProjectionService
 import dev.sophiel.feed.benchmarkScreen
 import dev.sophiel.feed.maskLookScreen
 import dev.sophiel.feed.testFeedScreen
+import dev.sophiel.ui.LogModel
 import dev.sophiel.ui.SetupWizard
 import dev.sophiel.ui.Need
 import dev.sophiel.ui.StatusActions
@@ -312,5 +313,6 @@ private fun statusScreen(controller: ProjectionController, container: AppContain
         StatusInput(state.phase, bound, overlay, notifications, last, settings.preset, settings.sensitivity, Build.VERSION.SDK_INT, mode.mode, gap),
     )
     val blocks by container.escalation.blocks.collectAsState()
-    StatusScreen(model, door, actions, modifier, blocks)
+    val week = remember(state.phase, mode.protecting, resumes) { LogModel.of(container.log.entries(), System.currentTimeMillis(), java.time.ZoneId.systemDefault()) }
+    StatusScreen(model, door, actions, modifier, blocks, week)
 }

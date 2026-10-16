@@ -31,6 +31,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import dev.sophiel.AppContainer
 import dev.sophiel.R
@@ -106,9 +107,10 @@ fun UnlockedBanner(door: Door, modifier: Modifier = Modifier) {
 
 /** Gear for Ajustes: a small lock on it while the door is shut. */
 @Composable
-fun GearButton(door: Door, onOpen: () -> Unit) {
+fun GearButton(door: Door, onOpen: () -> Unit, onDark: Boolean = false) {
     Box {
-        FlatIconButton(R.drawable.ic_gear, stringResource(R.string.settings_title)) { door.pass(onOpen) }
-        if (!door.unlocked) SIcon(R.drawable.ic_lock, Palette.Dim, 11.dp, Modifier.align(Alignment.BottomEnd).padding(end = 9.dp, bottom = 9.dp))
+        if (onDark) FlatIconButton(R.drawable.ic_gear, stringResource(R.string.settings_title), { door.pass(onOpen) }, Color(0xBFDDEBD3), Color(0x12FFFFFF))
+        else FlatIconButton(R.drawable.ic_gear, stringResource(R.string.settings_title), { door.pass(onOpen) })
+        if (!door.unlocked) SIcon(R.drawable.ic_lock, if (onDark) Color(0xFFCFE3C2) else Palette.Dim, 11.dp, Modifier.align(Alignment.BottomEnd).padding(end = 9.dp, bottom = 9.dp))
     }
 }

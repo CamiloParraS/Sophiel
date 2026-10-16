@@ -80,11 +80,11 @@ fun HeaderBar(
 
 /** Header button: icon only, 34 dp visual, no fill, inside a 48 dp touch target. */
 @Composable
-fun FlatIconButton(@DrawableRes icon: Int, label: String, onClick: () -> Unit) {
+fun FlatIconButton(@DrawableRes icon: Int, label: String, onClick: () -> Unit, tint: Color = Palette.Fg, fill: Color = Color.Transparent) {
     Box(
-        Modifier.size(48.dp).clip(RoundedCornerShape(10.dp)).clickable(role = Role.Button, onClick = onClick).semantics { contentDescription = label },
+        Modifier.size(48.dp).padding(if (fill == Color.Transparent) 0.dp else 4.dp).clip(RoundedCornerShape(if (fill == Color.Transparent) 10.dp else 12.dp)).background(fill).clickable(role = Role.Button, onClick = onClick).semantics { contentDescription = label },
         contentAlignment = Alignment.Center,
-    ) { SIcon(icon, Palette.Fg) }
+    ) { SIcon(icon, tint) }
 }
 
 class GroupScope {
@@ -109,6 +109,9 @@ fun PreferenceGroup(modifier: Modifier = Modifier, title: String? = null, footno
     }
 }
 
+/** Minimum row height; Status packs its rows tighter. */
+val LocalRowMin = androidx.compose.runtime.compositionLocalOf { 56.dp }
+
 /** Prefix icon, title, description, end slot. With [onClick], tapping anywhere on the row runs it. */
 @Composable
 fun PrefRow(
@@ -124,7 +127,7 @@ fun PrefRow(
         modifier
             .fillMaxWidth()
             .let { if (onClick != null) it.clickable(role = Role.Button, onClick = onClick) else it }
-            .heightIn(min = 56.dp)
+            .heightIn(min = LocalRowMin.current)
             .padding(horizontal = 14.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,

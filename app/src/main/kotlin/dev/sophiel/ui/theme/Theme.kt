@@ -28,6 +28,7 @@ object Palette {
     val Win = Color(0xFFFAFAFA)
     val Head = Color(0xFFEBEBEB)
     val Card = Color.White
+    val Chalk = Color(0xFFEEF2EF) // the Status sheet and bottom bar
 
     /** Mockup `.tag.ok`, `.ec.ok` and the `.big` disc: a state colour at low alpha. */
     fun tint(c: Color, alpha: Float = .16f) = c.copy(alpha = alpha)

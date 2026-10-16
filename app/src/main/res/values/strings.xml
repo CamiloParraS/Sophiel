@@ -64,7 +64,6 @@
     </plurals>
     <string name="status_ready">Listo para iniciar</string>
     <string name="status_ready_partial">Con la máscara algo transparente</string>
-    <string name="status_ready_text">Todo está en orden</string>
     <string name="status_starting_text">Android te pedirá permiso para capturar la pantalla</string>
     <string name="status_what_will_happen">Qué va a pasar</string>
     <string name="status_capture_permission">Permiso de captura</string>
@@ -87,6 +86,10 @@
     <string name="gap_accessibility_text">Sin ella, Sophiel no sigue protegiendo. Actívala y toca Iniciar.</string>
     <string name="gap_app_closed_text">Activa la accesibilidad y toca Iniciar.</string>
     <string name="status_see_log">Ver en Historial</string>
+    <string name="proof_today">cubiertas hoy</string>
+    <string name="proof_last">Última: %1$s</string>
+    <string name="proof_none">Nada que cubrir todavía</string>
+    <string name="proof_see">Ver historial</string>
     <string name="status_to_restart">Para volver a iniciar</string>
     <string name="status_review">Revisión</string>
     <string name="status_care">Cuidado</string>
@@ -109,7 +112,7 @@
     <string name="tag_working">Funcionando</string>
     <string name="tag_enabled">Activados</string>
     <string name="need_overlay_missing">Sin permiso: Android no deja dibujar la máscara</string>
-    <string name="need_service_missing">Apagada: la máscara se verá algo transparente, no seguirá protegiendo tras apagar la pantalla o reiniciar y no protegerá los ajustes de Sophiel</string>
+    <string name="need_service_missing">Apagada · para cubrir todo</string>
     <string name="need_service_forced">Se apaga cuando la app se cierra a la fuerza</string>
     <string name="need_notifications_missing">No verás el aviso cuando se pause</string>
     <string name="fix_allow">Permitir</string>
