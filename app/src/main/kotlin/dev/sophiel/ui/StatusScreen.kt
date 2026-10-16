@@ -441,7 +441,7 @@ private fun Proof(week: LogModel?, seeLog: () -> Unit, more: GroupScope.() -> Un
         item {
             // The number stays under the hero headline (34 sp): one headline per screen.
             Row(
-                Modifier.fillMaxWidth().clickable(role = Role.Button, onClick = seeLog).padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 12.dp),
+                Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 12.dp), // the row below is the one way in
                 horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Bottom,
             ) {
                 Text((today?.masked ?: 0).toString(), style = MaterialTheme.typography.headlineMedium.copy(fontSize = 40.sp, lineHeight = 40.sp), color = Palette.Fg)

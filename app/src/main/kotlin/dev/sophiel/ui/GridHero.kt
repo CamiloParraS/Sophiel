@@ -101,6 +101,9 @@ private val CamoBrush: ShaderBrush by lazy {
 }
 
 // Either side of the badge; any that land under text are skipped.
+/** The shipped mask pattern itself, dense and at screen scale, as the overlay draws it. */
+private val MaskBrush: ShaderBrush by lazy { ShaderBrush(ImageShader(DebugMask.patternBitmap().asImageBitmap(), TileMode.Repeated, TileMode.Repeated)) }
+
 private val RedTiles = setOf(5 to 1, 1 to 2, 5 to 3, 0 to 4)
 private val OrangeTiles = setOf(5 to 1, 1 to 2, 6 to 3, 0 to 4)
 
@@ -163,7 +166,7 @@ fun GridHero(page: Page, title: String, text: String, modifier: Modifier = Modif
 
     Box(modifier.fillMaxWidth().height(hero).background(bg).onPlaced { hero0[0] = it }) {
         Canvas(Modifier.fillMaxWidth().height(hero)) {
-            drawGrid(page, tile, now, waveAt, still, listOf(nameAt, textAt), gearAt)
+            drawGrid(page, tile, now, waveAt, still, listOf(nameAt, textAt, gearAt))
             drawRect(Brush.verticalGradient(listOf(Color.Transparent, bg.copy(alpha = .5f)), startY = size.height * .68f, endY = size.height))
         }
         Row(Modifier.fillMaxWidth().statusBarsPadding().padding(start = 22.dp, end = 12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -195,6 +198,7 @@ private fun Badge(color: Color, bg: Color, @DrawableRes icon: Int, spin: Boolean
             val r = 48.dp.toPx()
             drawCircle(color.copy(alpha = .07f), r + 6.dp.toPx(), style = Stroke(12.dp.toPx()))
             drawCircle(bg, r)
+            drawCircle(MaskBrush, r, alpha = .22f) // the real mask, 1:1, faint: the badge wears what Sophiel puts on a screen
             drawCircle(color.copy(alpha = .14f), r)
             drawCircle(color.copy(alpha = .4f), r - .75.dp.toPx(), style = Stroke(1.5.dp.toPx()))
         }
@@ -203,7 +207,7 @@ private fun Badge(color: Color, bg: Color, @DrawableRes icon: Int, spin: Boolean
     }
 }
 
-private fun DrawScope.drawGrid(page: Page, tile: Color, now: Long, waveAt: Long, still: Boolean, texts: List<Rect>, gearAt: Rect) {
+private fun DrawScope.drawGrid(page: Page, tile: Color, now: Long, waveAt: Long, still: Boolean, texts: List<Rect>) {
     val t = size.width / COLS
     val rows = ceil(size.height / t).toInt()
     val gap = 1.5.dp.toPx()
@@ -234,8 +238,7 @@ private fun DrawScope.drawGrid(page: Page, tile: Color, now: Long, waveAt: Long,
         val box = Size(s, s)
         val tileAt = Rect(at, box)
         drawRoundRect(tile, at, box, corner)
-        if (under(gearAt, tileAt)) continue
-        // Tiles under text: no camo, dimmed outlines.
+        // Tiles under the name, gear and text: no camo, dimmed outlines (still outlined, so no holes).
         val quiet = texts.any { under(it, tileAt) }
         val dim = if (quiet) .35f else 1f
         val edge = Stroke(1.dp.toPx())
