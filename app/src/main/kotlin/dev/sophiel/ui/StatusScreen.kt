@@ -157,7 +157,9 @@ fun StatusScreen(model: StatusModel, door: Door, actions: StatusActions, modifie
         var sheet by remember { mutableStateOf(0.dp) }
         val density = LocalDensity.current
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-        Hero(model, (model.gap?.at ?: model.stopped?.at)?.let { time.format(Date(it)) }.orEmpty(), if (sheet > 0.dp) viewport - sheet else null) { GearButton(door, actions.openSettings, onDark = true) }
+        Hero(model, (model.gap?.at ?: model.stopped?.at)?.let { time.format(Date(it)) }.orEmpty(), if (sheet > 0.dp) viewport - sheet else null) {
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) { UnlockedChip(door); GearButton(door, actions.openSettings, onDark = true) }
+        }
         // The sheet rides 20 dp over the hero: one boundary, no hard seam.
         Column(
             // layout, not offset: the 20 dp it rides over the hero leave no 20 dp gap at the bottom.
@@ -169,7 +171,6 @@ fun StatusScreen(model: StatusModel, door: Door, actions: StatusActions, modifie
                 .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            UnlockedBanner(door)
             androidx.compose.runtime.CompositionLocalProvider(LocalRowMin provides 48.dp) {
             val now by tickingNow(System::currentTimeMillis, active = blocks.isNotEmpty())
             val active = blocks.filterValues { it > now }

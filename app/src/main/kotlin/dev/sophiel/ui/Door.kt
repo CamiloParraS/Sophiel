@@ -6,7 +6,17 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -101,6 +111,35 @@ fun UnlockedBanner(door: Door, modifier: Modifier = Modifier) {
                 Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, color = Palette.Fg,
             )
             PillButton(stringResource(R.string.lock_now), door.lockNow, small = true)
+        }
+    }
+}
+
+/**
+ * Status's [UnlockedBanner]: a glass chip on the dark hero, beside the gear it opened. "1:48 · Bloquear ahora";
+ * a tap locks. Tabular digits, so the chip doesn't twitch as the seconds change.
+ */
+@Composable
+fun UnlockedChip(door: Door) {
+    val left = dev.sophiel.pin.formatCountdown(door.remainingMs)
+    val label = stringResource(R.string.unlocked_banner, left)
+    val ease = tween<Float>(160, easing = Ease)
+    AnimatedVisibility(
+        door.unlocked,
+        enter = fadeIn(motion(ease)) + scaleIn(motion(ease), initialScale = .95f),
+        exit = fadeOut(motion(tween(120, easing = Ease))) + scaleOut(motion(tween(120, easing = Ease)), targetScale = .95f),
+    ) {
+        Row(
+            Modifier.height(40.dp).clip(RoundedCornerShape(12.dp)).background(Color(0x12FFFFFF))
+                .clickable(role = Role.Button, onClickLabel = stringResource(R.string.lock_now), onClick = door.lockNow)
+                .semantics(mergeDescendants = true) { contentDescription = label }
+                .padding(start = 10.dp, end = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            SIcon(R.drawable.ic_unlock, Color(0xFF6FE6A8), 16.dp)
+            Text(left, style = MaterialTheme.typography.labelLarge.copy(fontFeatureSettings = "tnum"), color = Color(0xFFF2F7EF))
+            Text("· " + stringResource(R.string.lock_now), style = MaterialTheme.typography.labelLarge, color = Color(0xBFDDEBD3))
         }
     }
 }
