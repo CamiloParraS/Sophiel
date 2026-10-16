@@ -252,7 +252,12 @@ private fun DrawScope.drawGrid(page: Page, tile: Color, now: Long, waveAt: Long,
                 if (ambient) {
                     val k = (1f - abs(q + r - bandAt) / 2.5f).coerceAtLeast(0f)
                     drawRoundRect(Color(0xFF6FE6A8).copy(alpha = .07f * k * k * (3 - 2 * k) * dim), at, box, corner)
-                    if (!quiet) drawRoundRect(Color(0xFF6FE6A8).copy(alpha = .14f * glows(q, r)), at, box, corner)
+                    // A breathing tile wears the mask's camo, as if Sophiel just covered it.
+                    val g = if (quiet) 0f else glows(q, r)
+                    if (g > 0f) {
+                        drawRoundRect(Color(0xFF287548).copy(alpha = .35f * g), at, box, corner)
+                        drawRoundRect(CamoBrush, at, box, corner, alpha = g)
+                    }
                 }
             }
             Page.INTERRUPTED -> if (!quiet && q to r in RedTiles) {
