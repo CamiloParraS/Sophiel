@@ -13,6 +13,14 @@ import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onPlaced
 import kotlin.math.ceil
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.spring
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathFillType
+import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.drawscope.withTransform
+import androidx.compose.ui.graphics.vector.PathParser
+import kotlinx.coroutines.delay
 import androidx.compose.ui.unit.coerceIn
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.animateColorAsState
@@ -132,15 +140,26 @@ fun GridHero(page: Page, title: String, text: String, modifier: Modifier = Modif
         },
         motion(tween(300)), label = "tile",
     )
+    // null icon = the app's padlock: shut on Protected, shackle up when armed (Ready, Starting).
     val (badge, icon) = when (page) {
-        Page.PROTECTED -> Color(0xFF6FE6A8) to R.drawable.ic_mark // the app's padlock, shut
+        Page.PROTECTED -> Color(0xFF6FE6A8) to null
         Page.INTERRUPTED -> Color(0xFFFF8A8F) to R.drawable.ic_warn
         Page.STOPPED -> Color(0xFFFFC08A) to R.drawable.ic_power
         Page.OFF -> Text1 to R.drawable.ic_power
-        Page.READY -> Color(0xFF53AB7D) to R.drawable.ic_mark_open // armed, not shut: the green held back, the shackle up
-        else -> Text1 to R.drawable.ic_mark_open
+        Page.READY -> Color(0xFF53AB7D) to null // the green held back
+        else -> Text1 to null
     }
     val badgeColor by animateColorAsState(badge, motion(tween(300)), label = "badge")
+    // The shackle, 0 up, 1 shut. Opening the screen shows it as it is (D44); only Start (shuts) and Stop (lifts) move it.
+    // On Protected it waits a beat so the open lock is seen first, then drops with a small spring: the click.
+    val locked = page == Page.PROTECTED
+    val shut = remember { Animatable(if (locked) 1f else 0f) }
+    LaunchedEffect(locked, still) {
+        val to = if (locked) 1f else 0f
+        if (still) return@LaunchedEffect shut.snapTo(to)
+        if (locked) delay(140)
+        shut.animateTo(to, spring(dampingRatio = .55f, stiffness = 900f))
+    }
 
     // One clock, only while something moves: the idle glow and the entry wave (protected), the travelling outline (starting).
     var now by remember { mutableLongStateOf(0L) }
@@ -181,7 +200,7 @@ fun GridHero(page: Page, title: String, text: String, modifier: Modifier = Modif
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
-            Badge(badgeColor, bg, icon, spin = page == Page.STARTING)
+            Badge(badgeColor, bg, icon, spin = page == Page.STARTING, shut = { shut.value })
             Column(Modifier.padding(top = 4.dp).onGloballyPositioned { textAt = at(it) }, horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(title, style = MaterialTheme.typography.headlineMedium.copy(fontSize = 34.sp, lineHeight = 36.sp), color = Text0, textAlign = TextAlign.Center)
                 Text(text, Modifier.padding(top = 8.dp).widthIn(max = 300.dp), style = MaterialTheme.typography.bodyMedium, color = Text1, textAlign = TextAlign.Center)
@@ -192,7 +211,7 @@ fun GridHero(page: Page, title: String, text: String, modifier: Modifier = Modif
 
 /** 96 dp disc in the state colour (tint, 1.5 dp ring, soft outer halo). */
 @Composable
-private fun Badge(color: Color, bg: Color, @DrawableRes icon: Int, spin: Boolean) {
+private fun Badge(color: Color, bg: Color, @DrawableRes icon: Int?, spin: Boolean, shut: () -> Float) {
     Box(Modifier.size(120.dp), contentAlignment = Alignment.Center) {
         Canvas(Modifier.size(120.dp)) {
             val r = 48.dp.toPx()
@@ -203,7 +222,38 @@ private fun Badge(color: Color, bg: Color, @DrawableRes icon: Int, spin: Boolean
             drawCircle(color.copy(alpha = .4f), r - .75.dp.toPx(), style = Stroke(1.5.dp.toPx()))
         }
         if (spin) CircularProgressIndicator(Modifier.size(40.dp), color = color, trackColor = color.copy(alpha = .25f), strokeWidth = 3.dp)
-        else SIcon(icon, color, 52.dp)
+        else if (icon != null) SIcon(icon, color, 52.dp)
+        else Canvas(Modifier.size(52.dp)) { drawPadlock(color, shut()) }
+    }
+}
+
+/** The launcher padlock's body and keyhole (ic_launcher_foreground), in its 108-unit viewport. */
+private val LockBody: Path by lazy {
+    PathParser().parsePathString(
+        "M35,38H73A7,7 0,0 1,80 45V83A7,7 0,0 1,73 90H35A7,7 0,0 1,28 83V45A7,7 0,0 1,35 38Z" +
+            "M49.5,53H58.5A2.5,2.5 0,0 1,61 55.5V64.5A2.5,2.5 0,0 1,58.5 67H56.5V73A2,2 0,0 1,54.5 75H53.5A2,2 0,0 1,51.5 73V67H49.5A2.5,2.5 0,0 1,47 64.5V55.5A2.5,2.5 0,0 1,49.5 53Z",
+    ).toPath().apply { fillType = PathFillType.EvenOdd }
+}
+
+/** The launcher padlock, tilted 15°, with the shackle at [shut] (0 up, 1 shut; the spring may overshoot a little). */
+private fun DrawScope.drawPadlock(color: Color, shut: Float) {
+    val k = size.minDimension / 108f
+    val pivot = Offset(54f, 60f)
+    withTransform({
+        scale(k, k, Offset.Zero)
+        translate(0f, 2f)
+        scale(1.1f, 1.1f, pivot)
+        rotate(15f, pivot)
+    }) {
+        val y = 33f - 9f * (1f - shut) // the arc's centre: 24 up, 33 shut
+        val shackle = Path().apply {
+            moveTo(68f, 44f)
+            lineTo(68f, y)
+            arcTo(Rect(40f, y - 14f, 68f, y + 14f), 0f, -180f, false)
+            lineTo(40f, y + 3f + 8f * shut) // the left leg: clear of the body when up, inside it when shut
+        }
+        drawPath(shackle, color, style = Stroke(8f, cap = StrokeCap.Round))
+        drawPath(LockBody, color)
     }
 }
 
