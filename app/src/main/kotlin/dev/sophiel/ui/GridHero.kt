@@ -133,12 +133,12 @@ fun GridHero(page: Page, title: String, text: String, modifier: Modifier = Modif
         motion(tween(300)), label = "tile",
     )
     val (badge, icon) = when (page) {
-        Page.PROTECTED -> Color(0xFF6FE6A8) to R.drawable.ic_shield_ok
+        Page.PROTECTED -> Color(0xFF6FE6A8) to R.drawable.ic_mark // the app's padlock, shut
         Page.INTERRUPTED -> Color(0xFFFF8A8F) to R.drawable.ic_warn
         Page.STOPPED -> Color(0xFFFFC08A) to R.drawable.ic_power
         Page.OFF -> Text1 to R.drawable.ic_power
-        Page.READY -> Color(0xFF53AB7D) to R.drawable.ic_shield_ok // armed: the green, held back
-        else -> Text1 to R.drawable.ic_shield_ok
+        Page.READY -> Color(0xFF53AB7D) to R.drawable.ic_mark_open // armed, not shut: the green held back, the shackle up
+        else -> Text1 to R.drawable.ic_mark_open
     }
     val badgeColor by animateColorAsState(badge, motion(tween(300)), label = "badge")
 
@@ -203,7 +203,7 @@ private fun Badge(color: Color, bg: Color, @DrawableRes icon: Int, spin: Boolean
             drawCircle(color.copy(alpha = .4f), r - .75.dp.toPx(), style = Stroke(1.5.dp.toPx()))
         }
         if (spin) CircularProgressIndicator(Modifier.size(40.dp), color = color, trackColor = color.copy(alpha = .25f), strokeWidth = 3.dp)
-        else SIcon(icon, color, 44.dp)
+        else SIcon(icon, color, 52.dp)
     }
 }
 
