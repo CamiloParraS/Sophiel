@@ -21,6 +21,7 @@ import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -148,7 +149,7 @@ class MainActivity : ComponentActivity() {
     }
 
     @Composable
-    private fun appBody(container: AppContainer, door: Door, rerunWizard: () -> Unit) {
+    private fun BoxScope.appBody(container: AppContainer, door: Door, rerunWizard: () -> Unit) {
         // Behind the door: rotation keeps them, a relock closes them all (D38).
         var logOpen by rememberSaveable { mutableStateOf(false) }
         var settingsOpen by rememberSaveable { mutableStateOf(false) }
