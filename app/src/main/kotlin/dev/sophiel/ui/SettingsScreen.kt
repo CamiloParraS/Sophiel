@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -71,6 +73,8 @@ fun BoxScope.SettingsScreen(container: AppContainer, door: Door, onBack: () -> U
     var picking by rememberSaveable { mutableStateOf<Pick?>(null) }
     val careNames = listOf(R.string.care_strict, R.string.care_normal, R.string.care_relaxed).map { stringResource(it) }
     val presetNames = listOf(R.string.preset_light, R.string.preset_balanced, R.string.preset_thorough, R.string.preset_precise).map { stringResource(it) }
+    val careHelps = listOf(R.string.care_help_strict, R.string.care_help_normal, R.string.care_help_relaxed).map { stringResource(it) }
+    val presetHelps = listOf(R.string.how_help_light, R.string.how_help_balanced, R.string.how_help_thorough, R.string.how_help_precise).map { stringResource(it) }
     val careIx = Sensitivity.entries.indexOf(settings.sensitivity)
     val presetIx = presets.indexOf(settings.preset)
     Column(Modifier.fillMaxSize().background(Palette.Chalk)) { // the page; the groups are Surface cards on it
@@ -82,13 +86,13 @@ fun BoxScope.SettingsScreen(container: AppContainer, door: Door, onBack: () -> U
             PreferenceGroup(title = stringResource(R.string.group_protection)) {
                 item {
                     PrefRow(
-                        stringResource(R.string.set_care), icon = R.drawable.ic_sliders,
+                        stringResource(R.string.set_care), description = careHelps[careIx], icon = R.drawable.ic_sliders,
                         onClick = { door.pass { picking = Pick.CARE } }, end = { Value(careNames[careIx]) },
                     )
                 }
                 item {
                     PrefRow(
-                        stringResource(R.string.set_how), icon = R.drawable.ic_layers,
+                        stringResource(R.string.set_how), description = presetHelps[presetIx], icon = R.drawable.ic_layers,
                         onClick = { door.pass { picking = Pick.HOW } }, end = { Value(presetNames[presetIx]) },
                     )
                 }
@@ -154,14 +158,14 @@ fun BoxScope.SettingsScreen(container: AppContainer, door: Door, onBack: () -> U
     BottomSheet(picking == Pick.CARE, { picking = null }) {
         OptionList(
             stringResource(R.string.set_care), careNames,
-            listOf(R.string.care_help_strict, R.string.care_help_normal, R.string.care_help_relaxed).map { stringResource(it) },
+            careHelps,
             careIx, emptySet(),
         ) { door.pass { container.pickSensitivity(Sensitivity.entries[it]) } }
     }
     BottomSheet(picking == Pick.HOW, { picking = null }) {
         OptionList(
             stringResource(R.string.set_how), presetNames,
-            listOf(R.string.how_help_light, R.string.how_help_balanced, R.string.how_help_thorough, R.string.how_help_precise).map { stringResource(it) },
+            presetHelps,
             presetIx, if (canShoot) emptySet() else setOf(presets.indexOf(ParentPreset.PRECISE)),
             reason = android14, preview = { TileVisual(VisualKind.PRESET, height = 96.dp, preset = settings.preset) },
         ) { door.pass { container.settings.update { s -> s.copy(preset = presets[it]) } } }
@@ -182,14 +186,14 @@ fun CareControl(selected: Sensitivity, onPick: (Sensitivity) -> Unit) =
 @Composable
 private fun Value(text: String) =
     Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(text, style = MaterialTheme.typography.bodyMedium, color = Palette.Dim)
+        Text(text, style = MaterialTheme.typography.titleMedium, color = Palette.GreenFg)
         SIcon(R.drawable.ic_chev)
     }
 
 /** One choice per row, a check on the picked one. A [disabled] row dims and shows [reason] in place of its help. [preview] sits above the list. */
 @Composable
 private fun ColumnScope.OptionList(
-    title: String, names: List<String>, helps: List<String>, selected: Int, disabled: Set<Int>,
+    title: String, names: List<String>, helps: List<String>, selected: Int, disabled: Set<Int>, recommended: Int = 1,
     reason: String? = null, preview: (@Composable () -> Unit)? = null, onPick: (Int) -> Unit,
 ) {
     Text(title, style = MaterialTheme.typography.titleMedium)
@@ -202,9 +206,15 @@ private fun ColumnScope.OptionList(
                     name,
                     Modifier.alpha(if (off) .5f else 1f).selectable(i == selected, enabled = !off, role = Role.RadioButton) { onPick(i) },
                     description = if (off && reason != null) reason else helps[i],
-                    end = { SIcon(R.drawable.ic_check, Palette.GreenFg, modifier = Modifier.alpha(if (i == selected) 1f else 0f)) },
+                    end = {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            if (i == recommended) Tag(stringResource(R.string.group_recommended), TagKind.Recommended)
+                            SIcon(R.drawable.ic_check, Palette.GreenFg, modifier = Modifier.alpha(if (i == selected) 1f else 0f))
+                        }
+                    },
                 )
             }
         }
     }
+    Spacer(Modifier.height(10.dp)) // the list sat close to the gesture bar
 }

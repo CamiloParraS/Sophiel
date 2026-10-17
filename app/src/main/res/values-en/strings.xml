@@ -209,10 +209,10 @@
     <string name="set_care">How much it covers</string>
     <string name="set_how">Checking</string>
     <string name="care_help_strict">Covers doubtful things too.</string>
-    <string name="care_help_normal">Recommended.</string>
+    <string name="care_help_normal">A good balance.</string>
     <string name="care_help_relaxed">Covers only the clear.</string>
     <string name="how_help_light">Uses less battery.</string>
-    <string name="how_help_balanced">Recommended.</string>
+    <string name="how_help_balanced">A good middle.</string>
     <string name="how_help_thorough">Checks more. Uses more battery.</string>
     <string name="how_help_precise">Covers only what is needed (beta).</string>
     <string name="needs_android14">Needs Android 14 or newer</string>

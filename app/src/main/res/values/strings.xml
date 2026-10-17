@@ -209,10 +209,10 @@
     <string name="set_care">Cuánto tapa</string>
     <string name="set_how">Revisión</string>
     <string name="care_help_strict">Tapa también lo dudoso.</string>
-    <string name="care_help_normal">Recomendado.</string>
+    <string name="care_help_normal">Un buen equilibrio.</string>
     <string name="care_help_relaxed">Tapa solo lo claro.</string>
     <string name="how_help_light">Gasta menos batería.</string>
-    <string name="how_help_balanced">Recomendado.</string>
+    <string name="how_help_balanced">Buen punto medio.</string>
     <string name="how_help_thorough">Revisa más. Usa más batería.</string>
     <string name="how_help_precise">Tapa solo lo necesario (beta).</string>
     <string name="needs_android14">Necesita Android 14 o más nuevo</string>
