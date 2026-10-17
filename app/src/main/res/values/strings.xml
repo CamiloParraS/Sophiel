@@ -279,6 +279,7 @@
     <string name="wiz_awake_samsung_text">Ajustes &gt; Batería &gt; Límites de uso en segundo plano &gt; Apps que nunca se suspenden &gt; añade Sophiel</string>
     <string name="wiz_awake_note">Sophiel no puede comprobar esto, así que hazlo ahora.</string>
     <string name="wiz_notif_text">Te avisa cuando la protección se pausa, para volver a iniciarla.</string>
+    <string name="wiz_notif_row">Android te pedirá permiso para mostrar avisos</string>
     <string name="wiz_preset_title">¿Cómo debe proteger?</string>
     <string name="wiz_preset_text">Podrás cambiarlo luego en Ajustes.</string>
     <string name="wiz_how_balanced">Buen punto medio de calidad y batería.</string>

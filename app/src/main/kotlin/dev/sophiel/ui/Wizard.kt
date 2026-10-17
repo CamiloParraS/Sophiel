@@ -131,7 +131,7 @@ fun SetupWizard(container: AppContainer, resumes: Int, fix: (Need) -> Unit, star
                         if (granted) PrimaryPill(R.string.pin_continue, next) else PrimaryPill(R.string.fix_allow, { fix(Need.OVERLAY) })
                     }) {
                         PreferenceGroup {
-                            item { NeedStepRow(Need.OVERLAY, R.string.need_overlay, R.string.wiz_overlay_row, granted) }
+                            item { NeedStepRow(Need.OVERLAY, R.string.need_overlay, R.string.wiz_overlay_row, granted, todoAsTitle = true) }
                         }
                     }
                 }
@@ -181,7 +181,7 @@ fun SetupWizard(container: AppContainer, resumes: Int, fix: (Need) -> Unit, star
                         }
                     }) {
                         PreferenceGroup {
-                            item { NeedStepRow(Need.NOTIFICATIONS, R.string.need_notifications, R.string.need_notifications_missing, granted) }
+                            item { NeedStepRow(Need.NOTIFICATIONS, R.string.need_notifications, R.string.wiz_notif_row, granted, todoAsTitle = true) }
                         }
                     }
                 }
@@ -305,13 +305,16 @@ private fun Skip(@StringRes lost: Int, onClick: () -> Unit) {
     Text(stringResource(lost), style = MaterialTheme.typography.bodySmall, color = Palette.Dim, textAlign = TextAlign.Center)
 }
 
-/** A permission row: what to do while missing, Status's done tag once granted. */
+/**
+ * A permission row: what to do while missing, Status's done tag once granted. With [todoAsTitle] the step heading already says
+ * [title], so while missing the row says only the to-do.
+ */
 @Composable
-private fun NeedStepRow(need: Need, @StringRes title: Int, @StringRes todo: Int, granted: Boolean) {
+private fun NeedStepRow(need: Need, @StringRes title: Int, @StringRes todo: Int, granted: Boolean, todoAsTitle: Boolean = false) {
     Crossfade(granted, animationSpec = motion(tween(160)), label = "granted") { ok ->
         PrefRow(
-            stringResource(title),
-            description = if (ok) null else stringResource(todo),
+            stringResource(if (todoAsTitle && !ok) todo else title),
+            description = if (ok || todoAsTitle) null else stringResource(todo),
             icon = need.icon(), iconTint = if (ok) Palette.GreenFg else Palette.Dim,
             end = { if (ok) Tag(stringResource(need.okTag()), TagKind.Ok) },
         )

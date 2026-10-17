@@ -279,6 +279,7 @@
     <string name="wiz_awake_samsung_text">Settings &gt; Battery &gt; Background usage limits &gt; Never auto sleeping apps &gt; add Sophiel</string>
     <string name="wiz_awake_note">Sophiel can\'t check this, so do it now.</string>
     <string name="wiz_notif_text">Tells you when protection pauses, so you can start it again.</string>
+    <string name="wiz_notif_row">Android will ask for permission to show notices</string>
     <string name="wiz_preset_title">How should it protect?</string>
     <string name="wiz_preset_text">You can change it later in Settings.</string>
     <string name="wiz_how_balanced">A good middle of quality and battery.</string>

@@ -48,7 +48,7 @@ fun TileVisual(kind: VisualKind, modifier: Modifier = Modifier, height: Dp = 168
     Canvas(modifier.fillMaxWidth().height(height)) {
         // Read here, in the draw phase: the loop redraws the canvas, never recomposes the step.
         val time = if (still) when (kind) { VisualKind.SERVICE -> .6f; VisualKind.START -> .8f; VisualKind.OVERLAY -> .5f; else -> .3f } else loop.value
-        val gap = 7.dp.toPx()
+        val gap = 4.dp.toPx()
         val tile = minOf(46.dp.toPx(), (size.height - (ROWS - 1) * gap) / ROWS) // shrinks to fit a short box
         val x0 = (size.width - (COLS * tile + (COLS - 1) * gap)) / 2
         val y0 = (size.height - (ROWS * tile + (ROWS - 1) * gap)) / 2
