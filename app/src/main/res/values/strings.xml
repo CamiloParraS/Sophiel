@@ -206,24 +206,24 @@
 
     <!-- Ajustes -->
     <string name="group_protection">Protección</string>
-    <string name="set_care">Cuidado</string>
-    <string name="set_how">Cómo revisa</string>
-    <string name="care_help_strict">Tapa también lo dudoso. A veces tapará de más.</string>
-    <string name="care_help_normal">Un buen equilibrio. Recomendado.</string>
-    <string name="care_help_relaxed">Tapa solo lo claro. Puede dejar pasar algo.</string>
+    <string name="set_care">Cuánto tapa</string>
+    <string name="set_how">Revisión</string>
+    <string name="care_help_strict">Tapa también lo dudoso.</string>
+    <string name="care_help_normal">Recomendado.</string>
+    <string name="care_help_relaxed">Tapa solo lo claro.</string>
     <string name="how_help_light">Gasta menos batería.</string>
-    <string name="how_help_balanced">Buen punto medio. Recomendado.</string>
-    <string name="how_help_thorough">Revisa más zonas. Usa más batería.</string>
-    <string name="how_help_precise">Tapa solo la parte exacta (beta).</string>
+    <string name="how_help_balanced">Recomendado.</string>
+    <string name="how_help_thorough">Revisa más. Usa más batería.</string>
+    <string name="how_help_precise">Tapa solo lo necesario (beta).</string>
     <string name="needs_android14">Necesita Android 14 o más nuevo</string>
     <string name="set_keep">Seguir protegiendo siempre</string>
-    <string name="set_keep_text">Si se acaba la pantalla compartida, sigue protegiendo en modo lento.</string>
+    <string name="set_keep_text">Aunque se acabe la pantalla compartida.</string>
     <string name="needs_full_mask">Necesita la máscara completa</string>
     <string name="group_mask">Máscara</string>
     <string name="set_label">Texto en la máscara</string>
     <string name="set_label_text">Un aviso pequeño sobre lo tapado</string>
     <string name="set_peek">Revisar sin destapar</string>
-    <string name="set_peek_text">Evita que la pantalla parpadee al revisar. Necesita Máscara completa.</string>
+    <string name="set_peek_text">Evita que la pantalla parpadee. Necesita Máscara completa.</string>
     <string name="group_security">Seguridad</string>
     <string name="set_change_pin">Cambiar PIN</string>
     <string name="set_change_pin_text">No se puede recuperar: guárdalo bien</string>

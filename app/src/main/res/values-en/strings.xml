@@ -206,24 +206,24 @@
 
     <!-- Ajustes -->
     <string name="group_protection">Protection</string>
-    <string name="set_care">Care</string>
-    <string name="set_how">How it checks</string>
-    <string name="care_help_strict">Covers doubtful things too. It may cover too much.</string>
-    <string name="care_help_normal">A good balance. Recommended.</string>
-    <string name="care_help_relaxed">Covers only the clear. It may let something through.</string>
+    <string name="set_care">How much it covers</string>
+    <string name="set_how">Checking</string>
+    <string name="care_help_strict">Covers doubtful things too.</string>
+    <string name="care_help_normal">Recommended.</string>
+    <string name="care_help_relaxed">Covers only the clear.</string>
     <string name="how_help_light">Uses less battery.</string>
-    <string name="how_help_balanced">A good middle. Recommended.</string>
-    <string name="how_help_thorough">Checks more areas. Uses more battery.</string>
-    <string name="how_help_precise">Covers only the exact part (beta).</string>
+    <string name="how_help_balanced">Recommended.</string>
+    <string name="how_help_thorough">Checks more. Uses more battery.</string>
+    <string name="how_help_precise">Covers only what is needed (beta).</string>
     <string name="needs_android14">Needs Android 14 or newer</string>
     <string name="set_keep">Keep protecting always</string>
-    <string name="set_keep_text">If the screen share ends, protection carries on in slow mode.</string>
+    <string name="set_keep_text">Even if the screen share ends.</string>
     <string name="needs_full_mask">Needs Full mask</string>
     <string name="group_mask">Mask</string>
     <string name="set_label">Text on the mask</string>
     <string name="set_label_text">A small notice over what is covered</string>
     <string name="set_peek">Check without uncovering</string>
-    <string name="set_peek_text">Stops the screen flickering while it checks. Needs Full mask.</string>
+    <string name="set_peek_text">Stops the screen flickering. Needs Full mask.</string>
     <string name="group_security">Security</string>
     <string name="set_change_pin">Change PIN</string>
     <string name="set_change_pin_text">It can\'t be recovered: keep it safe</string>

@@ -72,7 +72,7 @@ fun AppsScreen(container: AppContainer, door: Door, onBack: () -> Unit) {
     val rows = loaded?.let { (apps, excluded) -> appList(apps, pinned, excluded, query) }.orEmpty()
     val options = listOf(stringResource(R.string.app_rule_normal), stringResource(R.string.app_rule_blocked), stringResource(R.string.app_rule_trusted))
     val shape = RoundedCornerShape(12.dp)
-    Column(Modifier.fillMaxSize()) {
+    Column(Modifier.fillMaxSize().background(Palette.Chalk)) {
         HeaderBar(stringResource(R.string.set_apps), start = { FlatIconButton(R.drawable.ic_back, stringResource(R.string.back), onBack) }, end = { UnlockedChip(door) })
         Box(Modifier.padding(start = 14.dp, end = 14.dp, top = 14.dp).fillMaxWidth().lift(shape).clip(shape).background(Palette.Card)) {
             BasicTextField(

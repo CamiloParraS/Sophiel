@@ -2,6 +2,7 @@ package dev.sophiel.ui
 
 import android.os.Build
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -57,7 +58,7 @@ fun SettingsScreen(container: AppContainer, door: Door, onBack: () -> Unit, onHi
     val taps = remember { mutableIntStateOf(0) }
     val presets = ParentPreset.entries
     val android14 = stringResource(R.string.needs_android14)
-    Column(Modifier.fillMaxSize()) {
+    Column(Modifier.fillMaxSize().background(Palette.Chalk)) { // the page; the groups are Surface cards on it
         HeaderBar(stringResource(R.string.settings_title), start = { FlatIconButton(R.drawable.ic_back, stringResource(R.string.back), onBack) }, end = { UnlockedChip(door) })
         Column(
             Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(start = 14.dp, end = 14.dp, top = 18.dp, bottom = 16.dp),
@@ -110,7 +111,7 @@ fun SettingsScreen(container: AppContainer, door: Door, onBack: () -> Unit, onHi
                     SwitchRow(
                         stringResource(R.string.set_peek), settings.peekUnderMask && canShoot,
                         { v -> door.pass { container.settings.update { it.copy(peekUnderMask = v) } } },
-                        description = stringResource(R.string.set_peek_text) + if (canShoot) "" else "\n$android14",
+                        description = if (canShoot) stringResource(R.string.set_peek_text) else android14,
                         icon = R.drawable.ic_eye, enabled = canShoot,
                     )
                 }
