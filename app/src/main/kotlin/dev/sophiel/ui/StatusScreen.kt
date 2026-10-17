@@ -315,8 +315,7 @@ private fun Hero(model: StatusModel, since: String, fit: Dp?, gear: @Composable 
         Page.PROTECTED -> stringResource(R.string.status_protected) to
             stringResource(if (model.mode == CaptureMode.ACCESSIBILITY) R.string.status_mode_a11y else R.string.status_mode_share)
         Page.OFF -> stringResource(R.string.status_idle) to pluralStringResource(R.plurals.status_missing, blocking, blocking)
-        Page.READY -> stringResource(R.string.status_ready) to
-            if (Need.SERVICE in model.missing) stringResource(R.string.status_ready_partial) else presetLine(model)
+        Page.READY -> stringResource(R.string.status_ready) to presetLine(model) // the see-through warning is the note above Start
         Page.STARTING -> stringResource(R.string.status_starting) to stringResource(R.string.status_starting_text)
         Page.STOPPED -> stringResource(R.string.status_stopped) to stringResource(R.string.status_stopped_text, since)
         Page.INTERRUPTED -> stringResource(R.string.status_interrupted) to stringResource(R.string.status_interrupted_text, since)
@@ -382,8 +381,11 @@ private fun GroupScope.healthy(model: StatusModel, fix: (Need) -> Unit) {
         var open by rememberSaveable { mutableStateOf(false) }
         val turn by animateFloatAsState(if (open) 90f else 0f, motion(tween(240, easing = Ease)), label = "chevron")
         Column {
+            val all = healthy.size == Need.entries.size // some failing: don't say "all fine" above them
             PrefRow(
-                stringResource(R.string.health_ok), description = stringResource(R.string.health_ok_text), icon = R.drawable.ic_shield_ok, iconTint = Palette.GreenFg,
+                if (all) stringResource(R.string.health_ok) else stringResource(R.string.health_part, healthy.size, Need.entries.size),
+                description = if (all) stringResource(R.string.health_ok_text) else healthy.map { stringResource(it.title()) }.joinToString(" · "),
+                icon = R.drawable.ic_shield_ok, iconTint = Palette.GreenFg,
                 onClick = { open = !open }, end = { SIcon(R.drawable.ic_chev, modifier = Modifier.rotate(turn)) },
             )
             AnimatedVisibility(open, enter = expandVertically(motion(tween(240, easing = Ease))), exit = shrinkVertically(motion(tween(240, easing = Ease)))) {
@@ -422,12 +424,12 @@ private fun NeedRow(need: Need, ok: Boolean, fix: (Need) -> Unit, forcedStop: Bo
     }
 }
 
-/** Mockup .sm: small moss button, 8 dp radius, for the fix on a failing row. */
+/** Small tinted button, 8 dp radius, for the fix on a failing row: the sheet's one solid button stays Start. */
 @Composable
 private fun FixButton(text: String, onClick: () -> Unit) = Box(
-    Modifier.heightIn(min = 40.dp).clip(RoundedCornerShape(8.dp)).background(Color(0xFF12201A)).clickable(role = Role.Button, onClick = onClick).padding(horizontal = 16.dp),
+    Modifier.width(104.dp).heightIn(min = 40.dp).clip(RoundedCornerShape(8.dp)).background(Palette.tint(Palette.Orange, .15f)).clickable(role = Role.Button, onClick = onClick),
     contentAlignment = Alignment.Center,
-) { Text(text, style = MaterialTheme.typography.labelLarge.copy(fontSize = 14.sp), color = Color(0xFFE8F5E4)) }
+) { Text(text, style = MaterialTheme.typography.labelLarge.copy(fontSize = 14.sp), color = Palette.OrangeFg) }
 
 /**
  * What the app did today: the count, the last cover, a bar per day of the week, and the way into the Historial.

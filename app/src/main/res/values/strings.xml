@@ -63,7 +63,6 @@
         <item quantity="other">Faltan %d cosas</item>
     </plurals>
     <string name="status_ready">Listo para iniciar</string>
-    <string name="status_ready_partial">Con la máscara algo transparente</string>
     <string name="status_starting_text">Android te pedirá permiso para capturar la pantalla</string>
     <string name="status_what_will_happen">Qué va a pasar</string>
     <string name="status_capture_permission">Permiso de captura</string>
@@ -105,6 +104,7 @@
     <string name="fallback_android">Detallado necesita Android 14 o más nuevo</string>
     <string name="health_ok">Todo en orden</string>
     <string name="health_ok_text">Máscara, avisos y permisos</string>
+    <string name="health_part">%1$d de %2$d en orden</string>
     <string name="need_overlay">Mostrar la máscara</string>
     <string name="need_service">Máscara completa</string>
     <string name="need_notifications">Avisos</string>
