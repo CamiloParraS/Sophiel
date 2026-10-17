@@ -31,6 +31,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -83,10 +84,10 @@ import kotlin.math.sin
 // The Status hero, cut from .scratch/mockup-home-v2.html: a grid of tiles (the screen the app watches), a state badge and the headline.
 
 private const val COLS = 7
-private val Moss = Color(0xFF12201A)
+internal val Moss = Palette.Moss
 private val Chalk = Palette.Chalk
-private val Text0 = Color(0xFFF2F7EF)
-private val Text1 = Color(0xFFB9CDB4)
+internal val Text0 = Color(0xFFF2F7EF)
+internal val Text1 = Color(0xFFB9CDB4)
 private val Edge = Color(0xFFBFD8A8)
 
 private const val CHUNK = 4 // device pixels per dither cell
@@ -94,7 +95,7 @@ private const val SIDE = DebugMask.SIDE * CHUNK
 private val Bayer4 = intArrayOf(0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5)
 
 /** The mask's own camo, sparse and dithered, drawn on the tiles the protected wave passes over. */
-private val CamoBrush: ShaderBrush by lazy {
+internal val CamoBrush: ShaderBrush by lazy {
     val field = DebugMask.camo(64, 128, 0xFFFFFF, seed = 5)
     val colour = DebugMask.PATTERN
     val px = IntArray(DebugMask.SIDE * DebugMask.SIDE) { k ->
@@ -183,7 +184,7 @@ fun GridHero(page: Page, title: String, text: String, modifier: Modifier = Modif
     var textAt by remember { mutableStateOf(Rect.Zero) }
     fun at(c: LayoutCoordinates) = hero0[0]?.localBoundingBoxOf(c) ?: Rect.Zero
 
-    Box(modifier.fillMaxWidth().height(hero).background(bg).onPlaced { hero0[0] = it }) {
+    Box(modifier.fillMaxWidth().height(hero).clipToBounds().background(bg).onPlaced { hero0[0] = it }) {
         Canvas(Modifier.fillMaxWidth().height(hero)) {
             drawGrid(page, tile, now, waveAt, still, listOf(nameAt, textAt, gearAt))
             drawRect(Brush.verticalGradient(listOf(Color.Transparent, bg.copy(alpha = .5f)), startY = size.height * .68f, endY = size.height))
@@ -257,7 +258,7 @@ private fun DrawScope.drawPadlock(color: Color, shut: Float) {
     }
 }
 
-private fun DrawScope.drawGrid(page: Page, tile: Color, now: Long, waveAt: Long, still: Boolean, texts: List<Rect>) {
+internal fun DrawScope.drawGrid(page: Page, tile: Color, now: Long, waveAt: Long, still: Boolean, texts: List<Rect>) {
     val t = size.width / COLS
     val rows = ceil(size.height / t).toInt()
     val gap = 1.5.dp.toPx()

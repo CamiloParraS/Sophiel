@@ -1,6 +1,31 @@
 package dev.sophiel.ui
 
 import android.text.format.DateFormat
+import android.app.Activity
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.unit.sp
+import androidx.core.view.WindowCompat
+import androidx.core.graphics.drawable.toBitmap
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedVisibility
@@ -10,7 +35,6 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -48,6 +72,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import dev.sophiel.R
+import dev.sophiel.capture.isDebuggable
 import dev.sophiel.log.EventLog
 import dev.sophiel.log.GapReason
 import dev.sophiel.log.OffReason
@@ -56,6 +81,7 @@ import dev.sophiel.settings.appLabel
 import dev.sophiel.log.TamperTarget
 import dev.sophiel.ui.theme.Ease
 import dev.sophiel.ui.theme.Palette
+import dev.sophiel.ui.theme.lift
 import dev.sophiel.ui.theme.motion
 import java.time.Instant
 import java.time.ZoneId
@@ -108,7 +134,7 @@ private fun gapText(reason: String) = when (reason) {
     else -> R.string.log_gap_accessibility
 }
 
-/** Historial (D39, D44): draws a [LogModel]. Reads the file off the main thread; Borrar historial asks first. */
+/** Historial (D39, D44): draws a [LogModel] in Status's language, a dark tile hero with the week's count and a chalk sheet over it. */
 @Composable
 fun LogScreen(log: EventLog, door: Door, onBack: () -> Unit) {
     val zone = remember { ZoneId.systemDefault() }
@@ -136,16 +162,50 @@ fun LogScreen(log: EventLog, door: Door, onBack: () -> Unit) {
     val labels = read?.second.orEmpty()
     var confirm by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    Column(Modifier.fillMaxSize()) {
-        HeaderBar(stringResource(R.string.log_title), start = { FlatIconButton(R.drawable.ic_back, stringResource(R.string.back), onBack) })
-        UnlockedBanner(door)
-        val m = model
-        when {
-            m == null -> Box(Modifier.weight(1f))
-            m.empty -> Column(Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.Center) {
-                StatusPage(R.drawable.ic_list, stringResource(R.string.log_empty), stringResource(R.string.log_empty_text), Tone.Off)
+    // Light icons on the dark hero; back to dark ones when leaving.
+    val view = LocalView.current
+    DisposableEffect(view) {
+        val bars = WindowCompat.getInsetsController((view.context as Activity).window, view)
+        bars.isAppearanceLightStatusBars = false
+        onDispose { bars.isAppearanceLightStatusBars = true }
+    }
+    val scroll = rememberScrollState()
+    val density = LocalDensity.current
+    var heroPx by remember { mutableIntStateOf(0) }
+    var barPx by remember { mutableIntStateOf(0) }
+    val lip = with(density) { 20.dp.roundToPx() }
+    // The top bar turns solid once the sheet's edge reaches it, so the back button never floats over chalk.
+    val solid by remember { derivedStateOf { heroPx > 0 && heroPx - lip - scroll.value <= barPx } }
+    val barFill by animateColorAsState(if (solid) Moss else Color.Transparent, motion(tween(160)), label = "bar")
+    Box(Modifier.fillMaxSize().background(Palette.Chalk)) {
+        Column(Modifier.fillMaxSize().verticalScroll(scroll)) {
+            val m = model
+            LogHero(m?.week?.masked, m?.days.orEmpty(), Modifier.onSizeChanged { heroPx = it.height })
+            // The sheet rides 20 dp over the hero, as on Status; layout, not offset, so it leaves no gap at the bottom.
+            Column(
+                Modifier.fillMaxWidth().layout { mm, c ->
+                    val p = mm.measure(c)
+                    layout(p.width, p.height - lip) { p.place(0, -lip) }
+                }.clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)).background(Palette.Chalk)
+                    .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 16.dp).navigationBarsPadding(),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                CompositionLocalProvider(LocalRowMin provides 48.dp) {
+                    when {
+                        m == null -> Unit
+                        m.empty -> StatusPage(R.drawable.ic_list, stringResource(R.string.log_empty), stringResource(R.string.log_empty_text), Tone.Off, Modifier.padding(vertical = 24.dp))
+                        else -> Content(m, labels, onClear = { confirm = true })
+                    }
+                }
             }
-            else -> Content(m, labels, zone, Modifier.weight(1f), onClear = { confirm = true })
+        }
+        Row(
+            Modifier.fillMaxWidth().background(barFill).statusBarsPadding().onSizeChanged { barPx = it.height }.padding(start = 6.dp, end = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            FlatIconButton(R.drawable.ic_back, stringResource(R.string.back), onBack, Color(0xBFDDEBD3), Color(0x12FFFFFF))
+            Text(stringResource(R.string.log_title), Modifier.weight(1f).padding(start = 10.dp), style = MaterialTheme.typography.titleMedium, color = Text0)
+            UnlockedChip(door)
         }
     }
     if (confirm) ConfirmDialog(
@@ -155,160 +215,289 @@ fun LogScreen(log: EventLog, door: Door, onBack: () -> Unit) {
     )
 }
 
+/** The week at a glance: the count as the one headline, a bar per day under it, on Status's tile grid. */
 @Composable
-private fun Content(model: LogModel, labels: Map<String, String>, zone: ZoneId, modifier: Modifier, onClear: () -> Unit) {
+private fun LogHero(masked: Int?, days: List<LogDay>, modifier: Modifier) {
+    Box(modifier.fillMaxWidth().background(Moss)) {
+        Canvas(Modifier.matchParentSize()) { drawGrid(Page.OFF, Color(0xFF1B2A24), 0L, -100_000L, true, emptyList()) }
+        // Count left, the week's bars right: one short band, so the per-app card and the rows start higher.
+        Row(
+            Modifier.fillMaxWidth().statusBarsPadding().padding(start = 22.dp, end = 22.dp, top = 76.dp, bottom = 60.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.Bottom,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(masked?.toString().orEmpty(), style = MaterialTheme.typography.headlineMedium.copy(fontSize = 56.sp, lineHeight = 56.sp), color = Text0)
+                Text(stringResource(R.string.log_hero_text), style = MaterialTheme.typography.bodyMedium, color = Text1)
+            }
+            if (days.isNotEmpty()) DayBars(days, Modifier.width(168.dp))
+        }
+    }
+}
+
+@Composable
+private fun ColumnScope.Content(model: LogModel, labels: Map<String, String>, onClear: () -> Unit) {
     val locale = Locale.getDefault()
     var filter by rememberSaveable { mutableStateOf(LogFilter.ALL) }
     val week = model.week
     val label = { app: String -> labels[app] ?: app }
-    Column(
-        modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(start = 14.dp, end = 14.dp, top = 18.dp, bottom = 16.dp).navigationBarsPadding(),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
-    ) {
-        Text(stringResource(R.string.log_week_title), Modifier.padding(start = 4.dp), style = MaterialTheme.typography.labelMedium, color = Palette.Dim)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Stat(week.masked, R.string.log_stat_masked, Modifier.weight(1f))
-            Stat(week.intentos, R.string.log_stat_attempts, Modifier.weight(1f))
-            Stat(week.bloqueos, R.string.log_stat_blocks, Modifier.weight(1f))
-        }
-        week.perApp.firstOrNull()?.let { (app, n) ->
-            Text(stringResource(R.string.log_top_app, label(app), n), Modifier.padding(start = 4.dp), style = MaterialTheme.typography.labelMedium, color = Palette.Dim)
-        }
-        DayBars(model.days)
-        if (week.perApp.isNotEmpty()) {
-            Text(stringResource(R.string.log_by_app), Modifier.padding(start = 4.dp), style = MaterialTheme.typography.labelMedium, color = Palette.Dim)
-            AppBars(week.perApp.take(5), label)
-        }
-        SegmentedControl(
-            listOf(R.string.log_filter_all, R.string.log_filter_masked, R.string.log_filter_others).map { stringResource(it) },
-            filter.ordinal, { filter = LogFilter.entries[it] },
+    // Each figure wears the icon of its rows below, so the summary and the list read as one thing.
+    // The verdict first, then only the figures that aren't zero. Blocks are the parent's own rules, so they never make it "look".
+    val look = week.unprotected > 0 || week.intentos > 0
+    Text(
+        stringResource(if (look) R.string.log_verdict_look else R.string.log_verdict_ok), Modifier.padding(start = 4.dp),
+        style = MaterialTheme.typography.titleMedium, color = if (look) Palette.Fg else Palette.GreenFg,
+    )
+    if (look || week.bloqueos > 0) Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        // The count, with the time it adds up to under it: hours of overnight gap alone would read as exposure.
+        if (week.unprotected > 0) Stat(
+            week.unprotected, R.drawable.ic_shield_off, stringResource(R.string.log_stat_gap),
+            LogModel.length(week.unprotectedSeconds), Palette.RedFg, Modifier.weight(1f),
         )
-        // A busy week has hundreds of rows, all composed at once in this scroll: show a page, add a page per tap.
-        var shown by rememberSaveable(filter) { mutableIntStateOf(PAGE) }
-        val days = model.days.asReversed().map { it to it.rows(filter) }.filter { it.second.isNotEmpty() }
-        val total = days.sumOf { it.second.size }
-        if (days.isEmpty()) Text(
-            stringResource(if (filter == LogFilter.MASKED) R.string.log_nothing_masked else R.string.log_nothing),
-            Modifier.fillMaxWidth().padding(vertical = 18.dp), style = MaterialTheme.typography.bodyMedium, color = Palette.Dim, textAlign = TextAlign.Center,
-        )
-        var left = shown
-        for ((d, rows) in days) {
-            if (left <= 0) break
-            val day = rows.take(left)
-            left -= day.size
-            val title = if (d.today) stringResource(R.string.log_today) else DateFormat.getBestDateTimePattern(locale, "EEEEdMMMM").let { p ->
-                d.date.format(java.time.format.DateTimeFormatter.ofPattern(p, locale)).replaceFirstChar { it.titlecase(locale) }
-            }
-            PreferenceGroup(title = pluralStringResource(R.plurals.log_day_total, d.masked, title, d.masked)) { day.forEach { r -> item { EntryRow(r, labels) } } }
-        }
-        if (total > shown) PillButton(
-            stringResource(R.string.log_more, total - shown), { shown += PAGE }, Modifier.align(Alignment.CenterHorizontally),
-        )
-        PillButton(stringResource(R.string.log_clear), onClear, Modifier.align(Alignment.CenterHorizontally), style = PillStyle.Destructive, icon = R.drawable.ic_trash)
+        if (week.intentos > 0) Stat(week.intentos, R.drawable.ic_lock, stringResource(R.string.log_stat_attempts), null, Palette.OrangeFg, Modifier.weight(1f))
+        if (week.bloqueos > 0) Stat(week.bloqueos, R.drawable.ic_block, stringResource(R.string.log_stat_blocks), null, Palette.Fg, Modifier.weight(1f))
     }
+    if (week.perApp.isNotEmpty()) PreferenceGroup(title = stringResource(R.string.log_by_app)) { item { AppBars(week.perApp.take(5), label) } }
+    SegmentedControl(
+        listOf(R.string.log_filter_all, R.string.log_filter_masked, R.string.log_filter_others).map { stringResource(it) },
+        filter.ordinal, { filter = LogFilter.entries[it] },
+    )
+    // A busy week has hundreds of rows, all composed at once in this scroll: show a page, add a page per tap.
+    var shown by rememberSaveable(filter) { mutableIntStateOf(PAGE) }
+    val days = model.days.asReversed().map { it to it.grouped(filter) }.filter { it.second.isNotEmpty() }
+    val total = days.sumOf { it.second.size }
+    if (days.isEmpty()) Text(
+        stringResource(if (filter == LogFilter.MASKED) R.string.log_nothing_masked else R.string.log_nothing),
+        Modifier.fillMaxWidth().padding(vertical = 18.dp), style = MaterialTheme.typography.bodyMedium, color = Palette.Dim, textAlign = TextAlign.Center,
+    )
+    var left = shown
+    for ((d, rows) in days) {
+        if (left <= 0) break
+        val day = rows.take(left)
+        left -= day.size
+        val title = if (d.today) stringResource(R.string.log_today) else DateFormat.getBestDateTimePattern(locale, "EEEEdMMMM").let { p ->
+            d.date.format(java.time.format.DateTimeFormatter.ofPattern(p, locale)).replaceFirstChar { it.titlecase(locale) }
+        }
+        PreferenceGroup(title = pluralStringResource(R.plurals.log_day_total, d.masked, title, d.masked)) { day.forEach { r -> item { EntryRow(r, labels) } } }
+    }
+    if (total > shown) PillButton(
+        stringResource(R.string.log_more, total - shown), { shown += PAGE }, Modifier.align(Alignment.CenterHorizontally),
+    )
+    PillButton(stringResource(R.string.log_clear), onClear, Modifier.align(Alignment.CenterHorizontally), style = PillStyle.Destructive, icon = R.drawable.ic_trash)
 }
 
-/** D59: masked episodes per day, 7 bars, today last; the bar takes the colour of the day's highest band (D44). */
+/**
+ * D59: masked episodes per day, 7 bars, today last and brightest, on the dark hero. One ink: the band colour per day
+ * (D44) read as an unexplained pink and brown; the rows' tags carry the band.
+ */
 @Composable
-private fun DayBars(days: List<LogDay>) {
+private fun DayBars(days: List<LogDay>, modifier: Modifier) {
     val most = days.maxOf { it.masked }.coerceAtLeast(1)
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+    Row(modifier, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         days.forEach { d ->
+            val ink = if (d.today) Text0 else Text1.copy(alpha = .55f)
             Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(d.masked.toString(), style = MaterialTheme.typography.labelSmall, color = Palette.Dim)
-                Box(Modifier.height(56.dp), contentAlignment = Alignment.BottomCenter) {
-                    val h = if (d.masked == 0) 3.dp else (4 + 52f * d.masked / most).dp
-                    Box(Modifier.width(16.dp).height(h).clip(RoundedCornerShape(3.dp)).background(d.top.color()))
+                // The day's count over its bar: the heights alone have no scale.
+                Text(
+                    if (d.masked == 0) "" else d.masked.toString(), style = MaterialTheme.typography.labelSmall.copy(fontFeatureSettings = "tnum"),
+                    color = if (d.today) Text0 else Text1, maxLines = 1,
+                )
+                Box(Modifier.padding(top = 2.dp).height(40.dp), contentAlignment = Alignment.BottomCenter) {
+                    val h = if (d.masked == 0) 2.dp else (6 + 34f * d.masked / most).dp
+                    Box(Modifier.width(12.dp).height(h).clip(RoundedCornerShape(3.dp)).background(if (d.masked == 0) Text1.copy(alpha = .3f) else ink))
                 }
                 Text(
-                    d.date.dayOfWeek.getDisplayName(TextStyle.NARROW, Locale.getDefault()).uppercase(),
-                    style = MaterialTheme.typography.labelSmall, color = if (d.today) MaterialTheme.colorScheme.primary else Palette.Dim, maxLines = 1,
+                    d.date.dayOfWeek.getDisplayName(TextStyle.NARROW, Locale.getDefault()).uppercase(), Modifier.padding(top = 4.dp),
+                    style = MaterialTheme.typography.labelSmall, color = if (d.today) Text0 else Text1, maxLines = 1,
                 )
             }
         }
     }
+}
+
+/**
+ * The hue of an app's icon, so each Por app bar wears its app's colour: the icon averaged to one pixel, then brought
+ * to one saturation and brightness so a busy icon doesn't come out muddy. A grey icon (X) stays grey. Grey until read.
+ */
+@Composable
+private fun appHue(pkg: String): Color {
+    val pm = LocalContext.current.packageManager
+    val hue by produceState(Palette.Dim, pkg) {
+        value = withContext(Dispatchers.IO) {
+            runCatching {
+                val px = android.graphics.Bitmap.createScaledBitmap(pm.getApplicationIcon(pkg).toBitmap(32, 32), 1, 1, true).getPixel(0, 0)
+                val hsv = FloatArray(3).also { android.graphics.Color.colorToHSV(px, it) }
+                if (hsv[1] < .12f) Palette.Dim else Color(android.graphics.Color.HSVToColor(floatArrayOf(hsv[0], .6f, .85f)))
+            }.getOrDefault(Palette.Dim)
+        }
+    }
+    return hue
 }
 
 @Composable
 private fun AppBars(apps: List<Pair<String, Int>>, label: (String) -> String) {
     val most = apps.first().second
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    // Each row is its bar: icon and name over a fill as wide as its share of the top app, the count at the end.
+    Column(Modifier.padding(6.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
         apps.forEach { (app, n) ->
-            Column {
-                Row {
-                    Text(label(app), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 1)
-                    Text(n.toString(), style = MaterialTheme.typography.bodyMedium, color = Palette.Dim)
+            Box(Modifier.fillMaxWidth().height(32.dp)) {
+                Box(Modifier.fillMaxWidth(n.toFloat() / most).fillMaxHeight().clip(RoundedCornerShape(6.dp)).background(appHue(app).copy(alpha = .2f)))
+                Row(
+                    Modifier.matchParentSize().padding(horizontal = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    AppIcon(app, 18.dp)
+                    Text(label(app), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(n.toString(), style = MaterialTheme.typography.labelMedium.copy(fontFeatureSettings = "tnum"), color = Palette.Fg)
                 }
-                Box(Modifier.padding(top = 3.dp).fillMaxWidth(n.toFloat() / most).height(6.dp).clip(RoundedCornerShape(3.dp)).background(MaterialTheme.colorScheme.primary))
             }
         }
     }
 }
 
+/** A figure for the week, under its rows' icon, with an optional [detail] line; it takes [tint] only when not zero, so a quiet week reads quiet. */
 @Composable
-private fun Stat(n: Int, @StringRes label: Int, modifier: Modifier) {
+private fun Stat(value: Int, @DrawableRes icon: Int, label: String, detail: String?, tint: Color, modifier: Modifier) {
     val shape = RoundedCornerShape(12.dp)
-    Column(modifier.clip(shape).background(Palette.Card).border(1.dp, Palette.Border, shape).padding(vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(n.toString(), style = MaterialTheme.typography.titleLarge)
-        Text(stringResource(label), style = MaterialTheme.typography.bodySmall, color = Palette.Dim)
+    val ink = if (value == 0) Palette.Dim else tint
+    Column(modifier.fillMaxHeight().lift(shape).clip(shape).background(Palette.Card).padding(12.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            SIcon(icon, ink, 16.dp)
+            Text(value.toString(), style = MaterialTheme.typography.titleLarge.copy(fontFeatureSettings = "tnum"), color = if (value == 0) Palette.Fg else tint, maxLines = 1)
+        }
+        Text(label, Modifier.padding(top = 2.dp), style = MaterialTheme.typography.bodySmall, color = Palette.Dim, maxLines = 2)
+        if (detail != null) Text(detail, style = MaterialTheme.typography.bodySmall, color = tint, maxLines = 1)
     }
+}
+
+private val Gap = 10.dp
+private val Pad = 14.dp
+private val IconSize = 18.dp
+
+/** The time column: wide enough for "12:45 PM" on a 12-hour phone, no wider on a 24-hour one. */
+@Composable
+private fun timeWidth() = if (DateFormat.is24HourFormat(LocalContext.current)) 40.dp else 60.dp
+
+/**
+ * One Log line, read as a timeline: the time in its own column, the kind's icon, what happened, an optional [end].
+ * [quiet] lines (protection on and off) step back so masks, attempts and blocks lead. With [open], a chevron turns as it opens.
+ */
+@Composable
+private fun Line(
+    time: String, @DrawableRes icon: Int, tint: Color, title: String, text: String?,
+    quiet: Boolean = false, open: Boolean? = null, onClick: (() -> Unit)? = null, end: (@Composable () -> Unit)? = null,
+) {
+    Row(
+        Modifier.fillMaxWidth().let { if (onClick != null) it.clickable(role = Role.Button, onClick = onClick) else it }
+            .heightIn(min = if (quiet) 40.dp else 52.dp).padding(horizontal = Pad, vertical = if (quiet) 6.dp else 10.dp),
+        horizontalArrangement = Arrangement.spacedBy(Gap), verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(time, Modifier.width(timeWidth()), style = MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = "tnum"), color = Palette.Dim, maxLines = 1)
+        SIcon(icon, tint)
+        Column(Modifier.weight(1f)) {
+            // A quiet line is one plain line, a marker between events rather than an event.
+            if (quiet) Text(
+                if (text == null) title else stringResource(R.string.log_gap_text, title, text),
+                style = MaterialTheme.typography.bodyMedium, color = Palette.Dim, maxLines = 1, overflow = TextOverflow.Ellipsis,
+            ) else {
+                Text(title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (text != null) Text(text, style = MaterialTheme.typography.bodyMedium, color = Palette.Dim)
+            }
+        }
+        end?.invoke()
+        if (open != null) {
+            val turn by animateFloatAsState(if (open) 270f else 90f, motion(tween(200, easing = Ease)), label = "chev")
+            SIcon(R.drawable.ic_chev, Palette.Dim, 16.dp, Modifier.rotate(turn))
+        }
+    }
+}
+
+/** What an opened line shows, lined up under its title; it closes faster than it opens. */
+@Composable
+private fun Detail(open: Boolean, content: @Composable ColumnScope.() -> Unit) = AnimatedVisibility(
+    open,
+    enter = expandVertically(motion(tween(220, easing = Ease))) + fadeIn(motion(tween(220, easing = Ease))),
+    exit = shrinkVertically(motion(tween(160, easing = Ease))) + fadeOut(motion(tween(120))),
+) {
+    Column(Modifier.padding(start = Pad + timeWidth() + Gap + IconSize + Gap, end = Pad, bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(6.dp), content = content)
+}
+
+/** The classifier's confidence word: a parent can't act on it, so only a debug build shows it. */
+@Composable
+private fun BandTag(band: Band) = if (!LocalContext.current.isDebuggable) Unit else when (band) {
+    Band.HIGH -> Tag(stringResource(R.string.log_band_high), TagKind.VerySafe)
+    Band.MID -> Tag(stringResource(R.string.log_band_mid), TagKind.Safe)
+    Band.LOW -> Tag(stringResource(R.string.log_band_low), TagKind.Doubtful)
 }
 
 @Composable
 private fun EntryRow(row: LogRow, labels: Map<String, String>) {
-    val time = DateFormat.getTimeFormat(LocalContext.current).format(java.util.Date(row.at))
+    val fmt = DateFormat.getTimeFormat(LocalContext.current)
+    val time = fmt.format(Date(row.at))
     val unknown = stringResource(R.string.log_app_unknown)
+    // A line about an app leads with the app, its icon says what happened; lines without one lead with the event.
     val label = { app: String -> if (app.isEmpty()) unknown else labels[app] ?: app }
-    val clock = @Composable { Text(time, style = MaterialTheme.typography.bodyMedium, color = Palette.Dim) }
+    val debug = LocalContext.current.isDebuggable
+    // Release: one calm green for every cover; the band colours are the classifier's confidence (debug).
+    val tone = { band: Band? -> if (!debug) Palette.GreenFg else if (band == null) Palette.Dim else band.color() }
+    val times = @Composable { line: String, n: Int -> if (n > 1) stringResource(R.string.log_gap_text, line, pluralStringResource(R.plurals.log_times, n, n)) else line }
     when (row) {
+        is LogRow.MaskedRun -> {
+            var open by rememberSaveable(row.at) { mutableStateOf(false) }
+            Column {
+                Line(
+                    time, R.drawable.ic_shield, tone(row.band), label(row.app),
+                    // The time column has when; each episode's time is inside.
+                    pluralStringResource(R.plurals.log_episodes, row.episodes.size, row.episodes.size),
+                    open = open, onClick = { open = !open }, end = { row.band?.let { BandTag(it) } },
+                )
+                Detail(open) {
+                    row.episodes.forEach { e ->
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                stringResource(R.string.log_app_line, fmt.format(Date(e.at)), pluralStringResource(R.plurals.log_parts, e.count, e.count)),
+                                Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = "tnum"), color = Palette.Dim,
+                            )
+                            e.band?.let { BandTag(it) }
+                        }
+                    }
+                }
+            }
+        }
         is LogRow.Masked -> {
             var open by rememberSaveable(row.at) { mutableStateOf(false) }
-            val tint = if (row.band == null) Palette.Dim else row.band.color()
             val zones = pluralStringResource(R.plurals.log_zones, row.count, row.count)
             val review = stringResource(presetName(row.preset))
             Column {
-                PrefRow(
-                    stringResource(R.string.log_masked),
-                    description = stringResource(R.string.log_app_line, label(row.app), pluralStringResource(R.plurals.log_parts, row.count, row.count)),
-                    icon = R.drawable.ic_shield, iconTint = tint, onClick = { open = !open },
-                    end = {
-                        Column(horizontalAlignment = Alignment.End) {
-                            clock()
-                            when (row.band) {
-                                Band.HIGH -> Tag(stringResource(R.string.log_band_high), TagKind.VerySafe)
-                                Band.MID -> Tag(stringResource(R.string.log_band_mid), TagKind.Safe)
-                                Band.LOW -> Tag(stringResource(R.string.log_band_low), TagKind.Doubtful)
-                                null -> Unit
-                            }
-                        }
-                    },
+                Line(
+                    time, R.drawable.ic_shield, tone(row.band),
+                    if (row.app.isEmpty()) stringResource(R.string.log_masked) else label(row.app),
+                    pluralStringResource(R.plurals.log_parts, row.count, row.count),
+                    open = open, onClick = { open = !open }, end = { row.band?.let { BandTag(it) } },
                 )
-                AnimatedVisibility(open, enter = expandVertically(motion(tween(240, easing = Ease))), exit = shrinkVertically(motion(tween(240, easing = Ease)))) {
+                Detail(open) {
                     Text(
-                        if (row.band == null) stringResource(R.string.log_detail_precise, review, zones)
+                        if (row.band == null || !debug) stringResource(R.string.log_detail_precise, review, zones)
                         else stringResource(R.string.log_detail, review, "%.2f".format(Locale.getDefault(), row.score), zones),
-                        Modifier.padding(start = 44.dp, end = 14.dp, bottom = 10.dp), style = MaterialTheme.typography.bodyMedium, color = Palette.Dim,
+                        style = MaterialTheme.typography.bodyMedium, color = Palette.Dim,
                     )
                 }
             }
         }
-        is LogRow.Unanalyzable -> PrefRow(
-            stringResource(R.string.log_unchecked), description = stringResource(R.string.log_unchecked_text, label(row.app), row.seconds),
-            icon = R.drawable.ic_block, end = clock,
+        is LogRow.Unanalyzable -> Line(
+            time, R.drawable.ic_block, Palette.Dim, if (row.app.isEmpty()) stringResource(R.string.log_unchecked) else label(row.app),
+            times(stringResource(R.string.log_gap_text, stringResource(R.string.log_unchecked), LogModel.length(row.seconds)), row.count),
         )
-        is LogRow.On -> PrefRow(
-            stringResource(R.string.log_on),
-            description = stringResource(R.string.log_on_text, stringResource(presetName(row.preset)).lowercase(), stringResource(careName(row.sensitivity)).lowercase()),
-            icon = R.drawable.ic_power, iconTint = Palette.GreenFg, end = clock,
+        is LogRow.On -> Line(
+            time, R.drawable.ic_power, Palette.GreenFg, stringResource(R.string.log_on),
+            stringResource(R.string.log_on_text, stringResource(presetName(row.preset)).lowercase(), stringResource(careName(row.sensitivity)).lowercase()),
+            quiet = true,
         )
-        is LogRow.ShareStopped -> PrefRow(
-            stringResource(R.string.log_share_stopped), description = stringResource(R.string.log_share_stopped_text),
-            icon = R.drawable.ic_stop, end = clock,
+        is LogRow.ShareStopped -> Line(
+            time, R.drawable.ic_stop, Palette.Dim, stringResource(R.string.log_share_stopped), stringResource(R.string.log_share_stopped_text), quiet = true,
         )
-        is LogRow.Unprotected -> PrefRow(
-            stringResource(R.string.log_gap),
-            description = stringResource(R.string.log_gap_text, stringResource(gapText(row.reason)), LogModel.length(row.seconds)),
-            icon = R.drawable.ic_shield_off, iconTint = Palette.RedFg, end = clock,
+        is LogRow.Unprotected -> Line(
+            time, R.drawable.ic_shield_off, Palette.RedFg, stringResource(R.string.log_gap),
+            stringResource(R.string.log_gap_text, stringResource(gapText(row.reason)), LogModel.length(row.seconds)),
         )
         is LogRow.Tamper -> {
             val target = stringResource(
@@ -320,28 +509,29 @@ private fun EntryRow(row: LogRow, labels: Map<String, String>) {
                     else -> R.string.log_tamper_accessibility
                 },
             )
-            PrefRow(
-                stringResource(R.string.log_tamper),
-                description = if (row.count > 1) stringResource(R.string.log_gap_text, target, pluralStringResource(R.plurals.log_times, row.count, row.count)) else target,
-                icon = R.drawable.ic_lock, iconTint = Palette.Orange, end = clock,
-            )
+            Line(time, R.drawable.ic_lock, Palette.Orange, stringResource(R.string.log_tamper), times(target, row.count))
         }
-        is LogRow.AppBlocked -> PrefRow(
-            stringResource(R.string.log_app_blocked),
-            description = stringResource(R.string.log_gap_text, label(row.app), stringResource(R.string.minutes_short, row.minutes)),
-            icon = R.drawable.ic_block, iconTint = Palette.Orange, end = clock,
+        is LogRow.AppBlocked -> Line(
+            time, R.drawable.ic_block, Palette.Orange, label(row.app),
+            stringResource(R.string.log_gap_text, stringResource(R.string.log_app_blocked), stringResource(R.string.minutes_short, row.minutes)),
         )
-        is LogRow.BlockedOpen -> {
-            val why = stringResource(R.string.log_gap_text, label(row.app), stringResource(if (row.reason == BlockReason.ESCALATION) R.string.log_blocked_escalation else R.string.log_blocked_rule))
-            PrefRow(
-                stringResource(R.string.log_blocked_open),
-                description = if (row.count > 1) stringResource(R.string.log_gap_text, why, pluralStringResource(R.plurals.log_times, row.count, row.count)) else why,
-                icon = R.drawable.ic_block, iconTint = Palette.Orange, end = clock,
-            )
-        }
-        is LogRow.Off -> PrefRow(
-            stringResource(R.string.log_off), description = stringResource(offText(row.reason)),
-            icon = if (row.reason == OffReason.SCREEN_OFF) R.drawable.ic_moon else R.drawable.ic_power, end = clock,
+        is LogRow.BlockedOpen -> Line(
+            time, R.drawable.ic_block, Palette.Orange, label(row.app),
+            times(
+                stringResource(
+                    R.string.log_gap_text, stringResource(R.string.log_blocked_open),
+                    stringResource(if (row.reason == BlockReason.ESCALATION) R.string.log_blocked_escalation else R.string.log_blocked_rule),
+                ),
+                row.count,
+            ),
+        )
+        is LogRow.Off -> Line(
+            time, if (row.reason == OffReason.SCREEN_OFF) R.drawable.ic_moon else R.drawable.ic_power, Palette.Dim,
+            stringResource(R.string.log_off), stringResource(offText(row.reason)), quiet = true,
+        )
+        is LogRow.Paused -> Line(
+            time, if (row.reason == OffReason.SCREEN_OFF) R.drawable.ic_moon else R.drawable.ic_power, Palette.Dim,
+            stringResource(R.string.log_paused, LogModel.length(row.seconds)), stringResource(offText(row.reason)), quiet = true,
         )
     }
 }

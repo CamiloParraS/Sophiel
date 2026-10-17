@@ -81,7 +81,6 @@ import dev.sophiel.ui.LogScreen
 import dev.sophiel.ui.SettingsScreen
 import dev.sophiel.ui.PillButton
 import dev.sophiel.ui.PillStyle
-import dev.sophiel.ui.UnlockedBanner
 import dev.sophiel.ui.theme.Palette
 import dev.sophiel.ui.theme.SophielTheme
 
@@ -140,7 +139,7 @@ class MainActivity : ComponentActivity() {
                 // a wizard swiped away after that opens on Status next time.
                 var setup by rememberSaveable { mutableStateOf(!container.pin.exists()) }
                 if (setup) {
-                    SetupWizard(container, resumes.intValue, ::fix, start = { setup = false; controller.start() })
+                    SetupWizard(container, resumes.intValue, ::fix, start = { setup = false; controller.start() }, finish = { setup = false })
                 } else {
                     DoorHost(container) { door -> appBody(container, door, rerunWizard = { setup = true }) }
                 }

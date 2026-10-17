@@ -90,33 +90,8 @@ fun DoorHost(container: AppContainer, content: @Composable BoxScope.(Door) -> Un
     }
 }
 
-/** "Ajustes desbloqueado · Se bloquea en 1:48" with Bloquear ahora; folds away at zero. */
-@Composable
-fun UnlockedBanner(door: Door, modifier: Modifier = Modifier) {
-    AnimatedVisibility(
-        door.unlocked,
-        modifier,
-        enter = expandVertically(motion(tween(200, easing = Ease))) + fadeIn(motion(tween(160))),
-        exit = shrinkVertically(motion(tween(200, easing = Ease))) + fadeOut(motion(tween(160))),
-    ) {
-        val primary = MaterialTheme.colorScheme.primary
-        Row(
-            Modifier.fillMaxWidth().background(Palette.tint(primary)).padding(horizontal = 14.dp, vertical = 8.dp),
-            horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            SIcon(R.drawable.ic_unlock, primary)
-            Text(
-                stringResource(R.string.unlocked_banner, dev.sophiel.pin.formatCountdown(door.remainingMs)),
-                Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, color = Palette.Fg,
-            )
-            PillButton(stringResource(R.string.lock_now), door.lockNow, small = true)
-        }
-    }
-}
-
 /**
- * Status's [UnlockedBanner]: a glass chip on the dark hero, beside the gear it opened. "1:48 · Bloquear ahora";
+ * The unlocked countdown: a glass chip on the dark header, beside the gear (Status) or at the end of a parent screen's header. "1:48 · Bloquear ahora";
  * a tap locks. Tabular digits, so the chip doesn't twitch as the seconds change.
  */
 @Composable

@@ -1,16 +1,18 @@
 package dev.sophiel.ui.theme
 
-import android.os.Build
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 
-/** D44: only the accent follows Material You. State colours are fixed, from the mockup's `--green*`, `--orange*`, `--red*`. */
+/** D65: one fixed brand ink (Moss), no Material You. State colours are fixed, from the mockup's `--green*`, `--orange*`, `--red*`. */
 object Palette {
-    val Blue = Color(0xFF3584E4)
+    val Blue = Color(0xFF3584E4) // Log's LOW band only
+    val Moss = Color(0xFF12201A) // the hero's ink: buttons, header, the one primary
     val Green = Color(0xFF2EC27E)
     val GreenFg = Color(0xFF1B8553)
     val Orange = Color(0xFFE66100)
@@ -22,34 +24,32 @@ object Palette {
     private val Ink = Color(0xFF000006)
     val Fg = Ink.copy(alpha = .8f)
     val Dim = Ink.copy(alpha = .55f)
-    val Border = Ink.copy(alpha = .12f)
+    val Border = Color(0xFF281E0A).copy(alpha = .12f) // warm, like the surfaces it divides
     val Hover = Ink.copy(alpha = .06f)
     val Btn = Ink.copy(alpha = .07f)
-    val Win = Color(0xFFFAFAFA)
-    val Head = Color(0xFFEBEBEB)
-    val Card = Color.White
-    val Chalk = Color(0xFFEEF2EF) // the Status sheet and bottom bar
+    // D64: two roles. Page is the greige behind everything; Surface is the one off-white that rises off it
+    // (cards, tiles, sheets, dialogs, the selected pill). Pure white glared under the dark hero.
+    val Surface = Color(0xFFF9F8F5)
+    val Chalk = Color(0xFFEAE8E3) // the page: the Status sheet and bottom bar
+    val Win = Surface
+    val Card = Surface
+    val Head = Chalk
 
     /** Mockup `.tag.ok`, `.ec.ok` and the `.big` disc: a state colour at low alpha. */
     fun tint(c: Color, alpha: Float = .16f) = c.copy(alpha = alpha)
 }
 
-private val FallbackAccent = lightColorScheme(
-    primary = Palette.Blue,
-    onPrimary = Color.White,
-    primaryContainer = Color(0xFFDFEBFB), // blue at .16 over white
-    onPrimaryContainer = Color(0xFF1A5FB4),
-)
+/** A card's one-pixel lift off the page, warm like the surfaces: the border's job now. */
+fun Modifier.lift(shape: Shape) = shadow(1.dp, shape, ambientColor = Color(0x33281E0A), spotColor = Color(0x33281E0A))
 
 /** Light only: the system dark mode is ignored on purpose (D43). */
 @Composable
 fun SophielTheme(content: @Composable () -> Unit) {
-    val accent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) dynamicLightColorScheme(LocalContext.current) else FallbackAccent
     val scheme = lightColorScheme(
-        primary = accent.primary,
-        onPrimary = accent.onPrimary,
-        primaryContainer = accent.primaryContainer,
-        onPrimaryContainer = accent.onPrimaryContainer,
+        primary = Palette.Moss,
+        onPrimary = Color(0xFFF2F7EF),
+        primaryContainer = Palette.tint(Palette.GreenFg, .14f),
+        onPrimaryContainer = Palette.GreenFg,
         background = Palette.Win,
         onBackground = Palette.Fg,
         surface = Palette.Win,

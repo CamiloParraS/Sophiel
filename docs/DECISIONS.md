@@ -1601,3 +1601,70 @@ Amends D54's "boot-to-first-unlock is not a gap" for this one case.
   receiver (D54).
 - **With the service on** nothing changes: the bind at the first unlock starts the process, capture resumes,
   no stretch is found.
+
+## D62 — Log polish: one-ink day bars, folded lines (2026-10-16, human decision, UI polish)
+
+Amends D44 / D59's Log rows and bars; the D59 layout is unchanged.
+
+- **Day bars are one ink** (today brightest), not the day's highest band colour: on the dark hero the pink /
+  brown read as unexplained. The band stays on the rows' tags.
+- **Rows are a timeline:** time in its own left column; a line about an app leads with the app, its icon says
+  what happened. On, off and pause lines are one plain grey line.
+- **Folding in the list only** (counts and the report still see every entry): back-to-back masked episodes
+  in one app (10 min gap) → one line that opens; unchecked stretches in one app → one line with the time
+  summed; a stop and the turn-on after it → "En pausa 8 min".
+- **Por app rows are their bars:** app icon and name over an accent fill as wide as the app's share of the
+  top app, count at the end. Each fill takes the hue of its app's icon (grey for a grey icon).
+
+## D63 — Card tint, no card borders, plainer Log labels (2026-10-16, human decision, UI polish)
+
+- **`Palette.Card` is `#F9FBF7`, not white:** pure white glared under the dark hero (tester feedback). The
+  1 dp outlines on Status, Apps and Log cards are gone; the tone step against the chalk sheet and the 1 dp
+  row dividers do the separating.
+- **Log labels say what happened** (ES and EN): "Veces sin protección" (time under it), "Intentos de apagar
+  Sophiel", "Aperturas bloqueadas" (grey, not orange: the parent's own rules working), filter "Otros" →
+  "Protección". Row titles unchanged.
+- **Verdict line, then only non-zero figures:** "Todo en orden esta semana" (green) or "Para revisar esta semana"
+  above the tiles. Unprotected and attempts make it "look"; blocks (the parent's own rules) never do. A tile at 0 is hidden.
+- **Confidence is debug-only:** the Muy seguro / Seguro / Dudoso tag, the score and the band colours show only when
+  `isDebuggable`; a release build shows every cover in one green, with the review level and zones in the detail.
+
+## D64 — Warm paper: two surface roles (2026-10-16, human decision, UI polish)
+
+Amends D63's tint. A tester found the app "too white" (GNOME white, not Apple white); four page/surface pairs were
+compared in `.scratch/mockup-white.html` and the human picked the warm one (D).
+
+- **Two roles, not four colours:** `Palette.Chalk` is the page, `#EAE8E3`; `Palette.Surface` is the one off-white that
+  rises off it, `#F9F8F5`. `Card` and `Win` are aliases of `Surface`, so cards, tiles, the PIN sheet, dialogs, the block
+  screen, overlays and the selected pill in the segmented control are one value. `Head` follows the page.
+- **A lift, not an outline:** cards get `Modifier.lift` (1 dp warm shadow) in place of D63's removed borders; `Border`
+  (dividers) is warm too. Switch thumbs stay white.
+- **Seen on B:** Status, the PIN sheet. The rest of the screens move to the new visual style separately.
+
+## D65 — One ink, one header (2026-10-17, human decision, UI polish)
+
+Amends D44's accent and the flat grey header. An audit found Status and Log (dark tile grid, green) and the other screens
+(grey bar, wallpaper-derived accent, teal on A) looked like two apps.
+
+- **No Material You:** `primary` is `Palette.Moss` (`#12201A`, the hero's ink, as Status's buttons already were). Pill
+  buttons, the PIN confirm key and the segmented thumb follow it. The accent for "on" and "chosen" things (switch track,
+  check, wizard dots, links, Recomendado tag) is `Palette.GreenFg`, so state still reads as green.
+- **One header:** `HeaderBar` is the dark tile strip with the back chip and a left-aligned title (Log's top bar), on
+  Ajustes, Apps, the wizard, Cambiar PIN and the debug menu. The unlocked countdown is the `UnlockedChip` in its end slot;
+  the tinted `UnlockedBanner` is gone. Status and Log keep their taller heroes.
+
+## D66 — Wizard: welcome step, tile progress, a tile visual per step (2026-10-17, human decision, UI polish)
+
+Amends D42/D44's wizard frame; the step order and the permission logic are unchanged.
+
+- **Step 0, welcome:** the Status hero on the Protected page (the lock shuts, camo spreads) with one "Empezar" button and
+  "Son 7 pasos cortos". It has no progress and no back; Back from step 1 returns to it.
+- **No header bar:** a back chip and seven progress tiles (12 dp, filled green up to the current step) stay on top while the
+  steps slide under them. Step 1 (PIN) is the keypad itself, with no visual.
+- **A visual in the middle of steps 2-7** (`TileVisual`): a 5x3 tile grid on a 4.2 s loop, each doing what the step is about:
+  a layer sweeping over (overlay), see-through then opaque (accessibility), three tiles breathing (keep awake), a ping
+  (notifications), the scan over 4/8/12/15 tiles by preset (how it checks; follows the choice), the wave that covers all
+  (start). Reduced motion draws one still frame.
+- **Cómo revisa and Cuidado stay on one step (6)**, so the wizard stays at 7 steps.
+- **Last step has two exits:** "Iniciar protección" and "Ir a la app" (leaves the wizard without starting).
+- `GridHero` now clips its tiles to its own height (they drew one row past it, over whatever sat below).

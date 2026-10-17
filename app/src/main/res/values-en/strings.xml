@@ -125,6 +125,7 @@
     <!-- Log -->
     <string name="log_title">Log</string>
     <string name="log_today">Today</string>
+    <string name="log_hero_text">covered in 7 days</string>
     <string name="log_week_title">Last 7 days</string>
     <string name="log_by_app">By app</string>
     <string name="log_top_app">Most in %1$s (%2$d)</string>
@@ -133,11 +134,14 @@
         <item quantity="other">%1$s · %2$d covered</item>
     </plurals>
     <string name="log_stat_masked">Covered</string>
-    <string name="log_stat_attempts">Attempts</string>
-    <string name="log_stat_blocks">Blocks</string>
+    <string name="log_stat_attempts">Attempts to turn Sophiel off</string>
+    <string name="log_stat_gap">Times unprotected</string>
+    <string name="log_stat_blocks">Blocked from opening</string>
+    <string name="log_verdict_ok">All in order this week</string>
+    <string name="log_verdict_look">Worth a look this week</string>
     <string name="log_filter_all">All</string>
     <string name="log_filter_masked">Covered</string>
-    <string name="log_filter_others">Other</string>
+    <string name="log_filter_others">Protection</string>
     <string name="log_nothing_masked">Nothing was covered this day.</string>
     <string name="log_nothing">Nothing to show.</string>
     <string name="log_more">Show more (%d)</string>
@@ -145,6 +149,10 @@
     <plurals name="log_parts">
         <item quantity="one">%d part of the screen</item>
         <item quantity="other">%d parts of the screen</item>
+    </plurals>
+    <plurals name="log_episodes">
+        <item quantity="one">%d episode</item>
+        <item quantity="other">%d episodes</item>
     </plurals>
     <plurals name="log_zones">
         <item quantity="one">%d zone</item>
@@ -162,6 +170,7 @@
     <string name="log_on">Protection turned on</string>
     <string name="log_on_text">%1$s check · %2$s care</string>
     <string name="log_off">Protection stopped</string>
+    <string name="log_paused">Off for %1$s</string>
     <string name="log_off_user">You stopped it</string>
     <string name="log_off_screen">The screen turned off</string>
     <string name="log_off_system">The system closed it</string>
@@ -243,6 +252,11 @@
     <!-- Setup wizard -->
     <string name="wiz_title">Setup</string>
     <string name="wiz_step">Step %1$d of %2$d</string>
+    <string name="wiz_welcome_title">Welcome to Sophiel</string>
+    <string name="wiz_welcome_text">It covers what shouldn\'t be seen on the screen. Everything happens on this phone.</string>
+    <string name="wiz_welcome_go">Get started</string>
+    <string name="wiz_welcome_note">%1$d short steps</string>
+    <string name="wiz_go_app">Go to the app</string>
     <string name="wiz_skip">Skip</string>
     <string name="wiz_app_info">Open App info</string>
     <string name="wiz_overlay_text">Sophiel covers what shouldn\'t be seen with a mask over other apps. It can\'t work without this permission.</string>

@@ -48,7 +48,7 @@ import dev.sophiel.ui.theme.motion
 @Composable
 fun RoundSwitch(checked: Boolean, onChange: ((Boolean) -> Unit)?, modifier: Modifier = Modifier) {
     val track by animateColorAsState(
-        if (checked) MaterialTheme.colorScheme.primary else Palette.Fg.copy(alpha = .15f),
+        if (checked) Palette.GreenFg else Palette.Fg.copy(alpha = .15f),
         motion(tween(200)),
         label = "track",
     )
@@ -124,7 +124,7 @@ fun SegmentedControl(options: List<String>, selected: Int, onSelect: (Int) -> Un
                     .matchParentSize()
                     .padding(start = (thumbWidth + 2.dp) * pos, end = (maxWidth - thumbWidth - (thumbWidth + 2.dp) * pos).coerceAtLeast(0.dp))
                     .shadow(1.dp, CircleShape)
-                    .background(Color.White, CircleShape),
+                    .background(Palette.Surface, CircleShape),
             )
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                 options.forEachIndexed { i, label ->

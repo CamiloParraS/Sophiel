@@ -1,11 +1,15 @@
 package dev.sophiel.ui
 
+import android.app.Activity
 import androidx.annotation.DrawableRes
+import androidx.compose.foundation.Canvas
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -31,8 +35,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
@@ -42,6 +45,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.sophiel.ui.theme.Palette
+import dev.sophiel.ui.theme.lift
 import dev.sophiel.ui.theme.motion
 
 // Shared parts, cut from mockups/gnome2.html (D44). Controls are in Controls.kt, sheet and dialog in Overlays.kt.
@@ -50,7 +54,27 @@ import dev.sophiel.ui.theme.motion
 fun SIcon(@DrawableRes id: Int, tint: Color = Palette.Dim, size: Dp = 18.dp, modifier: Modifier = Modifier) =
     Icon(painterResource(id), contentDescription = null, tint = tint, modifier = modifier.size(size))
 
-/** Flat grey bar: centred bold title (optional subtitle), start and end slots, 1 px bottom edge. */
+/** True under [HeaderBar]: header buttons wear the glass-on-dark look Status and Log use. */
+private val LocalOnDark = androidx.compose.runtime.compositionLocalOf { false }
+
+private val onDarkBars = java.util.concurrent.atomic.AtomicInteger()
+
+/** Light status-bar icons while any dark header is composed (a counter: wizard steps cross-fade, so two can overlap). */
+@Composable
+internal fun LightStatusIcons() {
+    val view = LocalView.current
+    DisposableEffect(view) {
+        val bars = WindowCompat.getInsetsController((view.context as Activity).window, view)
+        onDarkBars.incrementAndGet()
+        bars.isAppearanceLightStatusBars = false
+        onDispose { if (onDarkBars.decrementAndGet() == 0) bars.isAppearanceLightStatusBars = true }
+    }
+}
+
+/**
+ * The header of every screen but Status's own hero: the dark tile grid, back chip and title at the left (as Log),
+ * optional subtitle, end slot (the unlocked chip on parent screens).
+ */
 @Composable
 fun HeaderBar(
     title: String,
@@ -59,32 +83,35 @@ fun HeaderBar(
     start: @Composable () -> Unit = {},
     end: @Composable () -> Unit = {},
 ) {
-    Row(
-        modifier
-            .fillMaxWidth()
-            .background(Palette.Head)
-            .drawBehind { drawLine(Palette.Border, Offset(0f, size.height), Offset(size.width, size.height), 1.dp.toPx()) }
-            .statusBarsPadding()
-            .heightIn(min = 46.dp)
-            .padding(horizontal = 6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) { start() }
-        Column(Modifier.weight(2f), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(title, style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center)
-            if (subtitle != null) Text(subtitle, style = MaterialTheme.typography.bodySmall, color = Palette.Dim, textAlign = TextAlign.Center)
+    LightStatusIcons()
+    Box(modifier.fillMaxWidth().clipToBounds().background(Moss)) {
+        Canvas(Modifier.matchParentSize()) { drawGrid(Page.OFF, Color(0xFF1B2A24), 0L, -100_000L, true, emptyList()) }
+        androidx.compose.runtime.CompositionLocalProvider(LocalOnDark provides true) {
+            Row(
+                Modifier.fillMaxWidth().statusBarsPadding().heightIn(min = 64.dp).padding(start = 6.dp, end = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                start()
+                Column(Modifier.weight(1f).padding(start = 10.dp, end = 8.dp)) {
+                    Text(title, style = MaterialTheme.typography.titleMedium, color = Text0)
+                    if (subtitle != null) Text(subtitle, style = MaterialTheme.typography.bodySmall, color = Text1)
+                }
+                end()
+            }
         }
-        Box(Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) { end() }
     }
 }
 
-/** Header button: icon only, 34 dp visual, no fill, inside a 48 dp touch target. */
+/** Header button: icon only, in a 48 dp touch target. Dark-header look under [HeaderBar] unless told otherwise. */
 @Composable
-fun FlatIconButton(@DrawableRes icon: Int, label: String, onClick: () -> Unit, tint: Color = Palette.Fg, fill: Color = Color.Transparent) {
+fun FlatIconButton(@DrawableRes icon: Int, label: String, onClick: () -> Unit, tint: Color = Color.Unspecified, fill: Color = Color.Unspecified) {
+    val dark = LocalOnDark.current
+    val ink = if (tint != Color.Unspecified) tint else if (dark) Color(0xBFDDEBD3) else Palette.Fg
+    val bg = if (fill != Color.Unspecified) fill else if (dark) Color(0x12FFFFFF) else Color.Transparent
     Box(
-        Modifier.size(48.dp).padding(if (fill == Color.Transparent) 0.dp else 4.dp).clip(RoundedCornerShape(if (fill == Color.Transparent) 10.dp else 12.dp)).background(fill).clickable(role = Role.Button, onClick = onClick).semantics { contentDescription = label },
+        Modifier.size(48.dp).padding(if (bg == Color.Transparent) 0.dp else 4.dp).clip(RoundedCornerShape(if (bg == Color.Transparent) 10.dp else 12.dp)).background(bg).clickable(role = Role.Button, onClick = onClick).semantics { contentDescription = label },
         contentAlignment = Alignment.Center,
-    ) { SIcon(icon, tint) }
+    ) { SIcon(icon, ink) }
 }
 
 class GroupScope {
@@ -99,7 +126,7 @@ fun PreferenceGroup(modifier: Modifier = Modifier, title: String? = null, footno
     Column(modifier) {
         if (title != null) Text(title, Modifier.padding(start = 4.dp, end = 4.dp, bottom = 6.dp), style = MaterialTheme.typography.labelMedium, color = Palette.Dim)
         val shape = RoundedCornerShape(12.dp)
-        Column(Modifier.fillMaxWidth().clip(shape).background(Palette.Card).border(1.dp, Palette.Border, shape)) {
+        Column(Modifier.fillMaxWidth().lift(shape).clip(shape).background(Palette.Card)) {
             scope.items.forEachIndexed { i, row ->
                 if (i > 0) Box(Modifier.fillMaxWidth().height(1.dp).background(Palette.Border))
                 row()
@@ -159,7 +186,7 @@ enum class TagKind { Neutral, Ok, Recommended, VerySafe, Safe, Doubtful }
 
 @Composable
 fun Tag(text: String, kind: TagKind = TagKind.Neutral, modifier: Modifier = Modifier) {
-    val primary = MaterialTheme.colorScheme.primary
+    val primary = Palette.GreenFg
     val (bg, fg) = when (kind) {
         TagKind.Neutral -> Palette.Btn to Palette.Dim
         TagKind.Ok -> Palette.tint(Palette.Green, .2f) to Palette.GreenFg
@@ -176,7 +203,7 @@ enum class Tone { Ok, Off, Ready, Warn, Alert }
 /** AdwStatusPage: big symbolic icon in a disc, title, one line. Colours and icon cross-fade when the state changes. */
 @Composable
 fun StatusPage(@DrawableRes icon: Int, title: String, text: String, tone: Tone, modifier: Modifier = Modifier, spinner: Boolean = false) {
-    val primary = MaterialTheme.colorScheme.primary
+    val primary = Palette.GreenFg
     val (bg, fg) = when (tone) {
         Tone.Ok -> Palette.tint(Palette.Green) to Palette.GreenFg
         Tone.Off -> Palette.Btn to Palette.Dim

@@ -158,4 +158,56 @@ class LogModelTest {
         assertEquals(3, m.today.masked)
         assertEquals(2, m.today.bloqueos)
     }
+
+    private fun inApp(t: Long, app: String) = Entry(t, "MASKED", listOf("BALANCED", "2", "0.90", app))
+
+    @Test
+    fun maskedEpisodesInOneAppFoldIntoARunUntilTheGapOrAnotherAppBreaksIt() {
+        val m = model(
+            inApp(at(6, 9, 0), "a"), inApp(at(6, 9, 5), "a"), inApp(at(6, 9, 20), "a"), // 15 min gap: new run
+            inApp(at(6, 9, 22), "b"), inApp(at(6, 9, 23), "a"),
+            Entry(at(6, 9, 24), "OFF", listOf("USER")), inApp(at(6, 9, 25), "a"),
+        )
+        val rows = m.days.last().grouped(LogFilter.ALL) // newest first
+        assertEquals(listOf("Masked", "Off", "Masked", "Masked", "Masked", "MaskedRun"), rows.map { it::class.simpleName })
+        assertEquals(2, (rows[5] as LogRow.MaskedRun).episodes.size)
+        assertEquals(at(6, 9, 0), (rows[5] as LogRow.MaskedRun).since)
+        assertEquals(7, rows.sumOf { (it as? LogRow.MaskedRun)?.episodes?.size ?: 1 })
+    }
+
+    @Test
+    fun uncheckedStretchesInOneAppFoldIntoOneLineWithTheirTimeSummed() {
+        fun unchecked(t: Long, s: Int, app: String) = Entry(t, "UNANALYZABLE", listOf("$s", app))
+        val m = model(unchecked(at(6, 1, 0), 3, "s"), unchecked(at(6, 1, 1), 1, "s"), unchecked(at(6, 1, 2), 2, "s"), unchecked(at(6, 1, 3), 4, "t"))
+        val rows = m.days.last().grouped(LogFilter.ALL)
+        assertEquals(2, rows.size)
+        val s = rows[1] as LogRow.Unanalyzable
+        assertEquals(3, s.count)
+        assertEquals(6, s.seconds)
+        assertEquals(at(6, 1, 2), s.at)
+        assertEquals(4, m.week.unchecked) // the counts still see every stretch
+    }
+
+    @Test
+    fun aStopThenATurnOnFoldIntoOnePauseALoneStopStays() {
+        val m = model(
+            Entry(at(6, 8, 0), "OFF", listOf("USER")), Entry(at(6, 8, 8), "ON", listOf("BALANCED", "NORMAL")),
+            Entry(at(6, 9, 0), "OFF", listOf("SCREEN_OFF")),
+        )
+        val rows = m.days.last().grouped(LogFilter.ALL)
+        assertEquals(listOf("Off", "Paused"), rows.map { it::class.simpleName })
+        val p = rows[1] as LogRow.Paused
+        assertEquals(at(6, 8, 0), p.at)
+        assertEquals(8 * 60, p.seconds)
+        assertEquals("USER", p.reason)
+        assertEquals(2, m.days.last().off) // the counts still see every stop
+    }
+
+    @Test
+    fun weekUnprotectedTimeSumsTheGaps() {
+        val m = model(Entry(at(5, 3), "UNPROTECTED", listOf("90", "APP_CLOSED")), Entry(at(6, 3), "UNPROTECTED", listOf("45", "RESTARTED")), masked(at(6, 4), "0.90"))
+        assertEquals(135, m.week.unprotectedSeconds)
+        assertEquals(2, m.week.unprotected)
+        assertEquals(45, m.today.unprotectedSeconds)
+    }
 }

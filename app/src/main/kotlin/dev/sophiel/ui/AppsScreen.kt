@@ -2,7 +2,6 @@ package dev.sophiel.ui
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -52,6 +51,7 @@ import dev.sophiel.settings.appList
 import dev.sophiel.settings.excludedApps
 import dev.sophiel.settings.launchableApps
 import dev.sophiel.ui.theme.Palette
+import dev.sophiel.ui.theme.lift
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -73,9 +73,8 @@ fun AppsScreen(container: AppContainer, door: Door, onBack: () -> Unit) {
     val options = listOf(stringResource(R.string.app_rule_normal), stringResource(R.string.app_rule_blocked), stringResource(R.string.app_rule_trusted))
     val shape = RoundedCornerShape(12.dp)
     Column(Modifier.fillMaxSize()) {
-        HeaderBar(stringResource(R.string.set_apps), start = { FlatIconButton(R.drawable.ic_back, stringResource(R.string.back), onBack) })
-        UnlockedBanner(door)
-        Box(Modifier.padding(start = 14.dp, end = 14.dp, top = 14.dp).fillMaxWidth().clip(shape).background(Palette.Card).border(1.dp, Palette.Border, shape)) {
+        HeaderBar(stringResource(R.string.set_apps), start = { FlatIconButton(R.drawable.ic_back, stringResource(R.string.back), onBack) }, end = { UnlockedChip(door) })
+        Box(Modifier.padding(start = 14.dp, end = 14.dp, top = 14.dp).fillMaxWidth().lift(shape).clip(shape).background(Palette.Card)) {
             BasicTextField(
                 query, { query = it }, Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
                 singleLine = true, textStyle = MaterialTheme.typography.bodyLarge.copy(color = Palette.Fg), cursorBrush = SolidColor(Palette.Fg),

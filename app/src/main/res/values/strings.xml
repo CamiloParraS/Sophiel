@@ -125,6 +125,7 @@
     <!-- Historial -->
     <string name="log_title">Historial</string>
     <string name="log_today">Hoy</string>
+    <string name="log_hero_text">cubiertas en 7 días</string>
     <string name="log_week_title">Últimos 7 días</string>
     <string name="log_by_app">Por app</string>
     <string name="log_top_app">Más en %1$s (%2$d)</string>
@@ -133,11 +134,14 @@
         <item quantity="other">%1$s · %2$d tapados</item>
     </plurals>
     <string name="log_stat_masked">Tapados</string>
-    <string name="log_stat_attempts">Intentos</string>
-    <string name="log_stat_blocks">Bloqueos</string>
+    <string name="log_stat_attempts">Intentos de apagar Sophiel</string>
+    <string name="log_stat_gap">Veces sin protección</string>
+    <string name="log_stat_blocks">Aperturas bloqueadas</string>
+    <string name="log_verdict_ok">Todo en orden esta semana</string>
+    <string name="log_verdict_look">Para revisar esta semana</string>
     <string name="log_filter_all">Todo</string>
     <string name="log_filter_masked">Tapados</string>
-    <string name="log_filter_others">Otros</string>
+    <string name="log_filter_others">Protección</string>
     <string name="log_nothing_masked">No se tapó nada este día.</string>
     <string name="log_nothing">Nada que mostrar.</string>
     <string name="log_more">Mostrar más (%d)</string>
@@ -145,6 +149,10 @@
     <plurals name="log_parts">
         <item quantity="one">%d parte de la pantalla</item>
         <item quantity="other">%d partes de la pantalla</item>
+    </plurals>
+    <plurals name="log_episodes">
+        <item quantity="one">%d episodio</item>
+        <item quantity="other">%d episodios</item>
     </plurals>
     <plurals name="log_zones">
         <item quantity="one">%d zona</item>
@@ -162,6 +170,7 @@
     <string name="log_on">Protección activada</string>
     <string name="log_on_text">Revisión %1$s · cuidado %2$s</string>
     <string name="log_off">Protección detenida</string>
+    <string name="log_paused">En pausa %1$s</string>
     <string name="log_off_user">La detuviste tú</string>
     <string name="log_off_screen">La pantalla se apagó</string>
     <string name="log_off_system">El sistema la cerró</string>
@@ -243,6 +252,11 @@
     <!-- Asistente -->
     <string name="wiz_title">Configuración</string>
     <string name="wiz_step">Paso %1$d de %2$d</string>
+    <string name="wiz_welcome_title">Bienvenido a Sophiel</string>
+    <string name="wiz_welcome_text">Tapa lo que no debe verse en la pantalla. Todo pasa en este teléfono.</string>
+    <string name="wiz_welcome_go">Empezar</string>
+    <string name="wiz_welcome_note">Son %1$d pasos cortos</string>
+    <string name="wiz_go_app">Ir a la app</string>
     <string name="wiz_skip">Saltar</string>
     <string name="wiz_app_info">Abrir info de la app</string>
     <string name="wiz_overlay_text">Sophiel tapa lo que no debe verse con una máscara sobre las otras apps. Sin este permiso no puede funcionar.</string>

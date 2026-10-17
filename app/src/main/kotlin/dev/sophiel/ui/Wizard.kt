@@ -18,6 +18,13 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Size
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -75,116 +82,147 @@ import kotlinx.coroutines.delay
 private const val STEPS = 7
 
 /**
- * Setup wizard (D42, D44), shown while no PIN exists: PIN -> overlay -> accessibility -> keep awake ->
+ * Setup wizard (D42, D44, D66), shown while no PIN exists: welcome -> PIN -> overlay -> accessibility -> keep awake ->
  * notifications -> preset -> start. Linear with Back; a step granted while on it shows done and moves on.
- * Needs no unlock. [fix] opens the same places Status's fix buttons do; [start] leaves the wizard and starts.
+ * Needs no unlock. [fix] opens the same places Status's fix buttons do; [start] leaves the wizard and starts,
+ * [finish] leaves it without starting.
  */
 @Composable
-fun SetupWizard(container: AppContainer, resumes: Int, fix: (Need) -> Unit, start: () -> Unit) {
-    var step by rememberSaveable { mutableIntStateOf(1) }
+fun SetupWizard(container: AppContainer, resumes: Int, fix: (Need) -> Unit, start: () -> Unit, finish: () -> Unit) {
+    var step by rememberSaveable { mutableIntStateOf(0) }
     var forward by rememberSaveable { mutableStateOf(true) }
-    BackHandler(step > 1) { forward = false; step-- }
+    BackHandler(step > 0) { forward = false; step-- }
     // Forward slides in from the right, Back from the left: a quarter width with a fade. Reduced motion jumps.
     val slide = motion<IntOffset>(tween(240, easing = Ease))
     val fade = motion<Float>(tween(160))
-    AnimatedContent(
-        step,
-        transitionSpec = {
-            val dir = if (targetState > initialState) 1 else -1
-            (slideInHorizontally(slide) { dir * it / 4 } + fadeIn(fade)) togetherWith (slideOutHorizontally(slide) { -dir * it / 4 } + fadeOut(fade))
-        },
-        label = "step",
-    ) { s ->
-        // Absolute, not step++: the outgoing step stays composed during the fade and its auto-advance may still fire.
-        val next = { forward = true; step = s + 1 }
-        val back = { forward = false; step = s - 1 }
-        if (s == 1) {
-            CreatePinScreen(
-                onCreate = { container.pin.set(it); step = 2 },
-                title = stringResource(R.string.wiz_title), subtitle = stringResource(R.string.wiz_step, 1, STEPS),
-                top = { Dots(1, Modifier.padding(top = 18.dp)) },
-            )
-            return@AnimatedContent
-        }
-        val context = LocalContext.current
-        val appInfo = { context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}"))) }
-        when (s) {
-            2 -> {
-                val granted = remember(resumes) { Settings.canDrawOverlays(context) }
-                advanceWhenGranted(granted, forward, next)
-                StepFrame(s, back, R.string.need_overlay, R.string.wiz_overlay_text, bottom = {
-                    if (granted) PrimaryPill(R.string.pin_continue, next) else PrimaryPill(R.string.fix_allow, { fix(Need.OVERLAY) })
-                }) {
-                    PreferenceGroup {
-                        item { NeedStepRow(Need.OVERLAY, R.string.need_overlay, R.string.wiz_overlay_row, granted) }
-                    }
-                }
+    Column(Modifier.fillMaxSize().background(Palette.Win)) {
+        // The tiles stay put while the steps slide under them.
+        AnimatedVisibility(
+            step >= 1,
+            enter = expandVertically(motion(tween(240, easing = Ease))) + fadeIn(motion(tween(160))),
+            exit = shrinkVertically(motion(tween(240, easing = Ease))) + fadeOut(motion(tween(160))),
+        ) { WizardTop(step) { forward = false; step-- } }
+        AnimatedContent(
+            step,
+            Modifier.weight(1f),
+            transitionSpec = {
+                val dir = if (targetState > initialState) 1 else -1
+                (slideInHorizontally(slide) { dir * it / 4 } + fadeIn(fade)) togetherWith (slideOutHorizontally(slide) { -dir * it / 4 } + fadeOut(fade))
+            },
+            label = "step",
+        ) { s ->
+            // Absolute, not step++: the outgoing step stays composed during the fade and its auto-advance may still fire.
+            val next = { forward = true; step = s + 1 }
+            if (s == 0) {
+                Welcome(next)
+                return@AnimatedContent
             }
-            3 -> {
-                val bound = MaskWindowService.bound.collectAsState().value != null // live: binds ~2 s after an update (D42)
-                advanceWhenGranted(bound, forward, next)
-                StepFrame(s, back, R.string.need_service, R.string.wiz_service_text, bottom = {
-                    if (bound) PrimaryPill(R.string.pin_continue, next) else {
-                        PrimaryPill(R.string.wiz_open_accessibility, { fix(Need.SERVICE) })
-                        Skip(R.string.wiz_service_skip, next)
-                    }
-                }) {
-                    PreferenceGroup {
-                        item { NeedStepRow(Need.SERVICE, R.string.wiz_service_row, R.string.wiz_service_row_text, bound) }
-                        item {
-                            val settings = container.settings.state.collectAsState().value
-                            SwitchRow(
-                                stringResource(R.string.set_keep), settings.keepProtecting && bound,
-                                { v -> container.settings.update { it.copy(keepProtecting = v) } },
-                                description = stringResource(if (bound) R.string.wiz_keep_text else R.string.needs_full_mask),
-                                icon = R.drawable.ic_shield, enabled = bound,
-                            )
+            if (s == 1) {
+                CreatePinScreen(onCreate = { container.pin.set(it); step = 2 }, title = stringResource(R.string.wiz_title), bare = true)
+                return@AnimatedContent
+            }
+            val context = LocalContext.current
+            val appInfo = { context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}"))) }
+            when (s) {
+                2 -> {
+                    val granted = remember(resumes) { Settings.canDrawOverlays(context) }
+                    advanceWhenGranted(granted, forward, next)
+                    StepFrame(VisualKind.OVERLAY, R.string.need_overlay, R.string.wiz_overlay_text, bottom = {
+                        if (granted) PrimaryPill(R.string.pin_continue, next) else PrimaryPill(R.string.fix_allow, { fix(Need.OVERLAY) })
+                    }) {
+                        PreferenceGroup {
+                            item { NeedStepRow(Need.OVERLAY, R.string.need_overlay, R.string.wiz_overlay_row, granted) }
                         }
-                        item { PrefRow(stringResource(R.string.wiz_shortcut), description = stringResource(R.string.wiz_shortcut_text), icon = R.drawable.ic_warn) }
-                        item { GreyedSwitchHelp(appInfo) }
                     }
                 }
-            }
-            4 -> StepFrame(s, back, R.string.wiz_awake_title, R.string.wiz_awake_text, bottom = {
-                PillButton(stringResource(R.string.wiz_app_info), appInfo, Modifier.widthIn(min = 200.dp))
-                PrimaryPill(R.string.pin_continue, next) // not detectable (D42), so always on
-            }) {
-                PreferenceGroup(footnote = stringResource(R.string.wiz_awake_note)) {
-                    item { PrefRow(stringResource(R.string.wiz_awake_battery), description = stringResource(R.string.wiz_awake_battery_text), icon = R.drawable.ic_power) }
-                    if (Build.MANUFACTURER.equals("samsung", ignoreCase = true)) item {
-                        PrefRow(stringResource(R.string.wiz_awake_samsung), description = stringResource(R.string.wiz_awake_samsung_text), icon = R.drawable.ic_moon)
+                3 -> {
+                    val bound = MaskWindowService.bound.collectAsState().value != null // live: binds ~2 s after an update (D42)
+                    advanceWhenGranted(bound, forward, next)
+                    StepFrame(VisualKind.SERVICE, R.string.need_service, R.string.wiz_service_text, bottom = {
+                        if (bound) PrimaryPill(R.string.pin_continue, next) else {
+                            PrimaryPill(R.string.wiz_open_accessibility, { fix(Need.SERVICE) })
+                            Skip(R.string.wiz_service_skip, next)
+                        }
+                    }) {
+                        PreferenceGroup {
+                            item { NeedStepRow(Need.SERVICE, R.string.wiz_service_row, R.string.wiz_service_row_text, bound) }
+                            item {
+                                val settings = container.settings.state.collectAsState().value
+                                SwitchRow(
+                                    stringResource(R.string.set_keep), settings.keepProtecting && bound,
+                                    { v -> container.settings.update { it.copy(keepProtecting = v) } },
+                                    description = stringResource(if (bound) R.string.wiz_keep_text else R.string.needs_full_mask),
+                                    icon = R.drawable.ic_shield, enabled = bound,
+                                )
+                            }
+                            item { PrefRow(stringResource(R.string.wiz_shortcut), description = stringResource(R.string.wiz_shortcut_text), icon = R.drawable.ic_warn) }
+                            item { GreyedSwitchHelp(appInfo) }
+                        }
                     }
                 }
-            }
-            5 -> {
-                val granted = remember(resumes) { NotificationManagerCompat.from(context).areNotificationsEnabled() }
-                advanceWhenGranted(granted, forward, next)
-                StepFrame(s, back, R.string.need_notifications, R.string.wiz_notif_text, bottom = {
-                    if (granted) PrimaryPill(R.string.pin_continue, next) else {
-                        PrimaryPill(R.string.fix_allow, { fix(Need.NOTIFICATIONS) })
-                        Skip(R.string.need_notifications_missing, next)
+                4 -> StepFrame(VisualKind.AWAKE, R.string.wiz_awake_title, R.string.wiz_awake_text, bottom = {
+                    PillButton(stringResource(R.string.wiz_app_info), appInfo, Modifier.widthIn(min = 200.dp))
+                    PrimaryPill(R.string.pin_continue, next) // not detectable (D42), so always on
+                }) {
+                    PreferenceGroup(footnote = stringResource(R.string.wiz_awake_note)) {
+                        item { PrefRow(stringResource(R.string.wiz_awake_battery), description = stringResource(R.string.wiz_awake_battery_text), icon = R.drawable.ic_power) }
+                        if (Build.MANUFACTURER.equals("samsung", ignoreCase = true)) item {
+                            PrefRow(stringResource(R.string.wiz_awake_samsung), description = stringResource(R.string.wiz_awake_samsung_text), icon = R.drawable.ic_moon)
+                        }
                     }
+                }
+                5 -> {
+                    val granted = remember(resumes) { NotificationManagerCompat.from(context).areNotificationsEnabled() }
+                    advanceWhenGranted(granted, forward, next)
+                    StepFrame(VisualKind.NOTIFICATIONS, R.string.need_notifications, R.string.wiz_notif_text, bottom = {
+                        if (granted) PrimaryPill(R.string.pin_continue, next) else {
+                            PrimaryPill(R.string.fix_allow, { fix(Need.NOTIFICATIONS) })
+                            Skip(R.string.need_notifications_missing, next)
+                        }
+                    }) {
+                        PreferenceGroup {
+                            item { NeedStepRow(Need.NOTIFICATIONS, R.string.need_notifications, R.string.need_notifications_missing, granted) }
+                        }
+                    }
+                }
+                6 -> StepFrame(
+                    VisualKind.PRESET, R.string.wiz_preset_title, R.string.wiz_preset_text, bottom = { PrimaryPill(R.string.pin_continue, next) },
+                    visual = { TileVisual(VisualKind.PRESET, height = 128.dp, preset = container.settings.state.collectAsState().value.preset) },
+                ) {
+                    PresetStep(container)
+                }
+                else -> StepFrame(VisualKind.START, R.string.wiz_start_title, R.string.wiz_start_text, bottom = {
+                    PillButton(stringResource(R.string.action_start), start, Modifier.widthIn(max = 360.dp).fillMaxWidth(), style = PillStyle.Suggested, large = true, icon = R.drawable.ic_play)
+                    PillButton(stringResource(R.string.wiz_go_app), finish, Modifier.widthIn(max = 360.dp).fillMaxWidth())
+                    Text(stringResource(R.string.status_starting_note), style = MaterialTheme.typography.bodySmall, color = Palette.Dim, textAlign = TextAlign.Center)
                 }) {
                     PreferenceGroup {
-                        item { NeedStepRow(Need.NOTIFICATIONS, R.string.need_notifications, R.string.need_notifications_missing, granted) }
+                        item { PrefRow(stringResource(R.string.status_capture_permission), description = stringResource(R.string.status_capture_permission_text), icon = R.drawable.ic_layers) }
+                        // D21: Android 14 QPR2+ offers "A single app"; only the whole screen protects everything.
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) item {
+                            PrefRow(stringResource(R.string.wiz_entire), description = stringResource(R.string.wiz_entire_text), icon = R.drawable.ic_shield)
+                        }
                     }
                 }
             }
-            6 -> StepFrame(s, back, R.string.wiz_preset_title, R.string.wiz_preset_text, bottom = { PrimaryPill(R.string.pin_continue, next) }) {
-                PresetStep(container)
-            }
-            else -> StepFrame(s, back, R.string.wiz_start_title, R.string.wiz_start_text, bottom = {
-                PillButton(stringResource(R.string.action_start), start, Modifier.widthIn(max = 360.dp).fillMaxWidth(), style = PillStyle.Suggested, large = true, icon = R.drawable.ic_play)
-                Text(stringResource(R.string.status_starting_note), style = MaterialTheme.typography.bodySmall, color = Palette.Dim, textAlign = TextAlign.Center)
-            }) {
-                PreferenceGroup {
-                    item { PrefRow(stringResource(R.string.status_capture_permission), description = stringResource(R.string.status_capture_permission_text), icon = R.drawable.ic_layers) }
-                    // D21: Android 14 QPR2+ offers "A single app"; only the whole screen protects everything.
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) item {
-                        PrefRow(stringResource(R.string.wiz_entire), description = stringResource(R.string.wiz_entire_text), icon = R.drawable.ic_shield)
-                    }
-                }
-            }
+        }
+    }
+}
+
+/** Step 0: the Status hero, protected, with one button. No step count: it isn't a step. */
+@Composable
+private fun Welcome(onStart: () -> Unit) {
+    Column(Modifier.fillMaxSize().background(Palette.Chalk)) {
+        // The hero takes what the button area leaves.
+        BoxWithConstraints(Modifier.weight(1f)) {
+            GridHero(Page.PROTECTED, stringResource(R.string.wiz_welcome_title), stringResource(R.string.wiz_welcome_text), fit = maxHeight)
+        }
+        Column(
+            Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 24.dp, vertical = 14.dp),
+            horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            PillButton(stringResource(R.string.wiz_welcome_go), onStart, Modifier.widthIn(max = 360.dp).fillMaxWidth(), style = PillStyle.Suggested, large = true)
+            Text(stringResource(R.string.wiz_welcome_note, STEPS), style = MaterialTheme.typography.bodySmall, color = Palette.Dim, textAlign = TextAlign.Center)
         }
     }
 }
@@ -207,27 +245,36 @@ private fun advanceWhenGranted(granted: Boolean, forward: Boolean, next: () -> U
     }
 }
 
+/** Back chip and the seven progress tiles, filled in green up to the current step. */
 @Composable
-private fun Dots(step: Int, modifier: Modifier = Modifier) {
-    val primary = MaterialTheme.colorScheme.primary
-    Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp, Alignment.CenterHorizontally)) {
-        repeat(STEPS) { i -> Box(Modifier.size(8.dp).clip(CircleShape).background(if (i < step) primary else Palette.Fg.copy(alpha = .2f))) }
+private fun WizardTop(step: Int, back: () -> Unit) {
+    Row(Modifier.fillMaxWidth().statusBarsPadding().padding(start = 6.dp, end = 22.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        FlatIconButton(R.drawable.ic_back, stringResource(R.string.back), back)
+        val label = stringResource(R.string.wiz_step, step, STEPS)
+        Row(Modifier.weight(1f).padding(start = 6.dp).semantics { contentDescription = label }, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+            repeat(STEPS) { i ->
+                val fill by animateFloatAsState(if (i < step) 1f else 0f, motion(tween(320, easing = Ease)), label = "tile")
+                Box(
+                    Modifier.weight(1f).height(12.dp).clip(RoundedCornerShape(4.dp)).background(Palette.Moss.copy(alpha = .1f))
+                        .drawBehind { drawRect(Palette.GreenFg, size = Size(size.width * fill, size.height)) },
+                )
+            }
+        }
     }
 }
 
-/** The mockup's wizard frame (D44); steps it doesn't draw are built from the same parts. */
+/** A step: the tile visual in the middle, title and line, then what the step needs; the buttons stay at the bottom. */
 @Composable
-private fun StepFrame(step: Int, back: () -> Unit, @StringRes title: Int, @StringRes text: Int,bottom: @Composable ColumnScope.() -> Unit, content: @Composable ColumnScope.() -> Unit) {
+private fun StepFrame(
+    kind: VisualKind, @StringRes title: Int, @StringRes text: Int, bottom: @Composable ColumnScope.() -> Unit,
+    visual: @Composable () -> Unit = { TileVisual(kind) }, content: @Composable ColumnScope.() -> Unit,
+) {
     Column(Modifier.fillMaxSize()) {
-        HeaderBar(
-            stringResource(R.string.wiz_title), subtitle = stringResource(R.string.wiz_step, step, STEPS),
-            start = { FlatIconButton(R.drawable.ic_back, stringResource(R.string.back), back) },
-        )
         Column(
-            Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(start = 14.dp, end = 14.dp, top = 18.dp, bottom = 16.dp),
+            Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(start = 14.dp, end = 14.dp, top = 4.dp, bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(18.dp),
         ) {
-            Dots(step)
+            visual()
             Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(stringResource(title), style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center)
                 Text(stringResource(text), Modifier.widthIn(max = 300.dp), style = MaterialTheme.typography.bodyLarge, color = Palette.Dim, textAlign = TextAlign.Center)
@@ -253,7 +300,7 @@ private fun Skip(@StringRes lost: Int, onClick: () -> Unit) {
     Text(
         stringResource(R.string.wiz_skip),
         Modifier.clip(RoundedCornerShape(8.dp)).clickable(role = Role.Button, onClick = onClick).heightIn(min = 48.dp).padding(horizontal = 12.dp, vertical = 13.dp),
-        style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary,
+        style = MaterialTheme.typography.labelLarge, color = Palette.GreenFg,
     )
     Text(stringResource(lost), style = MaterialTheme.typography.bodySmall, color = Palette.Dim, textAlign = TextAlign.Center)
 }
@@ -308,11 +355,11 @@ private fun PresetStep(container: AppContainer) {
                     stringResource(name),
                     Modifier.alpha(if (enabled) 1f else .5f).selectable(selected, enabled = enabled, role = Role.RadioButton) { container.settings.update { it.copy(preset = p) } },
                     description = stringResource(help),
-                    icon = icon, iconTint = if (selected) MaterialTheme.colorScheme.primary else Palette.Dim,
+                    icon = icon, iconTint = if (selected) Palette.GreenFg else Palette.Dim,
                     end = {
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                             if (p == ParentPreset.BALANCED) Tag(stringResource(R.string.group_recommended), TagKind.Recommended)
-                            SIcon(R.drawable.ic_check, MaterialTheme.colorScheme.primary, modifier = Modifier.alpha(if (selected) 1f else 0f))
+                            SIcon(R.drawable.ic_check, Palette.GreenFg, modifier = Modifier.alpha(if (selected) 1f else 0f))
                         }
                     },
                 )

@@ -241,7 +241,7 @@ fun ColumnScope.PinPrompt(pin: PinStore, clock: () -> Long, onUnlocked: () -> Un
     Text(
         stringResource(R.string.pin_forgot),
         Modifier.clip(RoundedCornerShape(8.dp)).clickable(role = Role.Button) { forgot = !forgot }.heightIn(min = 48.dp).padding(horizontal = 12.dp, vertical = 14.dp),
-        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary,
+        style = MaterialTheme.typography.bodyMedium, color = Palette.GreenFg,
     )
     AnimatedVisibility(forgot, enter = expandVertically(motion(tween(240, easing = Ease))), exit = shrinkVertically(motion(tween(240, easing = Ease)))) {
         Text(stringResource(R.string.pin_forgot_body), Modifier.widthIn(max = 300.dp), style = MaterialTheme.typography.bodySmall, color = Palette.Dim, textAlign = TextAlign.Center)
@@ -250,12 +250,12 @@ fun ColumnScope.PinPrompt(pin: PinStore, clock: () -> Long, onUnlocked: () -> Un
 
 /**
  * Create + confirm (D38): enter, enter again, a mismatch asks for the confirm again. [onCreate] saves the
- * PIN (off-main, in PinStore). The wizard's step 1 passes [subtitle] and [top] (its step and dots); Cambiar PIN reuses it.
+ * PIN (off-main, in PinStore). The wizard's step 1 is [bare], with no header; Cambiar PIN reuses it.
  */
 @Composable
 fun CreatePinScreen(
     onCreate: suspend (String) -> Unit, modifier: Modifier = Modifier, title: String = stringResource(R.string.pin_create_title),
-    subtitle: String? = null, onBack: (() -> Unit)? = null, top: @Composable () -> Unit = {},
+    subtitle: String? = null, onBack: (() -> Unit)? = null, top: @Composable () -> Unit = {}, bare: Boolean = false,
 ) {
     val scope = rememberCoroutineScope()
     val haptic = LocalHapticFeedback.current
@@ -264,8 +264,10 @@ fun CreatePinScreen(
     var busy by remember { mutableStateOf(false) }
     var shake by remember { mutableIntStateOf(0) }
     Column(modifier.fillMaxSize()) {
-        HeaderBar(title, subtitle = subtitle, start = { if (onBack != null) FlatIconButton(R.drawable.ic_back, stringResource(R.string.back), onBack) })
-        top()
+        if (!bare) { // the wizard draws its own top: back and progress tiles
+            HeaderBar(title, subtitle = subtitle, start = { if (onBack != null) FlatIconButton(R.drawable.ic_back, stringResource(R.string.back), onBack) })
+            top()
+        }
         Column(
             Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 18.dp),
             horizontalAlignment = Alignment.CenterHorizontally,

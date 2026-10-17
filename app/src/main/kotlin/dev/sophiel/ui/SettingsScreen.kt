@@ -58,8 +58,7 @@ fun SettingsScreen(container: AppContainer, door: Door, onBack: () -> Unit, onHi
     val presets = ParentPreset.entries
     val android14 = stringResource(R.string.needs_android14)
     Column(Modifier.fillMaxSize()) {
-        HeaderBar(stringResource(R.string.settings_title), start = { FlatIconButton(R.drawable.ic_back, stringResource(R.string.back), onBack) })
-        UnlockedBanner(door)
+        HeaderBar(stringResource(R.string.settings_title), start = { FlatIconButton(R.drawable.ic_back, stringResource(R.string.back), onBack) }, end = { UnlockedChip(door) })
         Column(
             Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(start = 14.dp, end = 14.dp, top = 18.dp, bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(18.dp),
