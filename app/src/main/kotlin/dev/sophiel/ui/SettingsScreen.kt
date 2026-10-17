@@ -100,8 +100,6 @@ fun BoxScope.SettingsScreen(container: AppContainer, door: Door, onBack: () -> U
                         icon = R.drawable.ic_shield, enabled = bound,
                     )
                 }
-            }
-            PreferenceGroup {
                 item {
                     PrefRow(
                         stringResource(R.string.set_apps), description = stringResource(R.string.set_apps_text), icon = R.drawable.ic_block,
@@ -140,13 +138,10 @@ fun BoxScope.SettingsScreen(container: AppContainer, door: Door, onBack: () -> U
                     )
                 }
             }
-            PreferenceGroup(title = stringResource(R.string.group_privacy)) {
-                item {
-                    PrefRow(
-                        stringResource(R.string.set_no_internet), description = stringResource(R.string.set_no_internet_text),
-                        icon = R.drawable.ic_shield_ok, iconTint = Palette.GreenFg,
-                    )
-                }
+            // Not a setting, so no row: a fact, under the groups.
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                SIcon(R.drawable.ic_shield_ok, Palette.GreenFg, size = 16.dp)
+                Text(stringResource(R.string.set_no_internet_text), Modifier.padding(start = 8.dp), style = MaterialTheme.typography.bodySmall, color = Palette.Dim)
             }
         }
         Text(
