@@ -32,7 +32,8 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.unit.sp
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -51,6 +52,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -168,7 +170,7 @@ fun StatusScreen(model: StatusModel, door: Door, actions: StatusActions, modifie
                 val lip = 20.dp.roundToPx()
                 layout(p.width, p.height - lip) { p.place(0, -lip) }
             }.clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)).background(Palette.Chalk)
-                .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 16.dp),
+                .cutoutPadding().pageWidth().padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             androidx.compose.runtime.CompositionLocalProvider(LocalRowMin provides 48.dp) {
@@ -195,7 +197,9 @@ fun StatusScreen(model: StatusModel, door: Door, actions: StatusActions, modifie
                     FallbackNote(model)
                     Health(model, actions.fix, titled = model.page == Page.READY, failingOnly = true)
                     merged = true
-                    Proof(week, actions.seeLog) { healthy(model, actions.fix) }
+                    Proof(week, actions.seeLog)
+                    // Its own card: the history card is about the week, this one is about the checks.
+                    if (Need.entries.any { it !in model.missing }) PreferenceGroup { healthy(model, actions.fix) }
                 }
                 Page.OFF -> Health(model, actions.fix, titled = true)
                 Page.STARTING -> PreferenceGroup(title = stringResource(R.string.status_what_will_happen)) {
@@ -243,7 +247,7 @@ fun StatusScreen(model: StatusModel, door: Door, actions: StatusActions, modifie
             Modifier.fillMaxWidth().drawBehind {
                 val fade = 28.dp.toPx() // the content fades into the bar instead of ending on a line
                 drawRect(Brush.verticalGradient(listOf(Color.Transparent, Palette.Chalk), startY = -fade, endY = 0f), Offset(0f, -fade), Size(size.width, fade))
-            }.background(Palette.Chalk).navigationBarsPadding().padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 16.dp),
+            }.background(Palette.Chalk).navigationBarsPadding().cutoutPadding().padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
@@ -253,54 +257,24 @@ fun StatusScreen(model: StatusModel, door: Door, actions: StatusActions, modifie
                 Page.PROTECTED -> {
                     Note(R.string.door_footnote)
                     // D38: Stop goes through the door; the lock says so while it is shut.
-                    MainButton(
-                        stringResource(R.string.action_stop), actions.stop, buttonWidth, MainKind.Stop, busy = model.stopBusy,
+                    SButton(
+                        stringResource(R.string.action_stop), actions.stop, buttonWidth, BtnStyle.Stop, busy = model.stopBusy,
                         icon = if (door.unlocked) R.drawable.ic_stop else R.drawable.ic_lock,
                     )
                 }
                 Page.STARTING -> {
                     Note(R.string.status_starting_note)
-                    MainButton(stringResource(R.string.status_starting), {}, buttonWidth, MainKind.Go, busy = true)
+                    SButton(stringResource(R.string.status_starting), {}, buttonWidth, BtnStyle.Go, busy = true)
                 }
                 else -> {
                     when (model.note) {
                         StartNote.TURN_ON_OVERLAY -> Note(R.string.note_overlay)
-                        StartNote.PARTIAL_MASK -> Note(R.string.note_partial)
-                        null -> Unit
+                        StartNote.PARTIAL_MASK, null -> Unit // the Full mask row above says it once
                     }
-                    MainButton(stringResource(R.string.action_start), actions.start, buttonWidth, MainKind.Go, enabled = model.startEnabled, icon = R.drawable.ic_play)
+                    SButton(stringResource(R.string.action_start), actions.start, buttonWidth, BtnStyle.Go, enabled = model.startEnabled, icon = R.drawable.ic_play)
                 }
             }
         }
-    }
-}
-
-private enum class MainKind { Go, Stop }
-
-/** The bottom action, 56 dp: filled moss to start, tonal to stop (filled is reserved for Iniciar), flat when it can't be used. */
-@Composable
-private fun MainButton(text: String, onClick: () -> Unit, modifier: Modifier, kind: MainKind, enabled: Boolean = true, busy: Boolean = false, @DrawableRes icon: Int? = null) {
-    val moss = Color(0xFF12201A)
-    val (bg, fg) = when {
-        busy -> Color(0xFF3A4A41) to Color(0xFFE8F5E4)
-        !enabled -> moss.copy(alpha = .08f) to Color(0xFF4D5C54)
-        kind == MainKind.Stop -> moss.copy(alpha = .10f) to moss
-        else -> moss to Color(0xFFE8F5E4)
-    }
-    val source = remember { MutableInteractionSource() }
-    val pressed by source.collectIsPressedAsState()
-    val scale by animateFloatAsState(if (pressed && enabled && !busy) .97f else 1f, motion(tween(100, easing = Ease)), label = "press")
-    val shape = RoundedCornerShape(12.dp)
-    Row(
-        modifier.scale(scale).height(56.dp).clip(shape).background(bg)
-            .let { if (kind == MainKind.Stop && enabled && !busy) it.border(1.dp, moss.copy(alpha = .2f), shape) else it }
-            .clickable(source, indication = null, enabled = enabled && !busy, role = Role.Button, onClick = onClick),
-        horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        if (busy) CircularProgressIndicator(Modifier.size(22.dp), color = fg, trackColor = fg.copy(alpha = .4f), strokeWidth = 2.dp)
-        else if (icon != null) SIcon(icon, fg, 22.dp)
-        Text(text, style = MaterialTheme.typography.labelLarge.copy(fontSize = 16.sp, lineHeight = 22.sp), color = fg)
     }
 }
 
@@ -349,9 +323,8 @@ private fun presetLine(model: StatusModel): String {
 @Composable
 private fun FallbackNote(model: StatusModel) {
     val why = when (model.fallback) {
-        Fallback.ACCESSIBILITY_OFF -> R.string.fallback_accessibility
         Fallback.ANDROID_BELOW_14 -> R.string.fallback_android
-        null -> return
+        Fallback.ACCESSIBILITY_OFF, null -> return // the Full mask row says why
     }
     Text(stringResource(why), Modifier.padding(horizontal = 4.dp), style = MaterialTheme.typography.bodyMedium, color = Palette.Dim)
 }
@@ -364,12 +337,13 @@ private fun FallbackNote(model: StatusModel) {
 @Composable
 private fun Health(model: StatusModel, fix: (Need) -> Unit, titled: Boolean = false, failingOnly: Boolean = false) {
     val failing = Need.entries.filter { it in model.missing }
+    val precise = model.fallback == Fallback.ACCESSIBILITY_OFF
     if (titled) {
         listOf(StatusModel.REQUIRED to R.string.group_required, StatusModel.RECOMMENDED to R.string.group_recommended).forEach { (needs, title) ->
             val missing = needs.filter { it in model.missing }
-            if (missing.isNotEmpty()) PreferenceGroup(title = stringResource(title)) { missing.forEach { n -> item { NeedRow(n, false, fix) } } }
+            if (missing.isNotEmpty()) PreferenceGroup(title = stringResource(title)) { missing.forEach { n -> item { NeedRow(n, false, fix, precise = precise) } } }
         }
-    } else if (failing.isNotEmpty()) PreferenceGroup { failing.forEach { n -> item { NeedRow(n, false, fix) } } }
+    } else if (failing.isNotEmpty()) PreferenceGroup { failing.forEach { n -> item { NeedRow(n, false, fix, precise = precise) } } }
     if (!failingOnly && failing.size < Need.entries.size) PreferenceGroup { healthy(model, fix) }
 }
 
@@ -402,7 +376,7 @@ private fun GroupScope.healthy(model: StatusModel, fix: (Need) -> Unit) {
 
 /** One check: green with its tag when fine, orange with a fix button when not. Fixing cross-fades the row. */
 @Composable
-private fun NeedRow(need: Need, ok: Boolean, fix: (Need) -> Unit, forcedStop: Boolean = false) {
+private fun NeedRow(need: Need, ok: Boolean, fix: (Need) -> Unit, forcedStop: Boolean = false, precise: Boolean = false) {
     Crossfade(ok, animationSpec = motion(tween(160)), label = "need") { good ->
         PrefRow(
             stringResource(need.title()),
@@ -410,6 +384,7 @@ private fun NeedRow(need: Need, ok: Boolean, fix: (Need) -> Unit, forcedStop: Bo
                 when {
                     need == Need.OVERLAY -> R.string.need_overlay_missing
                     need == Need.SERVICE && forcedStop -> R.string.need_service_forced
+                    need == Need.SERVICE && precise -> R.string.need_service_precise
                     need == Need.SERVICE -> R.string.need_service_missing
                     else -> R.string.need_notifications_missing
                 },
@@ -418,63 +393,65 @@ private fun NeedRow(need: Need, ok: Boolean, fix: (Need) -> Unit, forcedStop: Bo
             iconTint = if (good) Palette.GreenFg else Palette.Orange,
             end = {
                 if (good) Tag(stringResource(need.okTag()), TagKind.Ok)
-                else FixButton(stringResource(need.fix())) { fix(need) }
+                else SButton(stringResource(need.fix()), { fix(need) }, style = BtnStyle.Fix)
             },
         )
     }
 }
 
-/** Small tinted button, 8 dp radius, for the fix on a failing row: the sheet's one solid button stays Start. */
-@Composable
-private fun FixButton(text: String, onClick: () -> Unit) = Box(
-    Modifier.width(104.dp).heightIn(min = 40.dp).clip(RoundedCornerShape(8.dp)).background(Palette.tint(Palette.Orange, .15f)).clickable(role = Role.Button, onClick = onClick),
-    contentAlignment = Alignment.Center,
-) { Text(text, style = MaterialTheme.typography.labelLarge.copy(fontSize = 14.sp), color = Palette.OrangeFg) }
-
 /**
  * What the app did today: the count, the last cover, a bar per day of the week, and the way into the Historial.
- * [more] adds rows under it in the same card (the "Todo en orden" row), so the sheet is one card, not a form.
  */
 @Composable
-private fun Proof(week: LogModel?, seeLog: () -> Unit, more: GroupScope.() -> Unit = {}) {
+private fun Proof(week: LogModel?, seeLog: () -> Unit) {
     val days = week?.days.orEmpty()
     val today = days.lastOrNull()
     val last = today?.rows?.firstOrNull { it is LogRow.Masked }?.at
     PreferenceGroup {
+        // Nothing covered all week: no zero and no flat bars, just the way into the Historial.
+        if (days.none { it.masked > 0 }) {
+            item { PrefRow(stringResource(R.string.proof_see), description = stringResource(R.string.proof_none), icon = R.drawable.ic_list, onClick = seeLog, end = { SIcon(R.drawable.ic_chev) }) }
+            return@PreferenceGroup
+        }
         item {
             // The number stays under the hero headline (34 sp): one headline per screen.
-            Row(
-                Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 12.dp), // the row below is the one way in
-                horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Bottom,
-            ) {
-                Text((today?.masked ?: 0).toString(), style = MaterialTheme.typography.headlineMedium.copy(fontSize = 40.sp, lineHeight = 40.sp), color = Palette.Fg)
-                Column(Modifier.weight(1f).padding(bottom = 2.dp)) {
-                    Text(stringResource(R.string.proof_today), style = MaterialTheme.typography.titleMedium)
-                    Text(
-                        if (last == null) stringResource(R.string.proof_none)
-                        else stringResource(R.string.proof_last, DateUtils.getRelativeTimeSpanString(last, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS)),
-                        style = MaterialTheme.typography.bodyMedium, color = Palette.Dim,
-                    )
-                }
-                // A week of bars with their day letters; an empty day is a flat 2 dp line, not a dot that reads as "loading".
-                val most = (days.maxOfOrNull { it.masked } ?: 0).coerceAtLeast(1)
-                Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+            // From 1.3x font scale the week of bars drops under the count instead of squeezing the text.
+            val stacked = LocalDensity.current.fontScale >= 1.3f
+            val most = (days.maxOfOrNull { it.masked } ?: 0).coerceAtLeast(1)
+            // A week of bars with their day letters; an empty day is a flat 2 dp line, not a dot that reads as "loading".
+            val bars: @Composable () -> Unit = {
+                val week = stringResource(R.string.proof_week, days.sumOf { it.masked })
+                Row(Modifier.clearAndSetSemantics { contentDescription = week }, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                     days.forEach { d ->
-                        val ink = if (d.today) Palette.GreenFg else Color(0x2912201A)
-                        Column(Modifier.width(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        val ink = if (d.today) Palette.GreenFg else if (d.masked > 0) Palette.Dim.copy(alpha = .5f) else Palette.Quiet // a day with covers reads as data, not as the empty dash
+                        Column(Modifier.widthIn(min = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                             Box(Modifier.height(28.dp), contentAlignment = Alignment.BottomCenter) {
                                 Box(Modifier.width(6.dp).height(if (d.masked == 0) 2.dp else (6 + 22 * d.masked / most).dp).clip(RoundedCornerShape(3.dp)).background(ink))
                             }
                             Text(
                                 d.date.dayOfWeek.getDisplayName(TextStyle.NARROW, Locale.getDefault()), Modifier.padding(top = 4.dp),
-                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, lineHeight = 12.sp), color = if (d.today) Palette.GreenFg else Palette.Dim,
+                                style = MaterialTheme.typography.labelSmall, color = if (d.today) Palette.GreenFg else Palette.Dim,
                             )
                         }
                     }
                 }
             }
+            Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) { // the row below is the one way in
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Bottom) {
+                    CappedFontScale(1.3f) { Text((today?.masked ?: 0).toString(), style = MaterialTheme.typography.displayMedium, color = Palette.Fg) }
+                    Column(Modifier.weight(1f).padding(bottom = 2.dp)) {
+                        Text(stringResource(R.string.proof_today), style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            if (last == null) stringResource(R.string.proof_none)
+                            else stringResource(R.string.proof_last, DateUtils.getRelativeTimeSpanString(last, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS)),
+                            style = MaterialTheme.typography.bodyMedium, color = Palette.Dim,
+                        )
+                    }
+                    if (!stacked) bars()
+                }
+                if (stacked) bars()
+            }
         }
         item { PrefRow(stringResource(R.string.proof_see), icon = R.drawable.ic_list, onClick = seeLog, end = { SIcon(R.drawable.ic_chev) }) }
-        more()
     }
 }

@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -77,10 +78,10 @@ fun BoxScope.SettingsScreen(container: AppContainer, door: Door, onBack: () -> U
     val presetHelps = listOf(R.string.how_help_light, R.string.how_help_balanced, R.string.how_help_thorough, R.string.how_help_precise).map { stringResource(it) }
     val careIx = Sensitivity.entries.indexOf(settings.sensitivity)
     val presetIx = presets.indexOf(settings.preset)
-    Column(Modifier.fillMaxSize().background(Palette.Chalk)) { // the page; the groups are Surface cards on it
-        HeaderBar(stringResource(R.string.settings_title), start = { FlatIconButton(R.drawable.ic_back, stringResource(R.string.back), onBack) }, end = { UnlockedChip(door) })
+    Column(Modifier.fillMaxSize().behindSheet(picking != null).background(Palette.Chalk)) { // the page; the groups are Surface cards on it
+        HeaderBar(stringResource(R.string.settings_title), start = { SButton(null, onBack, icon = R.drawable.ic_back, label = stringResource(R.string.back)) }, end = { UnlockedChip(door) })
         Column(
-            Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(start = 14.dp, end = 14.dp, top = 18.dp, bottom = 16.dp),
+            Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).cutoutPadding().pageWidth().padding(start = 14.dp, end = 14.dp, top = 18.dp, bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(18.dp),
         ) {
             PreferenceGroup(title = stringResource(R.string.group_protection)) {
@@ -110,6 +111,12 @@ fun BoxScope.SettingsScreen(container: AppContainer, door: Door, onBack: () -> U
                         onClick = { door.pass(onApps) }, end = { SIcon(R.drawable.ic_chev) },
                     )
                 }
+                item {
+                    PrefRow(
+                        stringResource(R.string.set_history), description = stringResource(R.string.set_history_text), icon = R.drawable.ic_list,
+                        onClick = { door.pass(onHistory) }, end = { SIcon(R.drawable.ic_chev) },
+                    )
+                }
             }
             PreferenceGroup(title = stringResource(R.string.group_mask)) {
                 item {
@@ -135,12 +142,6 @@ fun BoxScope.SettingsScreen(container: AppContainer, door: Door, onBack: () -> U
                         onClick = { door.pass { changingPin = true } }, end = { SIcon(R.drawable.ic_chev) },
                     )
                 }
-                item {
-                    PrefRow(
-                        stringResource(R.string.set_history), description = stringResource(R.string.set_history_text), icon = R.drawable.ic_list,
-                        onClick = { door.pass(onHistory) }, end = { SIcon(R.drawable.ic_chev) },
-                    )
-                }
             }
             // Not a setting, so no row: a fact, under the groups.
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
@@ -151,18 +152,18 @@ fun BoxScope.SettingsScreen(container: AppContainer, door: Door, onBack: () -> U
         Text(
             stringResource(R.string.version_label, version),
             Modifier.fillMaxWidth().clickable { if (++taps.intValue >= DEBUG_TAPS) { taps.intValue = 0; door.pass(onDebug) } }
-                .navigationBarsPadding().padding(12.dp),
+                .navigationBarsPadding().heightIn(min = 48.dp).padding(12.dp),
             style = MaterialTheme.typography.bodySmall, color = Palette.Dim, textAlign = TextAlign.Center,
         )
     }
-    BottomSheet(picking == Pick.CARE, { picking = null }) {
+    BottomSheet(picking == Pick.CARE, stringResource(R.string.set_care), { picking = null }) {
         OptionList(
             stringResource(R.string.set_care), careNames,
             careHelps,
             careIx, emptySet(),
         ) { door.pass { container.pickSensitivity(Sensitivity.entries[it]) } }
     }
-    BottomSheet(picking == Pick.HOW, { picking = null }) {
+    BottomSheet(picking == Pick.HOW, stringResource(R.string.set_how), { picking = null }) {
         OptionList(
             stringResource(R.string.set_how), presetNames,
             presetHelps,
@@ -186,13 +187,13 @@ fun CareControl(selected: Sensitivity, onPick: (Sensitivity) -> Unit) =
 @Composable
 private fun Value(text: String) =
     Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(text, style = MaterialTheme.typography.titleMedium, color = Palette.GreenFg)
+        Text(text, style = MaterialTheme.typography.titleMedium)
         SIcon(R.drawable.ic_chev)
     }
 
 /** One choice per row, a check on the picked one. A [disabled] row dims and shows [reason] in place of its help. [preview] sits above the list. */
 @Composable
-private fun ColumnScope.OptionList(
+fun ColumnScope.OptionList(
     title: String, names: List<String>, helps: List<String>, selected: Int, disabled: Set<Int>, recommended: Int = 1,
     reason: String? = null, preview: (@Composable () -> Unit)? = null, onPick: (Int) -> Unit,
 ) {
@@ -204,7 +205,7 @@ private fun ColumnScope.OptionList(
             item {
                 PrefRow(
                     name,
-                    Modifier.alpha(if (off) .5f else 1f).selectable(i == selected, enabled = !off, role = Role.RadioButton) { onPick(i) },
+                    Modifier.alpha(if (off) Palette.DISABLED else 1f).selectable(i == selected, enabled = !off, role = Role.RadioButton) { onPick(i) },
                     description = if (off && reason != null) reason else helps[i],
                     end = {
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {

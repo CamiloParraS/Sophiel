@@ -21,6 +21,12 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.displayCutout
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
@@ -40,7 +46,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.foundation.border
+import androidx.compose.foundation.interaction.InteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -50,12 +61,29 @@ import dev.sophiel.ui.theme.motion
 
 // Shared parts, cut from mockups/gnome2.html (D44). Controls are in Controls.kt, sheet and dialog in Overlays.kt.
 
+/** Landscape: keep content out of a side camera cutout. Backgrounds stay full-bleed when this comes after them. */
+@Composable
+fun Modifier.cutoutPadding(): Modifier = windowInsetsPadding(WindowInsets.displayCutout.only(WindowInsetsSides.Horizontal))
+
+/** Reading width on tablets and landscape: content centred, at most 640 dp. Fills first, so it centres even under a parent that measures loosely (a Column). Put it after the background so that stays full-bleed. */
+fun Modifier.pageWidth(): Modifier = fillMaxWidth().wrapContentWidth(Alignment.CenterHorizontally).widthIn(max = 640.dp).fillMaxWidth()
+
 @Composable
 fun SIcon(@DrawableRes id: Int, tint: Color = Palette.Dim, size: Dp = 18.dp, modifier: Modifier = Modifier) =
     Icon(painterResource(id), contentDescription = null, tint = tint, modifier = modifier.size(size))
 
+/** Marks a title as a heading for TalkBack's heading navigation. */
+fun Modifier.asHeading(): Modifier = semantics { heading() }
+
+/** A visible keyboard/switch-access focus ring for controls drawn with `indication = null`. */
+@Composable
+fun Modifier.focusRing(source: InteractionSource, shape: Shape): Modifier {
+    val focused by source.collectIsFocusedAsState()
+    return if (focused) border(2.dp, Palette.GreenFg, shape) else this
+}
+
 /** True under [HeaderBar]: header buttons wear the glass-on-dark look Status and Log use. */
-private val LocalOnDark = androidx.compose.runtime.compositionLocalOf { false }
+internal val LocalOnDark = androidx.compose.runtime.compositionLocalOf { false }
 
 private val onDarkBars = java.util.concurrent.atomic.AtomicInteger()
 
@@ -85,33 +113,21 @@ fun HeaderBar(
 ) {
     LightStatusIcons()
     Box(modifier.fillMaxWidth().clipToBounds().background(Moss)) {
-        Canvas(Modifier.matchParentSize()) { drawGrid(Page.OFF, Color(0xFF1B2A24), 0L, -100_000L, true, emptyList()) }
+        Canvas(Modifier.matchParentSize()) { drawGrid(Page.OFF, Palette.HeroOff, 0L, -100_000L, true, emptyList()) }
         androidx.compose.runtime.CompositionLocalProvider(LocalOnDark provides true) {
             Row(
-                Modifier.fillMaxWidth().statusBarsPadding().heightIn(min = 64.dp).padding(start = 6.dp, end = 12.dp),
+                Modifier.fillMaxWidth().statusBarsPadding().cutoutPadding().heightIn(min = 64.dp).padding(start = 6.dp, end = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 start()
                 Column(Modifier.weight(1f).padding(start = 10.dp, end = 8.dp)) {
-                    Text(title, style = MaterialTheme.typography.titleMedium, color = Text0)
+                    Text(title, Modifier.asHeading(), style = MaterialTheme.typography.titleMedium, color = Text0)
                     if (subtitle != null) Text(subtitle, style = MaterialTheme.typography.bodySmall, color = Text1)
                 }
                 end()
             }
         }
     }
-}
-
-/** Header button: icon only, in a 48 dp touch target. Dark-header look under [HeaderBar] unless told otherwise. */
-@Composable
-fun FlatIconButton(@DrawableRes icon: Int, label: String, onClick: () -> Unit, tint: Color = Color.Unspecified, fill: Color = Color.Unspecified) {
-    val dark = LocalOnDark.current
-    val ink = if (tint != Color.Unspecified) tint else if (dark) Color(0xBFDDEBD3) else Palette.Fg
-    val bg = if (fill != Color.Unspecified) fill else if (dark) Color(0x12FFFFFF) else Color.Transparent
-    Box(
-        Modifier.size(48.dp).padding(if (bg == Color.Transparent) 0.dp else 4.dp).clip(RoundedCornerShape(if (bg == Color.Transparent) 10.dp else 12.dp)).background(bg).clickable(role = Role.Button, onClick = onClick).semantics { contentDescription = label },
-        contentAlignment = Alignment.Center,
-    ) { SIcon(icon, ink) }
 }
 
 class GroupScope {
@@ -124,7 +140,7 @@ class GroupScope {
 fun PreferenceGroup(modifier: Modifier = Modifier, title: String? = null, footnote: String? = null, content: GroupScope.() -> Unit) {
     val scope = GroupScope().apply(content)
     Column(modifier) {
-        if (title != null) Text(title, Modifier.padding(start = 4.dp, end = 4.dp, bottom = 6.dp), style = MaterialTheme.typography.labelMedium, color = Palette.Dim)
+        if (title != null) Text(title, Modifier.asHeading().padding(start = 4.dp, end = 4.dp, bottom = 6.dp), style = MaterialTheme.typography.labelMedium, color = Palette.Dim)
         val shape = RoundedCornerShape(12.dp)
         Column(Modifier.fillMaxWidth().lift(shape).clip(shape).background(Palette.Card)) {
             scope.items.forEachIndexed { i, row ->
@@ -176,7 +192,7 @@ fun SwitchRow(
 ) =
     PrefRow(
         title,
-        modifier.alpha(if (enabled) 1f else .5f).toggleable(checked, enabled = enabled, role = Role.Switch, onValueChange = onChange),
+        modifier.alpha(if (enabled) 1f else Palette.DISABLED).toggleable(checked, enabled = enabled, role = Role.Switch, onValueChange = onChange),
         description,
         icon,
         end = { RoundSwitch(checked, onChange = null) },
@@ -225,7 +241,7 @@ fun StatusPage(@DrawableRes icon: Int, title: String, text: String, tone: Tone, 
         }
         Crossfade(title to text, animationSpec = motion(tween(120)), label = "headline") { (t, d) ->
             Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(t, style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center)
+                Text(t, Modifier.asHeading(), style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center)
                 Text(d, Modifier.widthIn(max = 280.dp), style = MaterialTheme.typography.bodyLarge, color = Palette.Dim, textAlign = TextAlign.Center)
             }
         }

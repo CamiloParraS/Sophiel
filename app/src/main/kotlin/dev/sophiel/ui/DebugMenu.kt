@@ -43,9 +43,9 @@ enum class DebugPage(val title: Int) {
 @Composable
 fun DebugMenu(container: AppContainer, door: Door, onBack: () -> Unit, open: (DebugPage) -> Unit, rerunWizard: () -> Unit) {
     Column(Modifier.fillMaxSize().background(Palette.Chalk)) {
-        HeaderBar(stringResource(R.string.debug_title), start = { FlatIconButton(R.drawable.ic_back, stringResource(R.string.back), onBack) }, end = { UnlockedChip(door) })
+        HeaderBar(stringResource(R.string.debug_title), start = { SButton(null, onBack, icon = R.drawable.ic_back, label = stringResource(R.string.back)) }, end = { UnlockedChip(door) })
         Column(
-            Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(start = 14.dp, end = 14.dp, top = 18.dp, bottom = 16.dp),
+            Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).cutoutPadding().pageWidth().padding(start = 14.dp, end = 14.dp, top = 18.dp, bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(18.dp),
         ) {
             PreferenceGroup {

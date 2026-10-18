@@ -33,13 +33,16 @@
         <item quantity="other">PIN incorrecto · te quedan %d intentos</item>
     </plurals>
     <string name="pin_locked">Bloqueado %1$s</string>
+    <string name="pin_locked_spoken">Bloqueado. Inténtalo más tarde.</string>
+    <string name="pin_digits_typed">%1$d dígitos escritos</string>
     <string name="pin_try_again">Ya puedes intentarlo otra vez</string>
     <string name="pin_unlocked">Desbloqueado durante 2 min</string>
     <string name="pin_unlock">Desbloquear</string>
+    <string name="sheet_close">Cerrar</string>
     <string name="pin_cancel">Cancelar</string>
     <string name="pin_delete">Borrar</string>
     <string name="pin_forgot">¿Olvidaste el PIN?</string>
-    <string name="pin_forgot_body">No hay forma de recuperarlo. Para empezar de nuevo hay que borrar los datos de la app en los ajustes del teléfono, y eso también borra el historial.</string>
+    <string name="pin_forgot_body">No se puede recuperar. Para empezar de nuevo, borra los datos de la app en los ajustes del teléfono; eso también borra el historial.</string>
     <string name="pin_create_title">Crea un PIN</string>
     <string name="pin_create_enter">Elige un PIN de 4 a 6 dígitos</string>
     <string name="pin_create_confirm">Escríbelo otra vez para confirmar</string>
@@ -89,9 +92,9 @@
     <string name="proof_last">Última: %1$s</string>
     <string name="proof_none">Nada que cubrir todavía</string>
     <string name="proof_see">Ver historial</string>
+    <string name="proof_week">%1$d cubiertas esta semana</string>
     <string name="status_to_restart">Para volver a iniciar</string>
     <string name="status_review">Revisión</string>
-    <string name="status_care">Cuidado</string>
     <string name="preset_light">Ahorro</string>
     <string name="preset_balanced">Equilibrado</string>
     <string name="preset_thorough">Reforzado</string>
@@ -100,7 +103,6 @@
     <string name="care_normal">Normal</string>
     <string name="care_relaxed">Tapar menos</string>
     <string name="status_precise_using">Detallado · usando Equilibrado</string>
-    <string name="fallback_accessibility">Activa la máscara completa para usar Detallado</string>
     <string name="fallback_android">Detallado necesita Android 14 o más nuevo</string>
     <string name="health_ok">Todo en orden</string>
     <string name="health_ok_text">Máscara, avisos y permisos</string>
@@ -112,7 +114,8 @@
     <string name="tag_working">Funcionando</string>
     <string name="tag_enabled">Activados</string>
     <string name="need_overlay_missing">Sin permiso: Android no deja dibujar la máscara</string>
-    <string name="need_service_missing">Apagada · para cubrir todo</string>
+    <string name="need_service_missing">Actívala en Accesibilidad · sin ella la máscara se verá algo transparente</string>
+    <string name="need_service_precise">Actívala en Accesibilidad · Detallado la necesita</string>
     <string name="need_service_forced">Se apaga cuando la app se cierra a la fuerza</string>
     <string name="need_notifications_missing">No verás el aviso cuando se pause</string>
     <string name="fix_allow">Permitir</string>
@@ -120,7 +123,6 @@
     <string name="group_required">Para funcionar</string>
     <string name="group_recommended">Recomendado</string>
     <string name="note_overlay">Permite mostrar la máscara para poder iniciar</string>
-    <string name="note_partial">Sin la máscara completa, la máscara se verá algo transparente</string>
 
     <!-- Historial -->
     <string name="log_title">Historial</string>
@@ -134,11 +136,11 @@
         <item quantity="other">%1$s · %2$d tapados</item>
     </plurals>
     <string name="log_stat_masked">Tapados</string>
-    <string name="log_stat_attempts">Intentos de apagar Sophiel</string>
+    <string name="log_stat_attempts">Intentos de apagar</string>
     <string name="log_stat_gap">Veces sin protección</string>
-    <string name="log_stat_blocks">Aperturas bloqueadas</string>
-    <string name="log_verdict_ok">Todo en orden esta semana</string>
-    <string name="log_verdict_look">Para revisar esta semana</string>
+    <string name="log_stat_blocks">Apps bloqueadas</string>
+    <string name="log_verdict_ok">Todo en orden</string>
+    <string name="log_verdict_look">Para revisar</string>
     <string name="log_filter_all">Todo</string>
     <string name="log_filter_masked">Tapados</string>
     <string name="log_filter_others">Protección</string>
@@ -147,8 +149,8 @@
     <string name="log_more">Mostrar más (%d)</string>
     <string name="log_masked">Se tapó algo</string>
     <plurals name="log_parts">
-        <item quantity="one">%d parte de la pantalla</item>
-        <item quantity="other">%d partes de la pantalla</item>
+        <item quantity="one">%d parte</item>
+        <item quantity="other">%d partes</item>
     </plurals>
     <plurals name="log_episodes">
         <item quantity="one">%d episodio</item>
@@ -164,11 +166,10 @@
     <string name="log_band_mid">Seguro</string>
     <string name="log_band_low">Dudoso</string>
     <string name="log_unchecked">No se pudo revisar</string>
-    <string name="log_unchecked_text">%1$s · protege su pantalla · %2$d s</string>
     <string name="log_app_unknown">App desconocida</string>
     <string name="log_app_line">%1$s · %2$s</string>
     <string name="log_on">Protección activada</string>
-    <string name="log_on_text">Revisión %1$s · cuidado %2$s</string>
+    <string name="log_on_text">%1$s · %2$s</string>
     <string name="log_off">Protección detenida</string>
     <string name="log_paused">En pausa %1$s</string>
     <string name="log_off_user">La detuviste tú</string>
@@ -198,23 +199,23 @@
     <string name="block_rule">El Padre bloqueó esta app</string>
     <string name="block_home">Ir al inicio</string>
     <string name="log_empty">Nada que mostrar aún</string>
-    <string name="log_empty_text">El historial se queda en este teléfono y se borra a los 7 días.</string>
+    <string name="log_empty_text">Se queda en este teléfono 7 días.</string>
     <string name="log_clear">Borrar historial</string>
     <string name="log_clear_title">¿Borrar el historial?</string>
-    <string name="log_clear_text">Se borra lo de los últimos 7 días. No se puede deshacer.</string>
+    <string name="log_clear_text">Se borran los últimos 7 días.</string>
     <string name="log_clear_confirm">Borrar</string>
 
     <!-- Ajustes -->
     <string name="group_protection">Protección</string>
     <string name="set_care">Cuánto tapa</string>
     <string name="set_how">Revisión</string>
-    <string name="care_help_strict">Tapa también lo dudoso.</string>
-    <string name="care_help_normal">Un buen equilibrio.</string>
-    <string name="care_help_relaxed">Tapa solo lo claro.</string>
-    <string name="how_help_light">Gasta menos batería.</string>
-    <string name="how_help_balanced">Buen punto medio.</string>
-    <string name="how_help_thorough">Revisa más. Usa más batería.</string>
-    <string name="how_help_precise">Tapa solo lo necesario (beta).</string>
+    <string name="care_help_strict">Tapa también lo que no está claro.</string>
+    <string name="care_help_normal">Equilibrio entre tapar de más y de menos.</string>
+    <string name="care_help_relaxed">Tapa solo lo claro. Puede dejar pasar dudas.</string>
+    <string name="how_help_light">Revisa menos. Gasta menos batería.</string>
+    <string name="how_help_balanced">Equilibrio entre protección y batería.</string>
+    <string name="how_help_thorough">Revisa más zonas. Gasta más batería.</string>
+    <string name="how_help_precise">Tapa solo la parte que lo necesita, no todo el bloque (beta).</string>
     <string name="needs_android14">Necesita Android 14 o más nuevo</string>
     <string name="set_keep">Seguir protegiendo siempre</string>
     <string name="set_keep_text">Aunque se acabe la pantalla compartida.</string>
@@ -235,6 +236,8 @@
     <string name="app_rule_normal">Normal</string>
     <string name="app_rule_blocked">Bloqueada</string>
     <string name="app_rule_trusted">De confianza</string>
+    <string name="app_rule_help_normal">Sophiel la revisa y tapa lo explícito</string>
+    <string name="app_rule_help_blocked">No se abre mientras Sophiel protege</string>
     <string name="apps_trust_warning">Si confías en un navegador, deja pasar cualquier cosa.</string>
     <string name="needs_service">Necesita el servicio de accesibilidad</string>
     <string name="group_privacy">Privacidad</string>
@@ -259,10 +262,10 @@
     <string name="wiz_go_app">Ir a la app</string>
     <string name="wiz_skip">Saltar</string>
     <string name="wiz_app_info">Abrir info de la app</string>
-    <string name="wiz_overlay_text">Sophiel tapa lo que no debe verse con una máscara sobre las otras apps. Sin este permiso no puede funcionar.</string>
+    <string name="wiz_overlay_text">Sophiel cubre lo que no debe verse con una máscara sobre las otras apps. Sin este permiso no funciona.</string>
     <string name="wiz_overlay_row">Busca Sophiel en la lista y activa el permiso</string>
-    <string name="wiz_service_text">Hace que la máscara sea totalmente opaca, sigue protegiendo tras apagar la pantalla o reiniciar y protege los ajustes de Sophiel.</string>
-    <string name="wiz_keep_text">Sophiel sigue tapando contenido aunque se apague la pantalla o se reinicie el teléfono, sin pedirte permiso cada vez. En ese modo tapa un poco más lento.</string>
+    <string name="wiz_service_text">La máscara queda opaca, sigue activa tras apagar la pantalla o reiniciar, y protege los ajustes de Sophiel.</string>
+    <string name="wiz_keep_text">Sophiel sigue tapando con la pantalla apagada o tras reiniciar, sin pedirte permiso cada vez. Tapa un poco más lento.</string>
     <string name="wiz_open_accessibility">Abrir Accesibilidad</string>
     <string name="wiz_service_row">Activa Sophiel en Accesibilidad</string>
     <string name="wiz_service_row_text">Búscala en Apps instaladas o Apps descargadas y actívala</string>
@@ -282,8 +285,6 @@
     <string name="wiz_notif_row">Android te pedirá permiso para mostrar avisos</string>
     <string name="wiz_preset_title">¿Cómo debe proteger?</string>
     <string name="wiz_preset_text">Podrás cambiarlo luego en Ajustes.</string>
-    <string name="wiz_how_balanced">Buen punto medio de calidad y batería.</string>
-    <string name="wiz_how_precise_disabled">Tapa solo la parte exacta · necesita Android 14 o más nuevo</string>
     <string name="wiz_start_title">Todo listo</string>
     <string name="wiz_start_text">Inicia la protección. Después verás el estado aquí.</string>
     <string name="wiz_entire">Elige «Pantalla completa»</string>

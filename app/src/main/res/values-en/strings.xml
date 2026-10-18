@@ -33,13 +33,16 @@
         <item quantity="other">Wrong PIN · %d attempts left</item>
     </plurals>
     <string name="pin_locked">Locked %1$s</string>
+    <string name="pin_locked_spoken">Locked. Try again later.</string>
+    <string name="pin_digits_typed">%1$d digits entered</string>
     <string name="pin_try_again">You can try again now</string>
     <string name="pin_unlocked">Unlocked for 2 min</string>
     <string name="pin_unlock">Unlock</string>
+    <string name="sheet_close">Close</string>
     <string name="pin_cancel">Cancel</string>
     <string name="pin_delete">Delete</string>
     <string name="pin_forgot">Forgot the PIN?</string>
-    <string name="pin_forgot_body">There is no way to recover it. Starting over means clearing the app\'s data in the phone\'s settings, which also wipes the Log.</string>
+    <string name="pin_forgot_body">It can\'t be recovered. To start over, clear the app\'s data in the phone\'s settings; that also clears the log.</string>
     <string name="pin_create_title">Create a PIN</string>
     <string name="pin_create_enter">Choose a PIN of 4 to 6 digits</string>
     <string name="pin_create_confirm">Enter it again to confirm</string>
@@ -89,9 +92,9 @@
     <string name="proof_last">Last: %1$s</string>
     <string name="proof_none">Nothing to cover yet</string>
     <string name="proof_see">See history</string>
+    <string name="proof_week">%1$d covered this week</string>
     <string name="status_to_restart">To start again</string>
     <string name="status_review">Review</string>
-    <string name="status_care">Care</string>
     <string name="preset_light">Light</string>
     <string name="preset_balanced">Balanced</string>
     <string name="preset_thorough">Thorough</string>
@@ -100,7 +103,6 @@
     <string name="care_normal">Normal</string>
     <string name="care_relaxed">Cover less</string>
     <string name="status_precise_using">Precise · using Balanced</string>
-    <string name="fallback_accessibility">Turn on the full mask to use Precise</string>
     <string name="fallback_android">Precise needs Android 14 or newer</string>
     <string name="health_ok">All good</string>
     <string name="health_ok_text">Mask, notices and permissions</string>
@@ -112,7 +114,8 @@
     <string name="tag_working">Working</string>
     <string name="tag_enabled">On</string>
     <string name="need_overlay_missing">No permission: Android will not let the mask be drawn</string>
-    <string name="need_service_missing">Off · for full coverage</string>
+    <string name="need_service_missing">Turn it on in Accessibility · without it the mask will look slightly see-through</string>
+    <string name="need_service_precise">Turn it on in Accessibility · Precise needs it</string>
     <string name="need_service_forced">It turns off when the app is force-stopped</string>
     <string name="need_notifications_missing">You will not see the notice when it pauses</string>
     <string name="fix_allow">Allow</string>
@@ -120,7 +123,6 @@
     <string name="group_required">To work</string>
     <string name="group_recommended">Recommended</string>
     <string name="note_overlay">Allow showing the mask to start</string>
-    <string name="note_partial">Without the full mask, the mask will look slightly see-through</string>
 
     <!-- Log -->
     <string name="log_title">Log</string>
@@ -134,10 +136,10 @@
         <item quantity="other">%1$s · %2$d covered</item>
     </plurals>
     <string name="log_stat_masked">Covered</string>
-    <string name="log_stat_attempts">Attempts to turn Sophiel off</string>
+    <string name="log_stat_attempts">Tried to turn off</string>
     <string name="log_stat_gap">Times unprotected</string>
-    <string name="log_stat_blocks">Blocked from opening</string>
-    <string name="log_verdict_ok">All in order this week</string>
+    <string name="log_stat_blocks">Blocked apps</string>
+    <string name="log_verdict_ok">All in order</string>
     <string name="log_verdict_look">Worth a look this week</string>
     <string name="log_filter_all">All</string>
     <string name="log_filter_masked">Covered</string>
@@ -147,8 +149,8 @@
     <string name="log_more">Show more (%d)</string>
     <string name="log_masked">Something was covered</string>
     <plurals name="log_parts">
-        <item quantity="one">%d part of the screen</item>
-        <item quantity="other">%d parts of the screen</item>
+        <item quantity="one">%d part</item>
+        <item quantity="other">%d parts</item>
     </plurals>
     <plurals name="log_episodes">
         <item quantity="one">%d episode</item>
@@ -164,11 +166,10 @@
     <string name="log_band_mid">Sure</string>
     <string name="log_band_low">Unsure</string>
     <string name="log_unchecked">Couldn\'t be checked</string>
-    <string name="log_unchecked_text">%1$s · protects its screen · %2$d s</string>
     <string name="log_app_unknown">Unknown app</string>
     <string name="log_app_line">%1$s · %2$s</string>
     <string name="log_on">Protection turned on</string>
-    <string name="log_on_text">%1$s check · %2$s care</string>
+    <string name="log_on_text">%1$s · %2$s</string>
     <string name="log_off">Protection stopped</string>
     <string name="log_paused">Off for %1$s</string>
     <string name="log_off_user">You stopped it</string>
@@ -198,23 +199,23 @@
     <string name="block_rule">The Parent blocked this app</string>
     <string name="block_home">Go to Home</string>
     <string name="log_empty">Nothing to show yet</string>
-    <string name="log_empty_text">The log stays on this phone and is deleted after 7 days.</string>
+    <string name="log_empty_text">Stays on this phone for 7 days.</string>
     <string name="log_clear">Clear log</string>
     <string name="log_clear_title">Clear the log?</string>
-    <string name="log_clear_text">This deletes the last 7 days. It can\'t be undone.</string>
+    <string name="log_clear_text">This deletes the last 7 days.</string>
     <string name="log_clear_confirm">Clear</string>
 
     <!-- Ajustes -->
     <string name="group_protection">Protection</string>
     <string name="set_care">How much it covers</string>
     <string name="set_how">Checking</string>
-    <string name="care_help_strict">Covers doubtful things too.</string>
-    <string name="care_help_normal">A good balance.</string>
-    <string name="care_help_relaxed">Covers only the clear.</string>
-    <string name="how_help_light">Uses less battery.</string>
-    <string name="how_help_balanced">A good middle.</string>
-    <string name="how_help_thorough">Checks more. Uses more battery.</string>
-    <string name="how_help_precise">Covers only what is needed (beta).</string>
+    <string name="care_help_strict">Also covers what is unclear.</string>
+    <string name="care_help_normal">Balances covering too much and too little.</string>
+    <string name="care_help_relaxed">Covers only the clear. May let doubts through.</string>
+    <string name="how_help_light">Checks less. Uses less battery.</string>
+    <string name="how_help_balanced">Balances protection and battery.</string>
+    <string name="how_help_thorough">Checks more areas. Uses more battery.</string>
+    <string name="how_help_precise">Covers only the part that needs it, not the whole block (beta).</string>
     <string name="needs_android14">Needs Android 14 or newer</string>
     <string name="set_keep">Keep protecting always</string>
     <string name="set_keep_text">Even if the screen share ends.</string>
@@ -235,6 +236,8 @@
     <string name="app_rule_normal">Normal</string>
     <string name="app_rule_blocked">Blocked</string>
     <string name="app_rule_trusted">Trusted</string>
+    <string name="app_rule_help_normal">Sophiel checks it and masks what is explicit</string>
+    <string name="app_rule_help_blocked">Won\'t open while Sophiel protects</string>
     <string name="apps_trust_warning">Trusting a browser lets anything through.</string>
     <string name="needs_service">Needs the accessibility service</string>
     <string name="group_privacy">Privacy</string>
@@ -259,10 +262,10 @@
     <string name="wiz_go_app">Go to the app</string>
     <string name="wiz_skip">Skip</string>
     <string name="wiz_app_info">Open App info</string>
-    <string name="wiz_overlay_text">Sophiel covers what shouldn\'t be seen with a mask over other apps. It can\'t work without this permission.</string>
+    <string name="wiz_overlay_text">Sophiel covers what should not be seen with a mask over other apps. It does not work without this permission.</string>
     <string name="wiz_overlay_row">Find Sophiel in the list and turn the permission on</string>
-    <string name="wiz_service_text">Makes the mask fully opaque, keeps protecting after the screen turns off or the phone restarts, and protects Sophiel\'s settings.</string>
-    <string name="wiz_keep_text">Sophiel keeps covering content even when the screen turns off or the phone restarts, without asking permission each time. In this mode it covers a little slower.</string>
+    <string name="wiz_service_text">The mask is fully opaque, stays on after the screen turns off or a restart, and protects Sophiel\'s settings.</string>
+    <string name="wiz_keep_text">Sophiel keeps covering with the screen off or after a restart, without asking each time. It covers a little slower.</string>
     <string name="wiz_open_accessibility">Open Accessibility</string>
     <string name="wiz_service_row">Turn Sophiel on in Accessibility</string>
     <string name="wiz_service_row_text">Find it under Installed apps or Downloaded apps and turn it on</string>
@@ -282,8 +285,6 @@
     <string name="wiz_notif_row">Android will ask for permission to show notices</string>
     <string name="wiz_preset_title">How should it protect?</string>
     <string name="wiz_preset_text">You can change it later in Settings.</string>
-    <string name="wiz_how_balanced">A good middle of quality and battery.</string>
-    <string name="wiz_how_precise_disabled">Covers only the exact part · needs Android 14 or newer</string>
     <string name="wiz_start_title">All set</string>
     <string name="wiz_start_text">Start protection. You\'ll see its status here afterwards.</string>
     <string name="wiz_entire">Pick \"Entire screen\"</string>

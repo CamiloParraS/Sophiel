@@ -12,6 +12,7 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
@@ -25,6 +26,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
@@ -74,8 +76,8 @@ fun DoorHost(container: AppContainer, content: @Composable BoxScope.(Door) -> Un
         lockNow = unlock::lockNow,
     )
     Box(Modifier.fillMaxSize()) {
-        content(door)
-        BottomSheet(visible = pending != null, onDismiss = { pending = null }) {
+        Box(Modifier.fillMaxSize().behindSheet(pending != null)) { content(door) }
+        BottomSheet(visible = pending != null, title = stringResource(R.string.pin_title), onDismiss = { pending = null }, color = Palette.Chalk) { // Chalk: the Surface keys need a page to lift off
             PinPrompt(
                 container.pin, clock,
                 onUnlocked = {
@@ -105,16 +107,18 @@ fun UnlockedChip(door: Door) {
         exit = fadeOut(motion(tween(120, easing = Ease))) + scaleOut(motion(tween(120, easing = Ease)), targetScale = .95f),
     ) {
         Row(
-            Modifier.height(40.dp).clip(RoundedCornerShape(12.dp)).background(Color(0x12FFFFFF))
+            Modifier.minimumInteractiveComponentSize()
                 .clickable(role = Role.Button, onClickLabel = stringResource(R.string.lock_now), onClick = door.lockNow)
                 .semantics(mergeDescendants = true) { contentDescription = label }
+                .heightIn(min = 40.dp).clip(RoundedCornerShape(12.dp)).background(Palette.DarkFill)
                 .padding(start = 10.dp, end = 12.dp),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            SIcon(R.drawable.ic_unlock, Color(0xFF6FE6A8), 16.dp)
-            Text(left, style = MaterialTheme.typography.labelLarge.copy(fontFeatureSettings = "tnum"), color = Color(0xFFF2F7EF))
-            Text("· " + stringResource(R.string.lock_now), style = MaterialTheme.typography.labelLarge, color = Color(0xBFDDEBD3))
+            SIcon(R.drawable.ic_unlock, Palette.Mint, 16.dp)
+            Text(left, style = MaterialTheme.typography.labelLarge.copy(fontFeatureSettings = "tnum"), color = Palette.Text0)
+            // At large text the suffix would push the gear and the name off the bar; the whole chip still locks (label above).
+            if (androidx.compose.ui.platform.LocalDensity.current.fontScale < 1.5f) Text("· " + stringResource(R.string.lock_now), style = MaterialTheme.typography.labelLarge, color = Palette.DarkInk)
         }
     }
 }
@@ -123,8 +127,7 @@ fun UnlockedChip(door: Door) {
 @Composable
 fun GearButton(door: Door, onOpen: () -> Unit, onDark: Boolean = false) {
     Box {
-        if (onDark) FlatIconButton(R.drawable.ic_gear, stringResource(R.string.settings_title), { door.pass(onOpen) }, Color(0xBFDDEBD3), Color(0x12FFFFFF))
-        else FlatIconButton(R.drawable.ic_gear, stringResource(R.string.settings_title), { door.pass(onOpen) })
-        if (!door.unlocked) SIcon(R.drawable.ic_lock, if (onDark) Color(0xFFCFE3C2) else Palette.Dim, 11.dp, Modifier.align(Alignment.BottomEnd).padding(end = 9.dp, bottom = 9.dp))
+        SButton(null, { door.pass(onOpen) }, style = if (onDark) BtnStyle.OnDark else BtnStyle.Default, icon = R.drawable.ic_gear, label = stringResource(R.string.settings_title))
+        if (!door.unlocked) SIcon(R.drawable.ic_lock, if (onDark) Palette.DarkLock else Palette.Dim, 11.dp, Modifier.align(Alignment.BottomEnd).padding(end = 9.dp, bottom = 9.dp))
     }
 }

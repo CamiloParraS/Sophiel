@@ -72,7 +72,6 @@ import dev.sophiel.ui.StatusModel
 import dev.sophiel.ui.StatusScreen
 import dev.sophiel.ui.Door
 import dev.sophiel.ui.DoorHost
-import dev.sophiel.ui.FlatIconButton
 import dev.sophiel.ui.GearButton
 import dev.sophiel.ui.HeaderBar
 import dev.sophiel.ui.DebugMenu
@@ -80,8 +79,8 @@ import dev.sophiel.ui.DebugPage
 import dev.sophiel.ui.AppsScreen
 import dev.sophiel.ui.LogScreen
 import dev.sophiel.ui.SettingsScreen
-import dev.sophiel.ui.PillButton
-import dev.sophiel.ui.PillStyle
+import dev.sophiel.ui.SButton
+import dev.sophiel.ui.BtnStyle
 import dev.sophiel.ui.theme.Palette
 import dev.sophiel.ui.theme.SophielTheme
 
@@ -174,7 +173,7 @@ class MainActivity : ComponentActivity() {
                 DebugMenu(container, door, onBack = { debugOpen = false }, open = { debugPage = it }, rerunWizard = rerunWizard)
             } else {
                 Column(Modifier.fillMaxSize()) {
-                    HeaderBar(stringResource(page.title), start = { FlatIconButton(R.drawable.ic_back, stringResource(R.string.back), { debugPage = null }) })
+                    HeaderBar(stringResource(page.title), start = { SButton(null, { debugPage = null }, icon = R.drawable.ic_back, label = stringResource(R.string.back)) })
                     val pageModifier = Modifier.weight(1f).navigationBarsPadding()
                     when (page) {
                         DebugPage.TestFeed -> testFeedScreen(pageModifier)

@@ -74,7 +74,7 @@ fun TileVisual(kind: VisualKind, modifier: Modifier = Modifier, height: Dp = 168
                 VisualKind.START -> ((time * 1.7f - pos * .6f) * 4f).coerceIn(0f, 1f) * (if (time > .88f) (1f - time) / .12f else 1f)
             }
             drawRoundRect(Palette.Moss.copy(alpha = .07f), at, box, corner)
-            val edge = if (kind == VisualKind.PRESET && i in seen) Palette.GreenFg.copy(alpha = .75f) else Palette.Moss.copy(alpha = .14f)
+            val edge = if (kind == VisualKind.PRESET && i in seen) Palette.Moss.copy(alpha = .75f) else Palette.Moss.copy(alpha = .14f)
             drawRoundRect(edge, at, box, corner, style = Stroke((if (kind == VisualKind.PRESET && i in seen) 2.dp else 1.dp).toPx()))
             if (cover > 0f) {
                 drawRoundRect(Palette.Moss.copy(alpha = cover), at, box, corner)
@@ -85,7 +85,7 @@ fun TileVisual(kind: VisualKind, modifier: Modifier = Modifier, height: Dp = 168
             val c = Offset(x0 + 2 * (tile + gap) + tile / 2, y0 + 1 * (tile + gap) + tile / 2)
             for (w in 0 until 2) {
                 val k = ((time * 2f + w * .5f) % 1f)
-                drawCircle(Palette.GreenFg.copy(alpha = .55f * (1f - k)), tile / 2 + k * 70.dp.toPx(), c, style = Stroke(2.dp.toPx()))
+                drawCircle(Palette.Moss.copy(alpha = .55f * (1f - k)), tile / 2 + k * 70.dp.toPx(), c, style = Stroke(2.dp.toPx()))
             }
         }
     }

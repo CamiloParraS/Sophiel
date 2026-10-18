@@ -20,10 +20,37 @@ object Palette {
     val Red = Color(0xFFE01B24)
     val RedFg = Color(0xFFC01C28)
 
+    // On the dark hero and on Moss: the light inks and fills that sit on them.
+    val Mint = Color(0xFF6FE6A8)
+    val Text0 = Color(0xFFF2F7EF)
+    val Text1 = Color(0xFFB9CDB4)
+    val OnMoss = Color(0xFFE8F5E4)
+    val MossBusy = Color(0xFF3A4A41)
+    val MossOff = Color(0xFF4D5C54)
+    val DarkInk = Color(0xBFDDEBD3) // icon and secondary text on the hero
+    val DarkFill = Color(0x12FFFFFF) // chip and icon-button fill on the hero
+    val DarkLock = Color(0xFFCFE3C2)
+    val HeroOff = Color(0xFF1B2A24)
+    val HeroRed = Color(0xFF231A1A) // hero page behind a broken Protection
+    val HeroAmber = Color(0xFF241F17) // hero page behind a stopped one
+    val TileOn = Color(0xFF1A2F23) // the hero's tile wall, per page
+    val TileRed = Color(0xFF2F2222)
+    val TileAmber = Color(0xFF2F2820)
+    val RedInk = Color(0xFFFF8A8F)
+    val AmberInk = Color(0xFFFFC08A)
+    val MintDim = Color(0xFF53AB7D) // the green held back (Ready)
+    val GreenDeep = Color(0xFF287548)
+    val Edge = Color(0xFFBFD8A8) // tile outlines on the hero
+    val MaskRed = Color(0x99E41826)
+    val MaskAmber = Color(0x8CEA6200)
+    val Speck = Color(0x14FFFFFF)
+    val Quiet = Color(0x2912201A) // a day with nothing, in the week strip
+
     // Neutrals: rgba(0,0,6,a) over the light window.
     private val Ink = Color(0xFF000006)
     val Fg = Ink.copy(alpha = .8f)
-    val Dim = Ink.copy(alpha = .55f)
+    val Dim = Ink.copy(alpha = .72f) // ~7:1 on Chalk; .62 was 5.7:1, .55 was 4.4:1
+    const val DISABLED = .7f // a disabled row stays legible; the reason line and the dead tap say why
     val Border = Color(0xFF281E0A).copy(alpha = .12f) // warm, like the surfaces it divides
     val Hover = Ink.copy(alpha = .06f)
     val Btn = Ink.copy(alpha = .07f)
@@ -47,7 +74,7 @@ fun Modifier.lift(shape: Shape) = shadow(1.dp, shape, ambientColor = Color(0x332
 fun SophielTheme(content: @Composable () -> Unit) {
     val scheme = lightColorScheme(
         primary = Palette.Moss,
-        onPrimary = Color(0xFFF2F7EF),
+        onPrimary = Palette.Text0,
         primaryContainer = Palette.tint(Palette.GreenFg, .14f),
         onPrimaryContainer = Palette.GreenFg,
         background = Palette.Win,

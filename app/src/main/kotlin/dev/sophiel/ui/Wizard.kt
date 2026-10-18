@@ -5,7 +5,14 @@ import android.net.Uri
 import android.os.Build
 import android.provider.Settings
 import androidx.annotation.StringRes
-import androidx.activity.compose.BackHandler
+import androidx.activity.compose.PredictiveBackHandler
+import androidx.compose.animation.core.Animatable
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import kotlin.coroutines.cancellation.CancellationException
+import androidx.activity.BackEventCompat
+import dev.sophiel.ui.theme.reducedMotion
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
@@ -91,11 +98,25 @@ private const val STEPS = 7
 fun SetupWizard(container: AppContainer, resumes: Int, fix: (Need) -> Unit, start: () -> Unit, finish: () -> Unit) {
     var step by rememberSaveable { mutableIntStateOf(0) }
     var forward by rememberSaveable { mutableStateOf(true) }
-    BackHandler(step > 0) { forward = false; step-- }
+    // Predictive Back: the step leans toward the swipe edge while the finger is down. Committing runs the usual slide;
+    // the lean eases out under it. Cancelling eases it back.
+    val lean = remember { Animatable(0f) }
+    var edge by remember { mutableIntStateOf(1) }
+    val reduce = reducedMotion()
+    val scope = rememberCoroutineScope()
+    PredictiveBackHandler(step > 0) { events ->
+        try {
+            events.collect { if (!reduce) { edge = if (it.swipeEdge == BackEventCompat.EDGE_RIGHT) -1 else 1; lean.snapTo(it.progress) } }
+            forward = false; step--
+            scope.launch { lean.animateTo(0f, tween(240, easing = Ease)) }
+        } catch (e: CancellationException) {
+            scope.launch { lean.animateTo(0f, tween(200, easing = Ease)) }
+        }
+    }
     // Forward slides in from the right, Back from the left: a quarter width with a fade. Reduced motion jumps.
     val slide = motion<IntOffset>(tween(240, easing = Ease))
     val fade = motion<Float>(tween(160))
-    Column(Modifier.fillMaxSize().background(Palette.Win)) {
+    Column(Modifier.fillMaxSize().background(Palette.Chalk)) {
         // The tiles stay put while the steps slide under them.
         AnimatedVisibility(
             step >= 1,
@@ -104,7 +125,10 @@ fun SetupWizard(container: AppContainer, resumes: Int, fix: (Need) -> Unit, star
         ) { WizardTop(step) { forward = false; step-- } }
         AnimatedContent(
             step,
-            Modifier.weight(1f),
+            Modifier.weight(1f).graphicsLayer {
+                val k = 1f - .06f * lean.value
+                scaleX = k; scaleY = k; translationX = edge * lean.value * size.width * .06f
+            },
             transitionSpec = {
                 val dir = if (targetState > initialState) 1 else -1
                 (slideInHorizontally(slide) { dir * it / 4 } + fadeIn(fade)) togetherWith (slideOutHorizontally(slide) { -dir * it / 4 } + fadeOut(fade))
@@ -161,7 +185,7 @@ fun SetupWizard(container: AppContainer, resumes: Int, fix: (Need) -> Unit, star
                     }
                 }
                 4 -> StepFrame(VisualKind.AWAKE, R.string.wiz_awake_title, R.string.wiz_awake_text, bottom = {
-                    PillButton(stringResource(R.string.wiz_app_info), appInfo, Modifier.widthIn(min = 200.dp))
+                    SButton(stringResource(R.string.wiz_app_info), appInfo, Modifier.widthIn(max = 360.dp).fillMaxWidth())
                     PrimaryPill(R.string.pin_continue, next) // not detectable (D42), so always on
                 }) {
                     PreferenceGroup(footnote = stringResource(R.string.wiz_awake_note)) {
@@ -187,13 +211,13 @@ fun SetupWizard(container: AppContainer, resumes: Int, fix: (Need) -> Unit, star
                 }
                 6 -> StepFrame(
                     VisualKind.PRESET, R.string.wiz_preset_title, R.string.wiz_preset_text, bottom = { PrimaryPill(R.string.pin_continue, next) },
-                    visual = { TileVisual(VisualKind.PRESET, height = 128.dp, preset = container.settings.state.collectAsState().value.preset) },
+                    visual = { TileVisual(VisualKind.PRESET, height = 104.dp, preset = container.settings.state.collectAsState().value.preset) },
                 ) {
                     PresetStep(container)
                 }
                 else -> StepFrame(VisualKind.START, R.string.wiz_start_title, R.string.wiz_start_text, bottom = {
-                    PillButton(stringResource(R.string.action_start), start, Modifier.widthIn(max = 360.dp).fillMaxWidth(), style = PillStyle.Suggested, large = true, icon = R.drawable.ic_play)
-                    PillButton(stringResource(R.string.wiz_go_app), finish, Modifier.widthIn(max = 360.dp).fillMaxWidth())
+                    SButton(stringResource(R.string.action_start), start, Modifier.widthIn(max = 360.dp).fillMaxWidth(), style = BtnStyle.Suggested, large = true, icon = R.drawable.ic_play)
+                    SButton(stringResource(R.string.wiz_go_app), finish, Modifier.widthIn(max = 360.dp).fillMaxWidth())
                     Text(stringResource(R.string.status_starting_note), style = MaterialTheme.typography.bodySmall, color = Palette.Dim, textAlign = TextAlign.Center)
                 }) {
                     PreferenceGroup {
@@ -218,10 +242,10 @@ private fun Welcome(onStart: () -> Unit) {
             GridHero(Page.PROTECTED, stringResource(R.string.wiz_welcome_title), stringResource(R.string.wiz_welcome_text), fit = maxHeight)
         }
         Column(
-            Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 24.dp, vertical = 14.dp),
+            Modifier.fillMaxWidth().navigationBarsPadding().cutoutPadding().padding(horizontal = 24.dp, vertical = 14.dp),
             horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            PillButton(stringResource(R.string.wiz_welcome_go), onStart, Modifier.widthIn(max = 360.dp).fillMaxWidth(), style = PillStyle.Suggested, large = true)
+            SButton(stringResource(R.string.wiz_welcome_go), onStart, Modifier.widthIn(max = 360.dp).fillMaxWidth(), style = BtnStyle.Suggested, large = true)
             Text(stringResource(R.string.wiz_welcome_note, STEPS), style = MaterialTheme.typography.bodySmall, color = Palette.Dim, textAlign = TextAlign.Center)
         }
     }
@@ -245,44 +269,44 @@ private fun advanceWhenGranted(granted: Boolean, forward: Boolean, next: () -> U
     }
 }
 
-/** Back chip and the seven progress tiles, filled in green up to the current step. */
+/** Back chip and a thin progress bar, filled in green up to the current step. */
 @Composable
 private fun WizardTop(step: Int, back: () -> Unit) {
     Row(Modifier.fillMaxWidth().statusBarsPadding().padding(start = 6.dp, end = 22.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-        FlatIconButton(R.drawable.ic_back, stringResource(R.string.back), back)
+        SButton(null, back, icon = R.drawable.ic_back, label = stringResource(R.string.back))
         val label = stringResource(R.string.wiz_step, step, STEPS)
-        Row(Modifier.weight(1f).padding(start = 6.dp).semantics { contentDescription = label }, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-            repeat(STEPS) { i ->
-                val fill by animateFloatAsState(if (i < step) 1f else 0f, motion(tween(320, easing = Ease)), label = "tile")
-                Box(
-                    Modifier.weight(1f).height(12.dp).clip(RoundedCornerShape(4.dp)).background(Palette.Moss.copy(alpha = .1f))
-                        .drawBehind { drawRect(Palette.GreenFg, size = Size(size.width * fill, size.height)) },
-                )
-            }
-        }
+        val fill by animateFloatAsState(step / STEPS.toFloat(), motion(tween(320, easing = Ease)), label = "progress")
+        Box(
+            Modifier.weight(1f).padding(start = 12.dp).height(4.dp).clip(CircleShape).background(Palette.Moss.copy(alpha = .1f))
+                .semantics { contentDescription = label }
+                .drawBehind { drawRect(Palette.Moss, size = Size(size.width * fill, size.height)) },
+        )
     }
 }
 
-/** A step: the tile visual in the middle, title and line, then what the step needs; the buttons stay at the bottom. */
+/**
+ * A step: a short tile wall, title and line, what the step needs, then the buttons right under it.
+ * A step too tall for the screen scrolls, with the buttons pinned at the bottom.
+ */
 @Composable
 private fun StepFrame(
     kind: VisualKind, @StringRes title: Int, @StringRes text: Int, bottom: @Composable ColumnScope.() -> Unit,
-    visual: @Composable () -> Unit = { TileVisual(kind) }, content: @Composable ColumnScope.() -> Unit,
+    visual: @Composable () -> Unit = { TileVisual(kind, height = 104.dp) }, content: @Composable ColumnScope.() -> Unit,
 ) {
     Column(Modifier.fillMaxSize()) {
         Column(
-            Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(start = 14.dp, end = 14.dp, top = 4.dp, bottom = 16.dp),
+            Modifier.weight(1f, fill = false).fillMaxWidth().verticalScroll(rememberScrollState()).cutoutPadding().pageWidth().padding(start = 14.dp, end = 14.dp, top = 4.dp, bottom = 12.dp),
             verticalArrangement = Arrangement.spacedBy(18.dp),
         ) {
             visual()
             Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(stringResource(title), style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center)
+                Text(stringResource(title), Modifier.asHeading(), style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center)
                 Text(stringResource(text), Modifier.widthIn(max = 300.dp), style = MaterialTheme.typography.bodyLarge, color = Palette.Dim, textAlign = TextAlign.Center)
             }
             content()
         }
         Column(
-            Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 14.dp, vertical = 12.dp),
+            Modifier.fillMaxWidth().navigationBarsPadding().cutoutPadding().padding(horizontal = 14.dp, vertical = 12.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(8.dp),
             content = bottom,
@@ -290,9 +314,10 @@ private fun StepFrame(
     }
 }
 
+/** Every step's main button is the welcome's and the last step's: full width up to 360 dp, large. */
 @Composable
 private fun PrimaryPill(@StringRes text: Int, onClick: () -> Unit) =
-    PillButton(stringResource(text), onClick, Modifier.widthIn(min = 200.dp), style = PillStyle.Suggested)
+    SButton(stringResource(text), onClick, Modifier.widthIn(max = 360.dp).fillMaxWidth(), style = BtnStyle.Suggested, large = true)
 
 /** "Saltar", with what is lost under it. */
 @Composable
@@ -300,7 +325,7 @@ private fun Skip(@StringRes lost: Int, onClick: () -> Unit) {
     Text(
         stringResource(R.string.wiz_skip),
         Modifier.clip(RoundedCornerShape(8.dp)).clickable(role = Role.Button, onClick = onClick).heightIn(min = 48.dp).padding(horizontal = 12.dp, vertical = 13.dp),
-        style = MaterialTheme.typography.labelLarge, color = Palette.GreenFg,
+        style = MaterialTheme.typography.labelLarge, color = Palette.Moss,
     )
     Text(stringResource(lost), style = MaterialTheme.typography.bodySmall, color = Palette.Dim, textAlign = TextAlign.Center)
 }
@@ -315,7 +340,7 @@ private fun NeedStepRow(need: Need, @StringRes title: Int, @StringRes todo: Int,
         PrefRow(
             stringResource(if (todoAsTitle && !ok) todo else title),
             description = if (ok || todoAsTitle) null else stringResource(todo),
-            icon = need.icon(), iconTint = if (ok) Palette.GreenFg else Palette.Dim,
+            icon = need.icon(), iconTint = if (ok) Palette.Moss else Palette.Dim,
             end = { if (ok) Tag(stringResource(need.okTag()), TagKind.Ok) },
         )
     }
@@ -331,7 +356,7 @@ private fun GreyedSwitchHelp(appInfo: () -> Unit) {
         AnimatedVisibility(open, enter = expandVertically(motion(tween(240, easing = Ease))), exit = shrinkVertically(motion(tween(240, easing = Ease)))) {
             Column(Modifier.fillMaxWidth().padding(start = 44.dp, end = 14.dp, bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(stringResource(R.string.wiz_grey_text), style = MaterialTheme.typography.bodyMedium, color = Palette.Dim)
-                PillButton(stringResource(R.string.wiz_app_info), appInfo, small = true)
+                SButton(stringResource(R.string.wiz_app_info), appInfo, small = true)
             }
         }
     }
@@ -344,25 +369,24 @@ private fun PresetStep(container: AppContainer) {
     val canShoot = Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE // D35
     PreferenceGroup(Modifier.selectableGroup(), title = stringResource(R.string.set_how)) {
         ParentPreset.entries.forEach { p ->
-            val (icon, name, help) = when (p) {
-                ParentPreset.LIGHT -> Triple(R.drawable.ic_sliders, R.string.preset_light, R.string.how_help_light)
-                ParentPreset.BALANCED -> Triple(R.drawable.ic_shield, R.string.preset_balanced, R.string.wiz_how_balanced)
-                ParentPreset.THOROUGH -> Triple(R.drawable.ic_layers, R.string.preset_thorough, R.string.how_help_thorough)
-                // "beta" only where it can run; below API 34 the reason instead, as in the mockup.
-                ParentPreset.PRECISE -> Triple(R.drawable.ic_eye, R.string.preset_precise, if (canShoot) R.string.how_help_precise else R.string.wiz_how_precise_disabled)
+            // Same names and lines as the Ajustes sheet, and no icons: there the sliders icon means Cuánto tapa.
+            val (name, help) = when (p) {
+                ParentPreset.LIGHT -> R.string.preset_light to R.string.how_help_light
+                ParentPreset.BALANCED -> R.string.preset_balanced to R.string.how_help_balanced
+                ParentPreset.THOROUGH -> R.string.preset_thorough to R.string.how_help_thorough
+                ParentPreset.PRECISE -> R.string.preset_precise to if (canShoot) R.string.how_help_precise else R.string.needs_android14
             }
             val enabled = p != ParentPreset.PRECISE || canShoot
             val selected = settings.preset == p
             item {
                 PrefRow(
                     stringResource(name),
-                    Modifier.alpha(if (enabled) 1f else .5f).selectable(selected, enabled = enabled, role = Role.RadioButton) { container.settings.update { it.copy(preset = p) } },
+                    Modifier.alpha(if (enabled) 1f else Palette.DISABLED).selectable(selected, enabled = enabled, role = Role.RadioButton) { container.settings.update { it.copy(preset = p) } },
                     description = stringResource(help),
-                    icon = icon, iconTint = if (selected) Palette.GreenFg else Palette.Dim,
                     end = {
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                             if (p == ParentPreset.BALANCED) Tag(stringResource(R.string.group_recommended), TagKind.Recommended)
-                            SIcon(R.drawable.ic_check, Palette.GreenFg, modifier = Modifier.alpha(if (selected) 1f else 0f))
+                            SIcon(R.drawable.ic_check, Palette.Moss, modifier = Modifier.alpha(if (selected) 1f else 0f))
                         }
                     },
                 )

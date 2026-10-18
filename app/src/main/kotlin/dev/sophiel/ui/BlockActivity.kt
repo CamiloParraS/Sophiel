@@ -65,14 +65,14 @@ class BlockActivity : ComponentActivity() {
             SophielTheme {
                 BackHandler(onBack = ::goHome)
                 Column(
-                    Modifier.fillMaxSize().background(Palette.Win).safeDrawingPadding().verticalScroll(rememberScrollState()).padding(18.dp),
+                    Modifier.fillMaxSize().background(Palette.Win).safeDrawingPadding().verticalScroll(rememberScrollState()).pageWidth().padding(18.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterVertically),
                 ) {
                     val app = blocked
                     if (app != null) {
                         AppIcon(app, 56.dp)
-                        Text(appLabel(packageManager, app), style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center)
+                        Text(appLabel(packageManager, app), Modifier.asHeading(), style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center)
                         val blocks by container.escalation.blocks.collectAsState()
                         val now by tickingNow(System::currentTimeMillis)
                         // D58: a rule beats escalation; only an escalation block has a PIN.
@@ -84,7 +84,7 @@ class BlockActivity : ComponentActivity() {
                             if (minutes != null) stringResource(R.string.block_escalation, minutes) else stringResource(R.string.block_rule),
                             style = MaterialTheme.typography.bodyLarge, color = Palette.Dim, textAlign = TextAlign.Center,
                         )
-                        PillButton(stringResource(R.string.block_home), ::goHome, style = PillStyle.Suggested)
+                        SButton(stringResource(R.string.block_home), ::goHome, style = BtnStyle.Suggested)
                         if (until != null) {
                             var pinOpen by remember { mutableStateOf(false) }
                             if (pinOpen) {
@@ -98,12 +98,12 @@ class BlockActivity : ComponentActivity() {
                                     onCancel = { pinOpen = false },
                                 )
                             } else {
-                                PillButton(stringResource(R.string.block_pin), { pinOpen = true })
+                                SButton(stringResource(R.string.block_pin), { pinOpen = true })
                             }
                         }
                     } else {
                         SIcon(R.drawable.ic_lock, Palette.Orange, 40.dp)
-                        Text(stringResource(R.string.guard_title), style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center)
+                        Text(stringResource(R.string.guard_title), Modifier.asHeading(), style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center)
                         PinPrompt(
                             container.pin, SystemClock::elapsedRealtime,
                             onUnlocked = {
