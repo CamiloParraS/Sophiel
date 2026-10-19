@@ -142,6 +142,7 @@ fun SButton(
             .clip(shape)
             .background(bg.copy(alpha = bg.alpha * (if (!enabled && !main) .45f else if (busy && !main) .8f else 1f)))
             .let { if (style == BtnStyle.Stop && enabled && !busy) it.border(1.dp, moss.copy(alpha = .2f), shape) else it }
+            .let { if (style == BtnStyle.Fix && enabled && !busy) it.border(1.dp, Palette.OrangeFg.copy(alpha = .55f), shape) else it } // outlined, so it reads as a button on the pale tint
             .focusRing(source, shape)
             .padding(horizontal = if (iconOnly || main) 0.dp else if (style == BtnStyle.Fix) 14.dp else if (small) 14.dp else if (large) 24.dp else 20.dp),
         horizontalArrangement = Arrangement.spacedBy(if (big) 10.dp else 8.dp, Alignment.CenterHorizontally),

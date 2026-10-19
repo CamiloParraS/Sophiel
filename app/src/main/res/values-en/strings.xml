@@ -106,7 +106,13 @@
     <string name="fallback_android">Precise needs Android 14 or newer</string>
     <string name="health_ok">All good</string>
     <string name="health_ok_text">Mask, notices and permissions</string>
-    <string name="health_part">%1$d of %2$d in order</string>
+    <string name="health_rest">The rest is in order</string>
+    <string name="status_ready_promise">Covers only what is explicit. Nothing leaves the phone.</string>
+    <string name="status_ready_caution_service">Accessibility is off: the mask will look slightly see-through</string>
+    <string name="status_ready_caution_other">You can start, but notices are still off</string>
+    <string name="status_preset_line">Review %1$s · Covers %2$s</string>
+    <string name="proof_week_only">%1$d in 7 days</string>
+    <string name="proof_week_last">%1$d in 7 days · Last: %2$s</string>
     <string name="need_overlay">Show the mask</string>
     <string name="need_service">Full mask</string>
     <string name="need_notifications">Notices</string>

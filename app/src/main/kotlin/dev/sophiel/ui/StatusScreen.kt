@@ -195,11 +195,10 @@ fun StatusScreen(model: StatusModel, door: Door, actions: StatusActions, modifie
             when (model.page) {
                 Page.PROTECTED, Page.READY -> {
                     FallbackNote(model)
-                    Health(model, actions.fix, titled = model.page == Page.READY, failingOnly = true)
+                    // One Revisión card: what needs fixing on top, the rest folded under it. The week's proof follows.
+                    Health(model, actions.fix)
                     merged = true
                     Proof(week, actions.seeLog)
-                    // Its own card: the history card is about the week, this one is about the checks.
-                    if (Need.entries.any { it !in model.missing }) PreferenceGroup { healthy(model, actions.fix) }
                 }
                 Page.OFF -> Health(model, actions.fix, titled = true)
                 Page.STARTING -> PreferenceGroup(title = stringResource(R.string.status_what_will_happen)) {
@@ -267,6 +266,7 @@ fun StatusScreen(model: StatusModel, door: Door, actions: StatusActions, modifie
                     SButton(stringResource(R.string.status_starting), {}, buttonWidth, BtnStyle.Go, busy = true)
                 }
                 else -> {
+                    if (model.page == Page.READY) Note(presetLine(model), dim = true)
                     when (model.note) {
                         StartNote.TURN_ON_OVERLAY -> Note(R.string.note_overlay)
                         StartNote.PARTIAL_MASK, null -> Unit // the Full mask row above says it once
@@ -279,25 +279,36 @@ fun StatusScreen(model: StatusModel, door: Door, actions: StatusActions, modifie
 }
 
 @Composable
-private fun Note(@StringRes id: Int) =
-    Text(stringResource(id), style = MaterialTheme.typography.bodyMedium, color = Palette.Fg, textAlign = TextAlign.Center)
+private fun Note(@StringRes id: Int) = Note(stringResource(id))
+
+@Composable
+private fun Note(text: String, dim: Boolean = false) =
+    Text(text, style = MaterialTheme.typography.bodyMedium, color = if (dim) Palette.Dim else Palette.Fg, textAlign = TextAlign.Center)
 
 @Composable
 private fun Hero(model: StatusModel, since: String, fit: Dp?, gear: @Composable () -> Unit) {
     val blocking = StatusModel.REQUIRED.count { it in model.missing }
+    // Ready with a recommended check off: the hero says so instead of looking all clear.
+    val caution = model.page == Page.READY && StatusModel.RECOMMENDED.any { it in model.missing }
     val (title, text) = when (model.page) {
         Page.PROTECTED -> stringResource(R.string.status_protected) to
             stringResource(if (model.mode == CaptureMode.ACCESSIBILITY) R.string.status_mode_a11y else R.string.status_mode_share)
         Page.OFF -> stringResource(R.string.status_idle) to pluralStringResource(R.plurals.status_missing, blocking, blocking)
-        Page.READY -> stringResource(R.string.status_ready) to presetLine(model) // the see-through warning is the note above Start
+        Page.READY -> stringResource(R.string.status_ready) to stringResource(
+            when {
+                Need.SERVICE in model.missing -> R.string.status_ready_caution_service
+                caution -> R.string.status_ready_caution_other
+                else -> R.string.status_ready_promise
+            },
+        )
         Page.STARTING -> stringResource(R.string.status_starting) to stringResource(R.string.status_starting_text)
         Page.STOPPED -> stringResource(R.string.status_stopped) to stringResource(R.string.status_stopped_text, since)
         Page.INTERRUPTED -> stringResource(R.string.status_interrupted) to stringResource(R.string.status_interrupted_text, since)
     }
-    GridHero(model.page, title, text, fit = fit, gear = gear)
+    GridHero(model.page, title, text, fit = fit, caution = caution, gear = gear)
 }
 
-/** Revisión and Cuidado in one line ("Reforzado · Normal"), the Ready subtitle; a Precise fallback says so. */
+/** Revisión and Cuánto tapa, labelled ("Revisión Reforzado · Cuánto tapa Normal"), the note above Start; a Precise fallback says so. */
 @Composable
 private fun presetLine(model: StatusModel): String {
     val review = stringResource(
@@ -316,7 +327,7 @@ private fun presetLine(model: StatusModel): String {
             Sensitivity.RELAXED -> R.string.care_relaxed
         },
     )
-    return "$review · $care"
+    return stringResource(R.string.status_preset_line, review, care)
 }
 
 /** Why a Precise preset fell back, under nothing else; silent otherwise. */
@@ -343,8 +354,11 @@ private fun Health(model: StatusModel, fix: (Need) -> Unit, titled: Boolean = fa
             val missing = needs.filter { it in model.missing }
             if (missing.isNotEmpty()) PreferenceGroup(title = stringResource(title)) { missing.forEach { n -> item { NeedRow(n, false, fix, precise = precise) } } }
         }
-    } else if (failing.isNotEmpty()) PreferenceGroup { failing.forEach { n -> item { NeedRow(n, false, fix, precise = precise) } } }
-    if (!failingOnly && failing.size < Need.entries.size) PreferenceGroup { healthy(model, fix) }
+        if (!failingOnly && failing.size < Need.entries.size) PreferenceGroup { healthy(model, fix) }
+    } else if (failing.isNotEmpty() || (!failingOnly && failing.size < Need.entries.size)) PreferenceGroup {
+        failing.forEach { n -> item { NeedRow(n, false, fix, precise = precise) } }
+        if (!failingOnly) healthy(model, fix)
+    }
 }
 
 /** The "Todo en orden" row, folding every check that passes; opens to list them. Adds nothing when none pass. */
@@ -357,7 +371,7 @@ private fun GroupScope.healthy(model: StatusModel, fix: (Need) -> Unit) {
         Column {
             val all = healthy.size == Need.entries.size // some failing: don't say "all fine" above them
             PrefRow(
-                if (all) stringResource(R.string.health_ok) else stringResource(R.string.health_part, healthy.size, Need.entries.size),
+                if (all) stringResource(R.string.health_ok) else stringResource(R.string.health_rest),
                 description = if (all) stringResource(R.string.health_ok_text) else healthy.map { stringResource(it.title()) }.joinToString(" · "),
                 icon = R.drawable.ic_shield_ok, iconTint = Palette.GreenFg,
                 onClick = { open = !open }, end = { SIcon(R.drawable.ic_chev, modifier = Modifier.rotate(turn)) },
@@ -423,14 +437,14 @@ private fun Proof(week: LogModel?, seeLog: () -> Unit) {
                 val week = stringResource(R.string.proof_week, days.sumOf { it.masked })
                 Row(Modifier.clearAndSetSemantics { contentDescription = week }, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                     days.forEach { d ->
-                        val ink = if (d.today) Palette.GreenFg else if (d.masked > 0) Palette.Dim.copy(alpha = .5f) else Palette.Quiet // a day with covers reads as data, not as the empty dash
-                        Column(Modifier.widthIn(min = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                            Box(Modifier.height(28.dp), contentAlignment = Alignment.BottomCenter) {
-                                Box(Modifier.width(6.dp).height(if (d.masked == 0) 2.dp else (6 + 22 * d.masked / most).dp).clip(RoundedCornerShape(3.dp)).background(ink))
+                        val ink = if (d.today && d.masked > 0) Palette.GreenFg else if (d.masked > 0) Palette.Dim.copy(alpha = .5f) else Palette.Quiet // a day with covers reads as data, not as the empty dash
+                        Column(Modifier.widthIn(min = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Box(Modifier.height(40.dp), contentAlignment = Alignment.BottomCenter) {
+                                Box(Modifier.width(8.dp).height(if (d.masked == 0) 2.dp else (8 + 32 * d.masked / most).dp).clip(RoundedCornerShape(4.dp)).background(ink))
                             }
                             Text(
                                 d.date.dayOfWeek.getDisplayName(TextStyle.NARROW, Locale.getDefault()), Modifier.padding(top = 4.dp),
-                                style = MaterialTheme.typography.labelSmall, color = if (d.today) Palette.GreenFg else Palette.Dim,
+                                style = MaterialTheme.typography.labelMedium, color = if (d.today) Palette.GreenFg else Palette.Dim,
                             )
                         }
                     }
@@ -441,9 +455,11 @@ private fun Proof(week: LogModel?, seeLog: () -> Unit) {
                     CappedFontScale(1.3f) { Text((today?.masked ?: 0).toString(), style = MaterialTheme.typography.displayMedium, color = Palette.Fg) }
                     Column(Modifier.weight(1f).padding(bottom = 2.dp)) {
                         Text(stringResource(R.string.proof_today), style = MaterialTheme.typography.titleMedium)
+                        // The week's total is the number the bars can't give; the last cover says it is recent.
+                        val total = days.sumOf { it.masked }
                         Text(
-                            if (last == null) stringResource(R.string.proof_none)
-                            else stringResource(R.string.proof_last, DateUtils.getRelativeTimeSpanString(last, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS)),
+                            if (last == null) stringResource(R.string.proof_week_only, total)
+                            else stringResource(R.string.proof_week_last, total, DateUtils.getRelativeTimeSpanString(last, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS)),
                             style = MaterialTheme.typography.bodyMedium, color = Palette.Dim,
                         )
                     }

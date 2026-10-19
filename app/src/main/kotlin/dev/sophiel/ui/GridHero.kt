@@ -126,7 +126,7 @@ internal fun CappedFontScale(max: Float, content: @Composable () -> Unit) {
 }
 
 @Composable
-fun GridHero(page: Page, title: String, text: String, modifier: Modifier = Modifier, fit: Dp? = null, gear: @Composable () -> Unit = {}) {
+fun GridHero(page: Page, title: String, text: String, modifier: Modifier = Modifier, fit: Dp? = null, caution: Boolean = false, gear: @Composable () -> Unit = {}) {
     val still = reducedMotion()
     val full = (LocalConfiguration.current.screenHeightDp * .5f).dp.coerceIn(340.dp, 440.dp)
     // The hero takes what the sheet leaves (never below 320 dp), so spare height becomes atmosphere, not a gap above the button.
@@ -156,7 +156,7 @@ fun GridHero(page: Page, title: String, text: String, modifier: Modifier = Modif
         Page.INTERRUPTED -> Palette.RedInk to R.drawable.ic_warn
         Page.STOPPED -> Palette.AmberInk to R.drawable.ic_power
         Page.OFF -> Text1 to R.drawable.ic_power
-        Page.READY -> Palette.MintDim to null // the green held back
+        Page.READY -> (if (caution) Palette.AmberInk else Palette.MintDim) to null // the green held back; amber while a recommended check is off
         else -> Text1 to null
     }
     val badgeColor by animateColorAsState(badge, motion(tween(300)), label = "badge")

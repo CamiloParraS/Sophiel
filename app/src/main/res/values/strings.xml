@@ -106,7 +106,13 @@
     <string name="fallback_android">Detallado necesita Android 14 o más nuevo</string>
     <string name="health_ok">Todo en orden</string>
     <string name="health_ok_text">Máscara, avisos y permisos</string>
-    <string name="health_part">%1$d de %2$d en orden</string>
+    <string name="health_rest">Lo demás está en orden</string>
+    <string name="status_ready_promise">Solo tapa lo explícito. Nada sale del teléfono.</string>
+    <string name="status_ready_caution_service">Falta Accesibilidad: la máscara se verá algo transparente</string>
+    <string name="status_ready_caution_other">Puedes iniciar, pero falta activar los avisos</string>
+    <string name="status_preset_line">Revisión %1$s · Cuánto tapa %2$s</string>
+    <string name="proof_week_only">%1$d en 7 días</string>
+    <string name="proof_week_last">%1$d en 7 días · Última: %2$s</string>
     <string name="need_overlay">Mostrar la máscara</string>
     <string name="need_service">Máscara completa</string>
     <string name="need_notifications">Avisos</string>
