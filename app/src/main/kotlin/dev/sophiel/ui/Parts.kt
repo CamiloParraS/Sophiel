@@ -101,7 +101,7 @@ internal fun LightStatusIcons() {
 }
 
 /**
- * The header of every screen but Status's own hero: the dark tile grid, back chip and title at the left (as Log),
+ * The header of every screen but the two heroes (Status, Historial): plain Moss (D71; a strip of the tile grid read as a cut), back chip and title at the left,
  * optional subtitle, end slot (the unlocked chip on parent screens).
  */
 @Composable
@@ -114,7 +114,6 @@ fun HeaderBar(
 ) {
     LightStatusIcons()
     Box(modifier.fillMaxWidth().clipToBounds().background(Moss)) {
-        Canvas(Modifier.matchParentSize()) { drawGrid(Page.OFF, Palette.HeroOff, 0L, -100_000L, true, emptyList()) }
         androidx.compose.runtime.CompositionLocalProvider(LocalOnDark provides true) {
             Row(
                 Modifier.fillMaxWidth().statusBarsPadding().cutoutPadding().heightIn(min = 64.dp).padding(start = 6.dp, end = 12.dp),

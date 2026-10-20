@@ -226,6 +226,13 @@ class LogModelTest {
     }
 
     @Test
+    fun aPauseUnderAMinuteLeavesNoLine() {
+        val m = model(Entry(at(6, 8, 0), "OFF", listOf("USER")), Entry(at(6, 8, 0) + 2_000, "ON", listOf("BALANCED", "NORMAL")))
+        assertEquals(emptyList<LogRow>(), m.days.last().grouped(LogFilter.ALL))
+        assertEquals(1, m.days.last().off) // the counts still see the stop
+    }
+
+    @Test
     fun weekUnprotectedTimeSumsTheGaps() {
         val m = model(Entry(at(5, 3), "UNPROTECTED", listOf("90", "APP_CLOSED")), Entry(at(6, 3), "UNPROTECTED", listOf("45", "RESTARTED")), masked(at(6, 4), "0.90"))
         assertEquals(135, m.week.unprotectedSeconds)

@@ -70,7 +70,7 @@ class LogDay(val date: LocalDate, val today: Boolean, val rows: List<LogRow>) {
     /**
      * [rows] with runs in the same app, each within [RUN_GAP_MS] of the last, folded: masked episodes into one
      * [LogRow.MaskedRun], all the day's unchecked stretches into one [LogRow.Unanalyzable] with their time summed. A stop and the
-     * turn-on right after it become one [LogRow.Paused]; back-to-back gaps with one reason become one [LogRow.Unprotected].
+     * turn-on right after it become one [LogRow.Paused] (none when under a minute); back-to-back gaps with one reason become one [LogRow.Unprotected].
      */
     fun grouped(filter: LogFilter): List<LogRow> {
         val out = ArrayList<LogRow>()
@@ -87,8 +87,10 @@ class LogDay(val date: LocalDate, val today: Boolean, val rows: List<LogRow>) {
                 r is LogRow.Masked -> run += r
                 r is LogRow.Unprotected && last is LogRow.Unprotected && last.reason == r.reason && last.since - r.at <= LogModel.RUN_GAP_MS ->
                     out[out.lastIndex] = LogRow.Unprotected(last.at, last.seconds + r.seconds, r.reason, last.count + 1, r.at)
-                // Newest first, so the turn-on is already out when its stop comes.
-                r is LogRow.Off && last is LogRow.On -> out[out.lastIndex] = LogRow.Paused(r.at, ((last.at - r.at) / 1000).toInt(), r.reason)
+                // Newest first, so the turn-on is already out when its stop comes. A pause under a minute is a blip: no line at all.
+                r is LogRow.Off && last is LogRow.On -> ((last.at - r.at) / 1000).toInt().let { sec ->
+                    if (sec < LogModel.BRIEF_SECONDS) out.removeAt(out.lastIndex) else out[out.lastIndex] = LogRow.Paused(r.at, sec, r.reason)
+                }
                 else -> out += r
             }
         }

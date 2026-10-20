@@ -68,7 +68,7 @@ The UI and the experience of it (it should feel quick and light) are the product
 - **Hybrid capture** behind one Parent switch, "Seguir protegiendo siempre" (M8, D54, D55).
 - **Tamper guard** on Sophiel's own system pages (M8, D56).
 - **Escalation and per-app rules**: blocked / trusted apps, a block screen (M8, D58).
-- Parent screens: Status, Setup wizard, PIN unlock, Settings (Strict / Normal / Relaxed, preset, show-label toggle, peek under mask, "Seguir protegiendo siempre", Apps, Change PIN), Log with a dashboard and a text **Report** (M8, D59), the block screen. Change PIN is a human scope addition (D38). All app text is Spanish first, with English; Material You colour, light theme (D43, human scope addition).
+- Parent screens: Status, Setup wizard, PIN unlock, Settings (Strict / Normal / Relaxed, preset, show-label toggle, peek under mask, "Seguir protegiendo siempre", Apps, Change PIN), Log with a dashboard and a text **Report** (M8, D59), the block screen. Change PIN is a human scope addition (D38); so is the Idioma switch, Android 13+ (D72). All app text is Spanish first, with English; Material You colour, light theme (D43, human scope addition).
 - A hidden debug menu in every build (Test Feed, Benchmark, mask look, debug pill, model pick, raw threshold slider).
 - A permission-free **Test Feed** for development and as the demo fallback.
 

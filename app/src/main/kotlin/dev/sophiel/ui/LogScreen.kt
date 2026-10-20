@@ -204,12 +204,7 @@ fun LogScreen(log: EventLog, door: Door, onBack: () -> Unit) {
     var pick by rememberSaveable { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
     // Light icons on the dark hero; back to dark ones when leaving.
-    val view = LocalView.current
-    DisposableEffect(view, byApp) {
-        val bars = WindowCompat.getInsetsController((view.context as Activity).window, view)
-        bars.isAppearanceLightStatusBars = false
-        onDispose { bars.isAppearanceLightStatusBars = true }
-    }
+    LightStatusIcons() // counted, so a screen leaving after this one came can't turn them dark again
     val scroll = rememberScrollState()
     val density = LocalDensity.current
     var heroPx by remember { mutableIntStateOf(0) }
@@ -387,7 +382,14 @@ private fun ColumnScope.Content(model: LogModel, labels: Map<String, String>, sc
                     if (left <= 0) break
                     val day = rows.take(left)
                     left -= day.size
-                    PreferenceGroup(title = pluralStringResource(R.plurals.log_day_total, d.masked, dayTitle(d, locale), d.masked)) { day.forEach { r -> item { EntryRow(r, labels) } } }
+                    // Each day opens with its story in a sentence; the rows under it are the evidence.
+                    Column(Modifier.padding(top = 10.dp)) {
+                        Column(Modifier.padding(horizontal = 4.dp).semantics(mergeDescendants = true) {}) {
+                            Text(dayTitle(d, locale), Modifier.asHeading(), style = MaterialTheme.typography.titleMedium)
+                            Text(daySummary(d, label), Modifier.padding(top = 2.dp, bottom = 8.dp), style = MaterialTheme.typography.bodyMedium, color = Palette.Dim)
+                        }
+                        PreferenceGroup { day.forEach { r -> item { EntryRow(r, labels) } } }
+                    }
                 }
             }
         }
@@ -400,6 +402,25 @@ private fun ColumnScope.Content(model: LogModel, labels: Map<String, String>, sc
         stringResource(R.string.log_more, total - shown), { shown += PAGE }, Modifier.align(Alignment.CenterHorizontally),
     )
     SButton(stringResource(R.string.log_clear), onClear, Modifier.align(Alignment.CenterHorizontally).padding(top = 24.dp), tint = Palette.RedFg, icon = R.drawable.ic_trash) // neutral pill, red only in the ink: the red fill shouted louder than the list
+}
+
+/**
+ * A day in one plain sentence: what was covered and where most of it was, then time without protection (a minute or more) and protected
+ * settings opened. "12 tapados, casi todo en Galería · 7 h 18 min sin protección".
+ */
+@Composable
+private fun daySummary(d: LogDay, label: (String) -> String): String {
+    val gap = d.rows.sumOf { (it as? LogRow.Unprotected)?.seconds ?: 0 }
+    val opened = d.rows.sumOf { (it as? LogRow.Tamper)?.count ?: 0 }
+    val covered = if (d.masked == 0) stringResource(R.string.log_day_none) else pluralStringResource(R.plurals.log_day_covered, d.masked, d.masked).let { n ->
+        val top = d.topApp?.takeIf { it.second * 2 > d.masked } // "most" only when it is more than half
+        if (top == null) n else "$n, " + stringResource(R.string.log_day_top, label(top.first))
+    }
+    return listOfNotNull(
+        covered,
+        if (gap >= LogModel.BRIEF_SECONDS) stringResource(R.string.log_cause_gap, LogModel.length(gap)) else null,
+        if (opened > 0) pluralStringResource(R.plurals.log_cause_attempts, opened, opened) else null,
+    ).joinToString(" · ")
 }
 
 /** "Hoy", or the day written out in the phone's language ("Jueves, 15 de octubre"). */

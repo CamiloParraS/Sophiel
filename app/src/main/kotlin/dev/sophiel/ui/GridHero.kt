@@ -114,10 +114,6 @@ internal val CamoBrush: ShaderBrush by lazy {
     ShaderBrush(ImageShader(big, TileMode.Repeated, TileMode.Repeated))
 }
 
-// Either side of the badge; any that land under text are skipped.
-/** The shipped mask pattern itself, dense and at screen scale, as the overlay draws it. */
-private val MaskBrush: ShaderBrush by lazy { ShaderBrush(ImageShader(DebugMask.patternBitmap().asImageBitmap(), TileMode.Repeated, TileMode.Repeated)) }
-
 private val RedTiles = setOf(5 to 1, 1 to 2, 5 to 3, 0 to 4)
 private val OrangeTiles = setOf(5 to 1, 1 to 2, 6 to 3, 0 to 4)
 
@@ -135,7 +131,8 @@ internal fun CappedFontScale(max: Float, content: @Composable () -> Unit) {
 }
 
 @Composable
-fun GridHero(page: Page, title: String, text: String, modifier: Modifier = Modifier, fit: Dp? = null, caution: Boolean = false, gear: @Composable () -> Unit = {}) {
+/** [covered]: today's masking episodes; on Ready and Protected that many tiles wear the mask, so the count is seen in the wall. */
+fun GridHero(page: Page, title: String, text: String, modifier: Modifier = Modifier, fit: Dp? = null, caution: Boolean = false, covered: Int = 0, gear: @Composable () -> Unit = {}) {
     val still = reducedMotion()
     val full = (LocalConfiguration.current.screenHeightDp * .5f).dp.coerceIn(340.dp, 440.dp)
     // The hero takes what the sheet leaves (never below 320 dp), so spare height becomes atmosphere, not a gap above the button.
@@ -144,12 +141,7 @@ fun GridHero(page: Page, title: String, text: String, modifier: Modifier = Modif
     val hero by animateDpAsState((fit ?: full).coerceAtLeast(320.dp), if (fitted) motion(tween(240, easing = Ease)) else snap(), label = "hero")
     SideEffect { if (fit != null) fitted = true }
     // Light icons on the dark hero; back to dark ones when leaving.
-    val view = LocalView.current
-    DisposableEffect(view) {
-        val bars = WindowCompat.getInsetsController((view.context as Activity).window, view)
-        bars.isAppearanceLightStatusBars = false
-        onDispose { bars.isAppearanceLightStatusBars = true }
-    }
+    LightStatusIcons() // counted, so a screen leaving after this one came can't turn them dark again
     val bg by animateColorAsState(
         when (page) { Page.INTERRUPTED -> Palette.HeroRed; Page.STOPPED -> Palette.HeroAmber; else -> Moss }, motion(tween(300)), label = "bg",
     )
@@ -200,11 +192,11 @@ fun GridHero(page: Page, title: String, text: String, modifier: Modifier = Modif
         arrive.animateTo(1f, spring(dampingRatio = .6f, stiffness = 300f))
     }
 
-    // One clock, only while something moves: the idle glow and the entry wave (protected), the travelling outline (starting).
+    // One clock, only while something moves: the scan, the idle glow and the entry wave (protected), the travelling outline (starting). Ready stays still.
     var now by remember { mutableLongStateOf(0L) }
     var waveAt by remember { mutableLongStateOf(-100_000L) }
     LaunchedEffect(page, still) {
-        if (still || (page != Page.PROTECTED && page != Page.STARTING && page != Page.READY)) return@LaunchedEffect
+        if (still || (page != Page.PROTECTED && page != Page.STARTING)) return@LaunchedEffect
         var first = true
         while (true) {
             withFrameMillis {
@@ -226,7 +218,7 @@ fun GridHero(page: Page, title: String, text: String, modifier: Modifier = Modif
     val fontScale = androidx.compose.ui.platform.LocalDensity.current.fontScale
     Box(modifier.fillMaxWidth().heightIn(min = hero).clipToBounds().background(bg).onPlaced { hero0[0] = it }) {
         // Two layers: tiles and base outlines never read the clock, so Compose replays them; only the moving overlay redraws per frame.
-        Canvas(Modifier.matchParentSize()) { drawGrid(page, tile, 0L, waveAt, still, listOf(nameAt, textAt, gearAt), animated = false) }
+        Canvas(Modifier.matchParentSize()) { drawGrid(page, tile, 0L, waveAt, still, listOf(nameAt, textAt, gearAt), animated = false, covered = covered) }
         Canvas(Modifier.matchParentSize()) {
             drawGrid(page, tile, now, waveAt, still, listOf(nameAt, textAt, gearAt), animated = true)
             drawRect(Brush.verticalGradient(listOf(Color.Transparent, bg.copy(alpha = .5f)), startY = size.height * .68f, endY = size.height))
@@ -263,7 +255,6 @@ private fun Badge(color: Color, bg: Color, @DrawableRes icon: Int?, spin: Boolea
             if (e < 1f) drawCircle(color.copy(alpha = .45f * (1f - e)), r + 4.dp.toPx() + 22.dp.toPx() * e, style = Stroke(2.dp.toPx()))
             drawCircle(color.copy(alpha = .07f), r + 6.dp.toPx(), style = Stroke(12.dp.toPx()))
             drawCircle(bg, r)
-            drawCircle(MaskBrush, r, alpha = .22f) // the real mask, 1:1, faint: the badge wears what Sophiel puts on a screen
             drawCircle(color.copy(alpha = .14f), r)
             drawCircle(color.copy(alpha = .4f), r - .75.dp.toPx(), style = Stroke(1.5.dp.toPx()))
         }
@@ -303,7 +294,7 @@ internal fun DrawScope.drawPadlock(color: Color, shut: Float, tilt: Float = 15f)
     }
 }
 
-internal fun DrawScope.drawGrid(page: Page, tile: Color, now: Long, waveAt: Long, still: Boolean, texts: List<Rect>, animated: Boolean? = null) {
+internal fun DrawScope.drawGrid(page: Page, tile: Color, now: Long, waveAt: Long, still: Boolean, texts: List<Rect>, animated: Boolean? = null, covered: Int = 0) {
     val st = animated != true // static layer: tiles, base outlines, frozen states
     val dy = animated != false // moving layer: wave, band, glows, travelling outline
     val t = size.width / COLS
@@ -315,10 +306,15 @@ internal fun DrawScope.drawGrid(page: Page, tile: Color, now: Long, waveAt: Long
     fun under(r: Rect, tileAt: Rect) = !r.isEmpty && r.inflate(pad).overlaps(tileAt)
     val tt = (now - waveAt) / 1000f
     val waving = !still && page == Page.PROTECTED && tt in 0f..4f
-    // Ambient life, calm states only (interrupted/stopped stay frozen: the stillness says something): a slow diagonal light band every ~10 s,
-    // and on Protected three tiles that breathe out of step, each on its own period.
-    val ambient = !still && (page == Page.PROTECTED || page == Page.READY)
-    val bandAt = ((now / 10_000f) % 1f) * (COLS + rows + 6) - 3
+    // Ambient life on Protected only (Ready waits, interrupted/stopped stay frozen: the stillness says something): a scan line that sweeps
+    // the wall top to bottom every 6 s, as Sophiel reads the screen, and three tiles that breathe out of step, each on its own period.
+    val ambient = !still && page == Page.PROTECTED
+    val bandAt = ((now / 6_000f) % 1f) * (rows + 4) - 2
+    // Today's covers, one tile each, at fixed places (a hash order of the tiles not under text), so the wall fills as the day does.
+    val worn = if (!st || covered <= 0 || (page != Page.PROTECTED && page != Page.READY)) emptySet() else {
+        val open = (0 until rows * COLS).filter { k -> texts.none { under(it, Rect(Offset((k % COLS) * t + gap, (k / COLS) * t + gap), Size(s, s))) } }
+        open.sortedBy { k -> (k * 2654435761L) and 0xFFFFFFFFL }.take(covered).toSet()
+    }
     fun glows(q: Int, r: Int): Float {
         var a = 0f
         for (i in 0 until 3) {
@@ -340,6 +336,10 @@ internal fun DrawScope.drawGrid(page: Page, tile: Color, now: Long, waveAt: Long
         val quiet = texts.any { under(it, tileAt) }
         val dim = if (quiet) .35f else 1f
         val edge = Stroke(1.dp.toPx())
+        if (st && r * COLS + q in worn) {
+            drawRoundRect(Palette.GreenDeep.copy(alpha = .3f), at, box, corner)
+            drawRoundRect(CamoBrush, at, box, corner, alpha = .8f)
+        }
         if (st && page != Page.READY && page != Page.STARTING) {
             drawRoundRect(Edge.copy(alpha = .1f * (if (quiet) .5f else 1f)), at, box, corner, style = edge)
         }
@@ -351,8 +351,8 @@ internal fun DrawScope.drawGrid(page: Page, tile: Color, now: Long, waveAt: Long
                     drawRoundRect(CamoBrush, at, box, corner)
                 }
                 if (dy && ambient) {
-                    val k = (1f - abs(q + r - bandAt) / 2.5f).coerceAtLeast(0f)
-                    if (k > 0f) drawRoundRect(Palette.Mint.copy(alpha = .07f * k * k * (3 - 2 * k) * dim), at, box, corner)
+                    val k = (1f - abs(r - bandAt) / 1.5f).coerceAtLeast(0f)
+                    if (k > 0f) drawRoundRect(Palette.Mint.copy(alpha = .1f * k * k * (3 - 2 * k) * dim), at, box, corner)
                     // A breathing tile wears the mask's camo, as if Sophiel just covered it.
                     val g = if (quiet) 0f else glows(q, r)
                     if (g > 0f) {
@@ -371,13 +371,8 @@ internal fun DrawScope.drawGrid(page: Page, tile: Color, now: Long, waveAt: Long
                 drawLine(ink, c + Offset(k, -k), c + Offset(-k, k), line, StrokeCap.Round)
             } else if (!quiet && (q * 7 + r * 3) % 5 == 0) drawRoundRect(Palette.Speck, at, box, corner)
             Page.READY -> {
-                // The armed outlines catch the band as it passes.
+                // Armed and waiting: the outlines only, still.
                 if (st) drawRoundRect(Edge.copy(alpha = .22f * dim), at, box, corner, style = Stroke(1.2.dp.toPx()))
-                val k = if (dy && ambient) (1f - abs(q + r - bandAt) / 2.5f).coerceAtLeast(0f) else 0f
-                if (k > 0f) { // on top of the base: 1 - (1 - .22d)(1 - x) = (.22 + .3s)d
-                    val x = .3f * k * k * (3 - 2 * k) * dim / (1f - .22f * dim)
-                    drawRoundRect(Edge.copy(alpha = x), at, box, corner, style = Stroke(1.2.dp.toPx()))
-                }
             }
             Page.STARTING -> {
                 val pos = (r * COLS + q) / (rows * COLS).toFloat() * 2.4f

@@ -113,6 +113,7 @@
     <string name="status_preset_line">Review %1$s · Covers %2$s</string>
     <string name="proof_week_only">%1$d in 7 days</string>
     <string name="proof_week_last">%1$d in 7 days · Last: %2$s</string>
+    <string name="proof_day">Today: %1$d</string>
     <string name="need_overlay">Show the mask</string>
     <string name="need_service">Full mask</string>
     <string name="need_notifications">Notices</string>
@@ -151,12 +152,18 @@
         <item quantity="other">%d in 7 days</item>
     </plurals>
     <string name="log_top_app">Most in %1$s (%2$d)</string>
+    <plurals name="log_day_covered">
+        <item quantity="one">%d covered</item>
+        <item quantity="other">%d covered</item>
+    </plurals>
+    <string name="log_day_top">mostly in %1$s</string>
+    <string name="log_day_none">Nothing covered</string>
     <plurals name="log_day_total">
         <item quantity="one">%1$s · %2$d covered</item>
         <item quantity="other">%1$s · %2$d covered</item>
     </plurals>
     <string name="log_stat_masked">Covered</string>
-    <string name="log_stat_attempts">Turn-off attempts</string>
+    <string name="log_stat_attempts">Protected settings opened</string>
     <string name="log_stat_gap">Unprotected</string>
     <string name="log_stat_blocks">App blocks</string>
     <plurals name="log_blocks_apps">
@@ -167,8 +174,8 @@
     <string name="log_verdict_look">Worth a look this week</string>
     <string name="log_cause_gap">%1$s unprotected</string>
     <plurals name="log_cause_attempts">
-        <item quantity="one">%d attempt to turn it off</item>
-        <item quantity="other">%d attempts to turn it off</item>
+        <item quantity="one">%d protected setting opened</item>
+        <item quantity="other">%d protected settings opened</item>
     </plurals>
     <string name="log_filter_all">All</string>
     <string name="log_filter_masked">Covered</string>
@@ -178,12 +185,12 @@
     <string name="log_more">Show more (%d)</string>
     <string name="log_masked">Something was covered</string>
     <plurals name="log_parts">
-        <item quantity="one">%d part</item>
-        <item quantity="other">%d parts</item>
+        <item quantity="one">%d area covered</item>
+        <item quantity="other">%d areas covered</item>
     </plurals>
     <plurals name="log_episodes">
-        <item quantity="one">%d episode</item>
-        <item quantity="other">%d episodes</item>
+        <item quantity="one">%d time</item>
+        <item quantity="other">%d times</item>
     </plurals>
     <plurals name="log_zones">
         <item quantity="one">%d zone</item>
@@ -216,12 +223,12 @@
     <string name="log_gap">Unprotected</string>
     <string name="log_gap_text">%1$s · %2$s</string>
     <string name="log_gap_accessibility">Accessibility is off</string>
-    <string name="log_tamper">Tried to turn off Sophiel</string>
-    <string name="log_tamper_accessibility">Opened Accessibility</string>
-    <string name="log_tamper_overlay">Opened “Appear on top”</string>
-    <string name="log_tamper_app_info">Opened the app info</string>
-    <string name="log_tamper_uninstall">Opened the uninstall screen</string>
-    <string name="log_tamper_active_apps">Opened the list of active apps</string>
+    <string name="log_tamper">Opened a protected setting</string>
+    <string name="log_tamper_accessibility">Accessibility</string>
+    <string name="log_tamper_overlay">“Appear on top”</string>
+    <string name="log_tamper_app_info">App info</string>
+    <string name="log_tamper_uninstall">Uninstall screen</string>
+    <string name="log_tamper_active_apps">Active apps list</string>
     <string name="log_blocked_open">Blocked open</string>
     <string name="log_blocked_rule">blocked by the Parent</string>
     <string name="log_blocked_escalation">blocked by Sophiel</string>
@@ -260,6 +267,7 @@
     <string name="set_peek">Check without uncovering</string>
     <string name="set_peek_text">Stops the screen flickering. Needs Full mask.</string>
     <string name="group_security">Security</string>
+    <string name="group_language">Language</string>
     <string name="set_change_pin">Change PIN</string>
     <string name="set_change_pin_text">It can\'t be recovered: keep it safe</string>
     <string name="set_history">History</string>

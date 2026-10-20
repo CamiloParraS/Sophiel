@@ -1710,3 +1710,35 @@ Amends D64's surfaces and D65's ink. The human asked for a bolder look: pure whi
   since per-app figures are behind the door like the Log.
 - **Ajustes groups:** Protección (Cuidado, Revisión) · Apps y actividad (Apps, showing the icons of apps with a rule;
   Historial) · Máscara · Seguridad (Seguir protegiendo siempre, Cambiar PIN).
+
+**Amended 2026-10-20 (human):** the Moss family is back as D65 had it (`Moss` `#12201A`, the hero and tile greens, the
+mint-white inks on them). Pure white surfaces and the dark grey text ink stay. The glance card is under review in
+`.scratch/mockup-d71.html`.
+
+## D71 — Critique pass: a wall that counts, one week row, a Historial that tells the day (2026-10-20, human request, UI polish)
+
+From the `/impeccable critique` of 2026-10-20 (25/40); the human asked for all five fixes. Amends D44, D69, D70.
+
+- **The hero wall counts (GridHero):** on Ready and Protected, today's masking episodes are tiles wearing the mask camo, one per
+  episode, at fixed hash-ordered places off the text. Protected's ambient band is now a scan line sweeping top to bottom every
+  6 s. Ready is still (its band is gone). The badge loses the mask-noise fill; the padlock stays (launcher mark, D70's PIN sheet).
+- **Status sheet:** "Todo en orden" no longer gets a card on Ready or Protected (only failing checks do; D44's "show only what
+  is wrong"). The "Revisión · Cuánto tapa" line above Start is gone. Proof and the D70 glance card become one `WeekRow`: the
+  7-day count leads, today and the last cover under it, the day bars, and the row itself opens the Historial. Unlocked adds a
+  "Para revisar" row (only when there is a gap or a protected setting opened) and the top three apps; the four figure tiles are
+  gone. Resolves the glance-card review in `.scratch/mockup-d71.html`.
+- **Historial:** each day opens with its title and one summary sentence ("12 tapados, casi todo en Galería · 7 h sin
+  protección"). A stop and turn-on less than a minute apart leave no line. Wording: "Intento de apagar Sophiel" is "Abrió un
+  ajuste protegido" (and its counts), the setting lines name only the setting ("Accesibilidad"), "N partes" is "N zonas tapadas", "N episodios" is "N veces".
+- **Unlocked chip:** the open padlock in a ring that empties over the 2 min window; the time and "Bloquear ahora" are spoken,
+  not printed. A tap still locks.
+- **Sub-screen header:** plain Moss, no strip of the tile grid (it read as a cut). The grid is for the two heroes only.
+
+## D72 — A language switch in Ajustes (2026-10-20, human scope addition, UI polish)
+
+The human asked for a Spanish / English toggle. Ajustes gets an **Idioma** group under Seguridad: one segmented control,
+"Español | English", each name in its own language. It sets the app's own locale through `LocaleManager` (Android 13+), so
+Android keeps the choice and recreates the screen; `res/xml/locales_config.xml` also lists Sophiel in the system's per-app
+language page. Below Android 13 the group is hidden and the app follows the system language (appcompat would be needed).
+Also: Status's week row puts today and the last cover on two lines ("Hoy: 0" / "Última: hace 4 días"); joined, they wrapped
+mid-phrase in Spanish.

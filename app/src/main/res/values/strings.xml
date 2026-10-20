@@ -113,6 +113,7 @@
     <string name="status_preset_line">Revisión %1$s · Cuánto tapa %2$s</string>
     <string name="proof_week_only">%1$d en 7 días</string>
     <string name="proof_week_last">%1$d en 7 días · Última: %2$s</string>
+    <string name="proof_day">Hoy: %1$d</string>
     <string name="need_overlay">Mostrar la máscara</string>
     <string name="need_service">Máscara completa</string>
     <string name="need_notifications">Avisos</string>
@@ -151,12 +152,18 @@
         <item quantity="other">%d en 7 días</item>
     </plurals>
     <string name="log_top_app">Más en %1$s (%2$d)</string>
+    <plurals name="log_day_covered">
+        <item quantity="one">%d tapado</item>
+        <item quantity="other">%d tapados</item>
+    </plurals>
+    <string name="log_day_top">casi todo en %1$s</string>
+    <string name="log_day_none">Nada tapado</string>
     <plurals name="log_day_total">
         <item quantity="one">%1$s · %2$d tapado</item>
         <item quantity="other">%1$s · %2$d tapados</item>
     </plurals>
     <string name="log_stat_masked">Tapados</string>
-    <string name="log_stat_attempts">Intentos de apagarla</string>
+    <string name="log_stat_attempts">Ajustes protegidos abiertos</string>
     <string name="log_stat_gap">Sin protección</string>
     <string name="log_stat_blocks">Bloqueos de apps</string>
     <plurals name="log_blocks_apps">
@@ -167,8 +174,8 @@
     <string name="log_verdict_look">Para revisar</string>
     <string name="log_cause_gap">%1$s sin protección</string>
     <plurals name="log_cause_attempts">
-        <item quantity="one">%d intento de apagarla</item>
-        <item quantity="other">%d intentos de apagarla</item>
+        <item quantity="one">%d ajuste protegido abierto</item>
+        <item quantity="other">%d ajustes protegidos abiertos</item>
     </plurals>
     <string name="log_filter_all">Todo</string>
     <string name="log_filter_masked">Tapados</string>
@@ -178,12 +185,12 @@
     <string name="log_more">Mostrar más (%d)</string>
     <string name="log_masked">Se tapó algo</string>
     <plurals name="log_parts">
-        <item quantity="one">%d parte</item>
-        <item quantity="other">%d partes</item>
+        <item quantity="one">%d zona tapada</item>
+        <item quantity="other">%d zonas tapadas</item>
     </plurals>
     <plurals name="log_episodes">
-        <item quantity="one">%d episodio</item>
-        <item quantity="other">%d episodios</item>
+        <item quantity="one">%d vez</item>
+        <item quantity="other">%d veces</item>
     </plurals>
     <plurals name="log_zones">
         <item quantity="one">%d zona</item>
@@ -216,12 +223,12 @@
     <string name="log_gap">Sin protección</string>
     <string name="log_gap_text">%1$s · %2$s</string>
     <string name="log_gap_accessibility">La accesibilidad está apagada</string>
-    <string name="log_tamper">Intento de apagar Sophiel</string>
-    <string name="log_tamper_accessibility">Abrió Accesibilidad</string>
-    <string name="log_tamper_overlay">Abrió «Mostrar sobre otras apps»</string>
-    <string name="log_tamper_app_info">Abrió la info de la app</string>
-    <string name="log_tamper_uninstall">Abrió la pantalla para desinstalar</string>
-    <string name="log_tamper_active_apps">Abrió la lista de apps activas</string>
+    <string name="log_tamper">Abrió un ajuste protegido</string>
+    <string name="log_tamper_accessibility">Accesibilidad</string>
+    <string name="log_tamper_overlay">«Mostrar sobre otras apps»</string>
+    <string name="log_tamper_app_info">Info de la app</string>
+    <string name="log_tamper_uninstall">Pantalla para desinstalar</string>
+    <string name="log_tamper_active_apps">Lista de apps activas</string>
     <string name="log_blocked_open">Apertura bloqueada</string>
     <string name="log_blocked_rule">la bloqueó el Padre</string>
     <string name="log_blocked_escalation">la bloqueó Sophiel</string>
@@ -260,6 +267,7 @@
     <string name="set_peek">Revisar sin destapar</string>
     <string name="set_peek_text">Evita que la pantalla parpadee. Necesita Máscara completa.</string>
     <string name="group_security">Seguridad</string>
+    <string name="group_language">Idioma</string>
     <string name="set_change_pin">Cambiar PIN</string>
     <string name="set_change_pin_text">No se puede recuperar: guárdalo bien</string>
     <string name="set_history">Historial</string>

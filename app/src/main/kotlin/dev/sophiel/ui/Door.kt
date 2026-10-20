@@ -44,6 +44,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
 import dev.sophiel.AppContainer
 import dev.sophiel.R
@@ -94,32 +100,31 @@ fun DoorHost(container: AppContainer, content: @Composable BoxScope.(Door) -> Un
 }
 
 /**
- * The unlocked countdown: a glass chip on the dark header, beside the gear (Status) or at the end of a parent screen's header. "1:48 · Bloquear ahora";
- * a tap locks. Tabular digits, so the chip doesn't twitch as the seconds change.
+ * The unlocked countdown (D71): the open padlock in a ring that empties as the window runs out, on the dark header beside the gear
+ * (Status) or at the end of a parent screen's header. A tap locks. The time left is spoken, not printed: the ring is enough to see.
  */
 @Composable
 fun UnlockedChip(door: Door) {
-    val left = dev.sophiel.pin.formatCountdown(door.remainingMs)
-    val label = stringResource(R.string.unlocked_banner, left)
+    val label = stringResource(R.string.unlocked_banner, dev.sophiel.pin.formatCountdown(door.remainingMs))
     val ease = tween<Float>(160, easing = Ease)
     AnimatedVisibility(
         door.unlocked,
-        enter = fadeIn(motion(ease)) + scaleIn(motion(ease), initialScale = .95f),
-        exit = fadeOut(motion(tween(120, easing = Ease))) + scaleOut(motion(tween(120, easing = Ease)), targetScale = .95f),
+        enter = fadeIn(motion(ease)) + scaleIn(motion(ease), initialScale = .9f),
+        exit = fadeOut(motion(tween(120, easing = Ease))) + scaleOut(motion(tween(120, easing = Ease)), targetScale = .9f),
     ) {
-        Row(
-            Modifier.minimumInteractiveComponentSize()
+        val left = (door.remainingMs / dev.sophiel.pin.Unlock.WINDOW_MS.toFloat()).coerceIn(0f, 1f)
+        Box(
+            Modifier.size(48.dp).clip(CircleShape)
                 .clickable(role = Role.Button, onClickLabel = stringResource(R.string.lock_now), onClick = door.lockNow)
-                .semantics(mergeDescendants = true) { contentDescription = label }
-                .heightIn(min = 40.dp).clip(RoundedCornerShape(12.dp)).background(Palette.DarkFill)
-                .padding(start = 10.dp, end = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalAlignment = Alignment.CenterVertically,
+                .semantics { contentDescription = label },
+            contentAlignment = Alignment.Center,
         ) {
+            Canvas(Modifier.size(36.dp)) {
+                val w = 2.dp.toPx()
+                drawCircle(Palette.DarkFill, size.minDimension / 2)
+                drawArc(Palette.Mint, -90f, -360f * left, false, Offset(w / 2, w / 2), Size(size.width - w, size.height - w), style = Stroke(w, cap = StrokeCap.Round))
+            }
             SIcon(R.drawable.ic_unlock, Palette.Mint, 16.dp)
-            Text(left, style = MaterialTheme.typography.labelLarge.copy(fontFeatureSettings = "tnum"), color = Palette.Text0)
-            // At large text the suffix would push the gear and the name off the bar; the whole chip still locks (label above).
-            if (androidx.compose.ui.platform.LocalDensity.current.fontScale < 1.5f) Text("· " + stringResource(R.string.lock_now), style = MaterialTheme.typography.labelLarge, color = Palette.DarkInk)
         }
     }
 }

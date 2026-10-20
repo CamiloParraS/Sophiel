@@ -148,6 +148,21 @@ fun BoxScope.SettingsScreen(container: AppContainer, door: Door, onBack: () -> U
                     )
                 }
             }
+            // Human scope addition (D72): Spanish or English for the app alone. Each name in its own language.
+            // ponytail: Android 13+ only (LocaleManager); older phones follow the system language, appcompat if that matters.
+            if (android.os.Build.VERSION.SDK_INT >= 33) {
+                val locales = remember { context.getSystemService(android.app.LocaleManager::class.java) }
+                val current = locales.applicationLocales.takeIf { !it.isEmpty }?.get(0) ?: context.resources.configuration.locales[0]
+                PreferenceGroup(title = stringResource(R.string.group_language)) {
+                    item {
+                        SegmentedControl(
+                            listOf("Español", "English"), if (current.language == "en") 1 else 0,
+                            { i -> door.pass { locales.applicationLocales = android.os.LocaleList.forLanguageTags(if (i == 1) "en" else "es") } },
+                            Modifier.padding(8.dp),
+                        )
+                    }
+                }
+            }
             // Not a setting, so no row: a fact, under the groups.
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
                 SIcon(R.drawable.ic_shield_ok, Palette.GreenFg, size = 16.dp)

@@ -162,7 +162,7 @@ fun StatusScreen(model: StatusModel, door: Door, actions: StatusActions, modifie
         var sheet by remember { mutableStateOf(0.dp) }
         val density = LocalDensity.current
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-        Hero(model, (model.gap?.at ?: model.stopped?.at)?.let { time.format(Date(it)) }.orEmpty(), if (sheet > 0.dp) viewport - sheet else null) {
+        Hero(model, (model.gap?.at ?: model.stopped?.at)?.let { time.format(Date(it)) }.orEmpty(), if (sheet > 0.dp) viewport - sheet else null, week?.days?.lastOrNull()?.masked ?: 0) {
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) { UnlockedChip(door); GearButton(door, actions.openSettings, onDark = true) }
         }
         // The sheet rides 20 dp over the hero: one boundary, no hard seam.
@@ -198,8 +198,8 @@ fun StatusScreen(model: StatusModel, door: Door, actions: StatusActions, modifie
             when (model.page) {
                 Page.PROTECTED, Page.READY -> {
                     FallbackNote(model)
-                    // One Revisión card: what needs fixing on top, the rest folded under it. The week's proof follows.
-                    Health(model, actions.fix)
+                    // Only what needs fixing gets a card; all clear is the hero's to say. The week's proof follows.
+                    Health(model, actions.fix, failingOnly = true)
                     merged = true
                     // D70: unlocked, the Parent gets the week's figures and apps; locked, only the proof anyone may see.
                     Crossfade(week.takeIf { door.unlocked }, animationSpec = motion(tween(200, easing = Ease)), label = "glance") { w ->
@@ -272,7 +272,6 @@ fun StatusScreen(model: StatusModel, door: Door, actions: StatusActions, modifie
                     SButton(stringResource(R.string.status_starting), {}, buttonWidth, BtnStyle.Go, busy = true)
                 }
                 else -> {
-                    if (model.page == Page.READY) Note(presetLine(model), dim = true)
                     when (model.note) {
                         StartNote.TURN_ON_OVERLAY -> Note(R.string.note_overlay)
                         StartNote.PARTIAL_MASK, null -> Unit // the Full mask row above says it once
@@ -292,7 +291,7 @@ private fun Note(text: String, dim: Boolean = false) =
     Text(text, style = MaterialTheme.typography.bodyMedium, color = if (dim) Palette.Dim else Palette.Fg, textAlign = TextAlign.Center)
 
 @Composable
-private fun Hero(model: StatusModel, since: String, fit: Dp?, gear: @Composable () -> Unit) {
+private fun Hero(model: StatusModel, since: String, fit: Dp?, covered: Int, gear: @Composable () -> Unit) {
     val blocking = StatusModel.REQUIRED.count { it in model.missing }
     // Ready with a recommended check off: the hero says so instead of looking all clear.
     val caution = model.page == Page.READY && StatusModel.RECOMMENDED.any { it in model.missing }
@@ -311,29 +310,7 @@ private fun Hero(model: StatusModel, since: String, fit: Dp?, gear: @Composable 
         Page.STOPPED -> stringResource(R.string.status_stopped) to stringResource(R.string.status_stopped_text, since)
         Page.INTERRUPTED -> stringResource(R.string.status_interrupted) to stringResource(R.string.status_interrupted_text, since)
     }
-    GridHero(model.page, title, text, fit = fit, caution = caution, gear = gear)
-}
-
-/** Revisión and Cuánto tapa, labelled ("Revisión Reforzado · Cuánto tapa Normal"), the note above Start; a Precise fallback says so. */
-@Composable
-private fun presetLine(model: StatusModel): String {
-    val review = stringResource(
-        when {
-            model.fallback != null -> R.string.status_precise_using
-            model.preset == ParentPreset.LIGHT -> R.string.preset_light
-            model.preset == ParentPreset.BALANCED -> R.string.preset_balanced
-            model.preset == ParentPreset.THOROUGH -> R.string.preset_thorough
-            else -> R.string.preset_precise
-        },
-    )
-    val care = stringResource(
-        when (model.sensitivity) {
-            Sensitivity.STRICT -> R.string.care_strict
-            Sensitivity.NORMAL -> R.string.care_normal
-            Sensitivity.RELAXED -> R.string.care_relaxed
-        },
-    )
-    return stringResource(R.string.status_preset_line, review, care)
+    GridHero(model.page, title, text, fit = fit, caution = caution, covered = covered, gear = gear)
 }
 
 /** Why a Precise preset fell back, under nothing else; silent otherwise. */
@@ -419,85 +396,36 @@ private fun NeedRow(need: Need, ok: Boolean, fix: (Need) -> Unit, forcedStop: Bo
     }
 }
 
-/**
- * What the app did today: the count, the last cover, a bar per day of the week, and the way into the Historial.
- */
+/** Locked: the week's proof anyone may see, one row into the Historial. Nothing covered all week: just the way in. */
 @Composable
 private fun Proof(week: LogModel?, seeLog: () -> Unit) {
     val days = week?.days.orEmpty()
-    val today = days.lastOrNull()
-    val last = today?.rows?.firstOrNull { it is LogRow.Masked }?.at
     PreferenceGroup {
-        // Nothing covered all week: no zero and no flat bars, just the way into the Historial.
-        if (days.none { it.masked > 0 }) {
-            item { PrefRow(stringResource(R.string.proof_see), description = stringResource(R.string.proof_none), icon = R.drawable.ic_list, onClick = seeLog, end = { SIcon(R.drawable.ic_chev) }) }
-            return@PreferenceGroup
-        }
-        item {
-            // The number stays under the hero headline (38 sp): one headline per screen.
-            // From 1.3x font scale the week of bars drops under the count instead of squeezing the text.
-            val stacked = LocalDensity.current.fontScale >= 1.3f
-            val most = (days.maxOfOrNull { it.masked } ?: 0).coerceAtLeast(1)
-            // A week of bars with their day letters; an empty day is a flat 2 dp line, not a dot that reads as "loading".
-            val bars: @Composable () -> Unit = {
-                val week = stringResource(R.string.proof_week, days.sumOf { it.masked })
-                Row(Modifier.clearAndSetSemantics { contentDescription = week }, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                    days.forEach { d ->
-                        val ink = if (d.today && d.masked > 0) Palette.GreenFg else if (d.masked > 0) Palette.Dim.copy(alpha = .5f) else Palette.Quiet // a day with covers reads as data, not as the empty dash
-                        Column(Modifier.widthIn(min = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                            Box(Modifier.height(40.dp), contentAlignment = Alignment.BottomCenter) {
-                                Box(Modifier.width(8.dp).height(if (d.masked == 0) 2.dp else (8 + 32 * d.masked / most).dp).clip(RoundedCornerShape(4.dp)).background(ink))
-                            }
-                            Text(
-                                d.date.dayOfWeek.getDisplayName(TextStyle.NARROW, Locale.getDefault()), Modifier.padding(top = 4.dp),
-                                style = MaterialTheme.typography.labelMedium, color = if (d.today) Palette.GreenFg else Palette.Dim,
-                            )
-                        }
-                    }
-                }
-            }
-            Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) { // the row below is the one way in
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Bottom) {
-                    CappedFontScale(1.3f) { Text((today?.masked ?: 0).toString(), style = MaterialTheme.typography.displayMedium, color = Palette.Fg) }
-                    Column(Modifier.weight(1f).padding(bottom = 2.dp)) {
-                        Text(stringResource(R.string.proof_today), style = MaterialTheme.typography.titleMedium)
-                        // The week's total is the number the bars can't give; the last cover says it is recent.
-                        val total = days.sumOf { it.masked }
-                        Text(
-                            if (last == null) stringResource(R.string.proof_week_only, total)
-                            else stringResource(R.string.proof_week_last, total, DateUtils.getRelativeTimeSpanString(last, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS)),
-                            style = MaterialTheme.typography.bodyMedium, color = Palette.Dim,
-                        )
-                    }
-                    if (!stacked) bars()
-                }
-                if (stacked) bars()
-            }
-        }
-        item { PrefRow(stringResource(R.string.proof_see), icon = R.drawable.ic_list, onClick = seeLog, end = { SIcon(R.drawable.ic_chev) }) }
+        if (days.none { it.masked > 0 }) item { PrefRow(stringResource(R.string.proof_see), description = stringResource(R.string.proof_none), icon = R.drawable.ic_list, onClick = seeLog, end = { SIcon(R.drawable.ic_chev) }) }
+        else item { WeekRow(days, seeLog) }
     }
 }
 
-/** D70: the week at a glance, behind the door: four figures, the apps with the most covered (their real icons), the way into the Historial. */
+/**
+ * D70, D71: unlocked, the same row plus what the Parent may act on (time without protection, protected settings opened; only when not
+ * zero), then the apps with the most covered, with their real icons.
+ */
 @Composable
 private fun Glance(week: LogModel, seeLog: () -> Unit) {
     val counts = week.week
     val pm = LocalContext.current.packageManager
-    PreferenceGroup(title = stringResource(R.string.glance_title)) {
-        item {
-            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    GlanceTile((week.days.lastOrNull()?.masked ?: 0).toString(), stringResource(R.string.glance_today), R.drawable.ic_shield_ok, Palette.GreenFg)
-                    GlanceTile(week.weekMasked.toString(), stringResource(R.string.glance_week), R.drawable.ic_list, Palette.Fg)
-                }
-                Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    GlanceTile(
-                        if (counts.unprotectedSeconds == 0) "0" else LogModel.length(counts.unprotectedSeconds), stringResource(R.string.log_stat_gap),
-                        R.drawable.ic_shield_off, if (counts.unprotected > 0) Palette.RedFg else Palette.Dim,
-                    )
-                    GlanceTile(counts.intentos.toString(), stringResource(R.string.log_stat_attempts), R.drawable.ic_lock, if (counts.intentos > 0) Palette.OrangeFg else Palette.Dim)
-                }
-            }
+    PreferenceGroup {
+        item { WeekRow(week.days, seeLog) }
+        if (counts.look) item {
+            PrefRow(
+                stringResource(R.string.log_verdict_look),
+                description = listOfNotNull(
+                    if (counts.unprotected > 0) stringResource(R.string.log_cause_gap, LogModel.length(counts.unprotectedSeconds)) else null,
+                    if (counts.intentos > 0) pluralStringResource(R.plurals.log_cause_attempts, counts.intentos, counts.intentos) else null,
+                ).joinToString(" · "),
+                icon = if (counts.unprotected > 0) R.drawable.ic_shield_off else R.drawable.ic_lock, iconTint = if (counts.unprotected > 0) Palette.RedFg else Palette.OrangeFg,
+                onClick = seeLog, end = { SIcon(R.drawable.ic_chev) },
+            )
         }
         week.covered.take(3).forEach { c ->
             item {
@@ -505,23 +433,64 @@ private fun Glance(week: LogModel, seeLog: () -> Unit) {
                     Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}.heightIn(min = 52.dp).padding(horizontal = 14.dp, vertical = 8.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    AppIcon(c.app, 32.dp)
-                    Text(remember(c.app) { appLabel(pm, c.app) }, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    AppIcon(c.app, 28.dp)
+                    Text(remember(c.app) { appLabel(pm, c.app) }, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(c.count.toString(), style = MaterialTheme.typography.titleMedium.copy(fontFeatureSettings = "tnum"))
                 }
             }
         }
-        item { PrefRow(stringResource(R.string.proof_see), icon = R.drawable.ic_list, onClick = seeLog, end = { SIcon(R.drawable.ic_chev) }) }
     }
 }
 
-/** One figure: big number, its icon and label under it. [tint] marks a figure that needs a look. */
+/**
+ * The week in one row, and the way into the Historial: the 7-day count leads (a big zero for today said nothing), today and the last
+ * cover under it, a bar per day at the end. From 1.3x font scale the bars drop under the count instead of squeezing the text.
+ */
 @Composable
-private fun RowScope.GlanceTile(value: String, label: String, @DrawableRes icon: Int, tint: Color) {
-    val shape = RoundedCornerShape(12.dp)
-    Column(Modifier.weight(1f).fillMaxHeight().clip(shape).background(Palette.Chalk).padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        SIcon(icon, tint, 20.dp)
-        CappedFontScale(1.3f) { Text(value, style = MaterialTheme.typography.headlineMedium.copy(fontFeatureSettings = "tnum"), color = if (tint == Palette.Dim) Palette.Fg else tint, maxLines = 1) }
-        Text(label, style = MaterialTheme.typography.bodySmall, color = Palette.Dim, maxLines = 2)
+private fun WeekRow(days: List<LogDay>, seeLog: () -> Unit) {
+    val today = days.lastOrNull()
+    val last = days.asReversed().firstNotNullOfOrNull { d -> d.rows.firstOrNull { it is LogRow.Masked }?.at }
+    val total = days.sumOf { it.masked }
+    val stacked = LocalDensity.current.fontScale >= 1.3f
+    val most = (days.maxOfOrNull { it.masked } ?: 0).coerceAtLeast(1)
+    // An empty day is a flat 2 dp line, not a dot that reads as "loading".
+    val bars: @Composable () -> Unit = {
+        val said = stringResource(R.string.proof_week, total)
+        Row(Modifier.clearAndSetSemantics { contentDescription = said }, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+            days.forEach { d ->
+                val ink = if (d.today && d.masked > 0) Palette.GreenFg else if (d.masked > 0) Palette.Dim.copy(alpha = .5f) else Palette.Quiet
+                Column(Modifier.widthIn(min = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Box(Modifier.height(32.dp), contentAlignment = Alignment.BottomCenter) {
+                        Box(Modifier.width(8.dp).height(if (d.masked == 0) 2.dp else (6 + 26 * d.masked / most).dp).clip(RoundedCornerShape(4.dp)).background(ink))
+                    }
+                    Text(
+                        d.date.dayOfWeek.getDisplayName(TextStyle.NARROW, Locale.getDefault()), Modifier.padding(top = 4.dp),
+                        style = MaterialTheme.typography.labelMedium, color = if (d.today) Palette.GreenFg else Palette.Dim,
+                    )
+                }
+            }
+        }
+    }
+    Column(
+        Modifier.fillMaxWidth().clickable(role = Role.Button, onClickLabel = stringResource(R.string.proof_see), onClick = seeLog)
+            .padding(start = 16.dp, end = 12.dp, top = 14.dp, bottom = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            // The number is its own column, centred on the three lines beside it, not sat on the first one's baseline.
+            CappedFontScale(1.3f) { Text(total.toString(), style = MaterialTheme.typography.headlineMedium.copy(fontFeatureSettings = "tnum"), color = Palette.Fg) }
+            Column(Modifier.weight(1f)) {
+                Text(stringResource(R.string.log_hero_text), style = MaterialTheme.typography.titleSmall)
+                // Two lines, not one joined by a dot: "Hoy: 0 · Última: hace 4 días" wrapped mid-phrase in Spanish.
+                Text(stringResource(R.string.proof_day, today?.masked ?: 0), style = MaterialTheme.typography.bodyMedium, color = Palette.Dim)
+                if (last != null) Text(
+                    stringResource(R.string.proof_last, DateUtils.getRelativeTimeSpanString(last, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS)),
+                    style = MaterialTheme.typography.bodyMedium, color = Palette.Dim,
+                )
+            }
+            if (!stacked) bars()
+            SIcon(R.drawable.ic_chev)
+        }
+        if (stacked) bars()
     }
 }
