@@ -120,7 +120,7 @@ fun UnlockedChip(door: Door) {
             contentAlignment = Alignment.Center,
         ) {
             Canvas(Modifier.size(36.dp)) {
-                val w = 2.dp.toPx()
+                val w = 2.5.dp.toPx() // thick enough to read as a timer, not an outline
                 drawCircle(Palette.DarkFill, size.minDimension / 2)
                 drawArc(Palette.Mint, -90f, -360f * left, false, Offset(w / 2, w / 2), Size(size.width - w, size.height - w), style = Stroke(w, cap = StrokeCap.Round))
             }

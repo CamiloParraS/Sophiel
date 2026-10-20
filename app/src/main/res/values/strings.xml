@@ -265,7 +265,7 @@
     <string name="set_label">Texto en la máscara</string>
     <string name="set_label_text">Un aviso pequeño sobre lo tapado</string>
     <string name="set_peek">Revisar sin destapar</string>
-    <string name="set_peek_text">Evita que la pantalla parpadee. Necesita Máscara completa.</string>
+    <string name="set_peek_text">Sin parpadeo. Necesita Máscara completa.</string>
     <string name="group_security">Seguridad</string>
     <string name="group_language">Idioma</string>
     <string name="set_change_pin">Cambiar PIN</string>

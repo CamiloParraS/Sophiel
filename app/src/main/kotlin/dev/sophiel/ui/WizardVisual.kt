@@ -46,10 +46,17 @@ fun TileVisual(kind: VisualKind, modifier: Modifier = Modifier, height: Dp = 168
     val loop = clock.animateFloat(0f, 1f, infiniteRepeatable(tween(4200, easing = LinearEasing), RepeatMode.Restart), label = "t")
     val seen = if (kind == VisualKind.PRESET) watched(preset) else emptyList()
     Canvas(modifier.fillMaxWidth().height(height)) {
+        // D74: a small window onto the Status hero (Moss, its tiles, a mint glow), not grey tiles on the page.
+        val panel = CornerRadius(20.dp.toPx())
+        drawRoundRect(Palette.Moss, cornerRadius = panel)
+        drawRoundRect(
+            androidx.compose.ui.graphics.Brush.radialGradient(listOf(Palette.Mint.copy(alpha = .12f), androidx.compose.ui.graphics.Color.Transparent), center, size.width * .5f),
+            cornerRadius = panel,
+        )
         // Read here, in the draw phase: the loop redraws the canvas, never recomposes the step.
         val time = if (still) when (kind) { VisualKind.SERVICE -> .6f; VisualKind.START -> .8f; VisualKind.OVERLAY -> .5f; else -> .3f } else loop.value
         val gap = 4.dp.toPx()
-        val tile = minOf(46.dp.toPx(), (size.height - (ROWS - 1) * gap) / ROWS) // shrinks to fit a short box
+        val tile = minOf(40.dp.toPx(), (size.height - 24.dp.toPx() - (ROWS - 1) * gap) / ROWS) // shrinks to fit a short box, inside the panel's margin
         val x0 = (size.width - (COLS * tile + (COLS - 1) * gap)) / 2
         val y0 = (size.height - (ROWS * tile + (ROWS - 1) * gap)) / 2
         val corner = CornerRadius(8.dp.toPx())
@@ -73,19 +80,20 @@ fun TileVisual(kind: VisualKind, modifier: Modifier = Modifier, height: Dp = 168
                 }
                 VisualKind.START -> ((time * 1.7f - pos * .6f) * 4f).coerceIn(0f, 1f) * (if (time > .88f) (1f - time) / .12f else 1f)
             }
-            drawRoundRect(Palette.Moss.copy(alpha = .07f), at, box, corner)
-            val edge = if (kind == VisualKind.PRESET && i in seen) Palette.Moss.copy(alpha = .75f) else Palette.Moss.copy(alpha = .14f)
-            drawRoundRect(edge, at, box, corner, style = Stroke((if (kind == VisualKind.PRESET && i in seen) 2.dp else 1.dp).toPx()))
-            if (cover > 0f) {
-                drawRoundRect(Palette.Moss.copy(alpha = cover), at, box, corner)
+            drawRoundRect(Palette.TileOn, at, box, corner)
+            val edge = if (kind == VisualKind.PRESET && i in seen) Palette.Mint.copy(alpha = .8f) else Palette.Edge.copy(alpha = .14f)
+            drawRoundRect(edge, at, box, corner, style = Stroke((if (kind == VisualKind.PRESET && i in seen) 1.5.dp else 1.dp).toPx()))
+            if (cover > 0f) { // the hero's covered tile: lit camo, a mint edge
+                drawRoundRect(Palette.GreenDeep.copy(alpha = .55f * cover), at, box, corner)
                 drawRoundRect(CamoBrush, at, box, corner, alpha = cover)
+                drawRoundRect(Palette.Mint.copy(alpha = .55f * cover), at, box, corner, style = Stroke(1.dp.toPx()))
             }
         }
         if (kind == VisualKind.NOTIFICATIONS) {
             val c = Offset(x0 + 2 * (tile + gap) + tile / 2, y0 + 1 * (tile + gap) + tile / 2)
             for (w in 0 until 2) {
                 val k = ((time * 2f + w * .5f) % 1f)
-                drawCircle(Palette.Moss.copy(alpha = .55f * (1f - k)), tile / 2 + k * 70.dp.toPx(), c, style = Stroke(2.dp.toPx()))
+                drawCircle(Palette.Mint.copy(alpha = .55f * (1f - k)), tile / 2 + k * 70.dp.toPx(), c, style = Stroke(2.dp.toPx()))
             }
         }
     }

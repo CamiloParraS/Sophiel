@@ -265,7 +265,7 @@
     <string name="set_label">Text on the mask</string>
     <string name="set_label_text">A small notice over what is covered</string>
     <string name="set_peek">Check without uncovering</string>
-    <string name="set_peek_text">Stops the screen flickering. Needs Full mask.</string>
+    <string name="set_peek_text">No flicker. Needs Full mask.</string>
     <string name="group_security">Security</string>
     <string name="group_language">Language</string>
     <string name="set_change_pin">Change PIN</string>

@@ -207,7 +207,8 @@ private fun PinLock(attempt: Attempt, locked: Boolean, shake: Int, onOpened: () 
         opened()
     }
     val color by animateColorAsState(
-        when { attempt == Attempt.Right -> Palette.GreenFg; locked -> Palette.RedFg; else -> Palette.Moss }, motion(tween(200, easing = Ease)), label = "lock",
+        // D73: the hero's badge, Moss with a light lock (mint when it opens, the hero's red ink when locked out), not a grey disc.
+        when { attempt == Attempt.Right -> Palette.Mint; locked -> Palette.RedInk; else -> Palette.DarkLock }, motion(tween(200, easing = Ease)), label = "lock",
     )
     // The sheet doesn't scroll: a short screen gets a smaller disc so the keys still fit.
     val disc = if (LocalConfiguration.current.screenHeightDp < 720) 80.dp else 112.dp
@@ -221,7 +222,7 @@ private fun PinLock(attempt: Attempt, locked: Boolean, shake: Int, onOpened: () 
                 scaleX = 1f - .65f * f; scaleY = 1f - .65f * f
                 alpha = 1f - .6f * f
                 rotationZ = wobble.value
-            }.clip(CircleShape).background(color.copy(alpha = .12f)),
+            }.clip(CircleShape).background(Palette.Moss),
             contentAlignment = Alignment.Center,
         ) {
             Canvas(Modifier.size(disc * .6f)) { drawPadlock(color, shut.value, tilt = 0f) }
@@ -339,6 +340,10 @@ fun CreatePinScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(14.dp, Alignment.CenterVertically),
         ) {
+            // D74: the PIN sheet's padlock (Moss disc, light lock), shut, so creating the PIN starts from the same mark that later asks for it.
+            Box(Modifier.size(88.dp).clip(CircleShape).background(Palette.Moss), contentAlignment = Alignment.Center) {
+                Canvas(Modifier.size(52.dp)) { drawPadlock(Palette.DarkLock, 1f, tilt = 0f) }
+            }
             Text(
                 stringResource(if (state.step == CreateStep.ENTER) R.string.pin_create_enter else R.string.pin_create_confirm),
                 Modifier.asHeading(), style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center,

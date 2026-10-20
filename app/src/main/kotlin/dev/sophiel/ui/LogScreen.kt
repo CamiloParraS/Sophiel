@@ -268,7 +268,6 @@ private fun LogSkeleton() {
     val shape = RoundedCornerShape(12.dp)
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Box(Modifier.fillMaxWidth().height(150.dp).clip(shape).background(Palette.Btn))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { repeat(3) { Box(Modifier.weight(1f).height(72.dp).clip(shape).background(Palette.Btn)) } }
         Box(Modifier.fillMaxWidth().height(220.dp).clip(shape).background(Palette.Btn))
     }
 }
@@ -278,15 +277,17 @@ private fun LogSkeleton() {
 private fun LogHero(week: LogCounts?, days: List<LogDay>, modifier: Modifier) {
     Box(modifier.fillMaxWidth().background(Moss)) {
         Canvas(Modifier.matchParentSize()) { drawGrid(Page.OFF, Palette.HeroOff, 0L, -100_000L, true, emptyList()) }
-        // Count left, the week's bars right: one short band, so the per-app card and the rows start higher.
-        Row(
-            Modifier.fillMaxWidth().statusBarsPadding().cutoutPadding().padding(start = 22.dp, end = 22.dp, top = 76.dp, bottom = 60.dp),
-            horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.Bottom,
-        ) {
-            Column(Modifier.weight(1f)) {
-                Text(week?.masked?.toString().orEmpty(), style = MaterialTheme.typography.displayLarge, color = Text0)
-                Text(stringResource(R.string.log_hero_text), style = MaterialTheme.typography.bodyMedium, color = Text1)
-                // The verdict rides with the count, so the sheet below never answers it with something else.
+        // Count left, the week's bars right; the verdict under both, full width (beside the bars it wrapped to three lines).
+        Column(Modifier.fillMaxWidth().statusBarsPadding().cutoutPadding().padding(start = 22.dp, end = 22.dp, top = 76.dp, bottom = 60.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.Bottom) {
+                Column(Modifier.weight(1f)) {
+                    Text(week?.masked?.toString().orEmpty(), style = MaterialTheme.typography.displayLarge, color = Text0)
+                    Text(stringResource(R.string.log_hero_text), style = MaterialTheme.typography.bodyMedium, color = Text1)
+                }
+                if (days.isNotEmpty()) DayBars(days, Modifier.width(168.dp))
+            }
+            // The verdict rides with the count; it is the week's only summary (D73 dropped the figure cards under it).
+            Column(Modifier.padding(top = 4.dp)) {
                 if (week != null) Text(
                     stringResource(if (week.look) R.string.log_verdict_look else R.string.log_verdict_ok), Modifier.padding(top = 8.dp),
                     style = MaterialTheme.typography.titleMedium, color = if (week.look) Text0 else Text1,
@@ -298,25 +299,18 @@ private fun LogHero(week: LogCounts?, days: List<LogDay>, modifier: Modifier) {
                     style = MaterialTheme.typography.bodyMedium, color = Text1,
                 )
             }
-            if (days.isNotEmpty()) DayBars(days, Modifier.width(168.dp))
         }
     }
 }
 
 @Composable
 private fun ColumnScope.Content(model: LogModel, labels: Map<String, String>, scroll: ScrollState, barPx: Int, onClear: () -> Unit, onByApp: () -> Unit) {
-    val locale = Locale.getDefault()
+    val locale = appLocale()
     var filter by rememberSaveable { mutableStateOf(LogFilter.ALL) }
     val week = model.week
     val label = { app: String -> labels[app] ?: app }
-    // Each figure wears the icon of its rows below, so the summary and the list read as one thing.
-    // Only the figures that aren't zero; the verdict is in the hero. Blocks are the Parent's own rules, so they never make it "look".
-    val look = week.look
-    val scope = rememberCoroutineScope()
     var filterTop by remember { mutableIntStateOf(0) }
-    // A figure counts rows under "Protección": tapping one sets that filter and brings the list up under the pinned row.
-    val showOthers = { filter = LogFilter.OTHERS; scope.launch { scroll.animateScrollTo((filterTop - barPx).coerceAtLeast(0)) }; Unit }
-    // Covered is what the hero counts, so its breakdown comes first; the tiles below count what else happened. The last row is the way to every app.
+    // Covered is what the hero counts, so its breakdown comes first; the verdict is the hero's and each day says the rest. The last row is the way to every app.
     if (week.perApp.isNotEmpty()) PreferenceGroup(title = stringResource(R.string.log_by_app)) {
         item { AppBars(week.perApp.take(4), label) }
         item {
@@ -333,24 +327,7 @@ private fun ColumnScope.Content(model: LogModel, labels: Map<String, String>, sc
             }
         }
     }
-    // Three across until large text, where a third is too narrow for "Aperturas": then one per row.
     val stack = LocalDensity.current.fontScale >= 1.5f
-    val stats: @Composable (Modifier) -> Unit = { m ->
-        // The count, with the time it adds up to under it: hours of overnight gap alone would read as exposure.
-        if (week.unprotected > 0) Stat(
-            week.unprotected, R.drawable.ic_shield_off, stringResource(R.string.log_stat_gap),
-            LogModel.length(week.unprotectedSeconds), Palette.RedFg, m, showOthers,
-        )
-        if (week.intentos > 0) Stat(week.intentos, R.drawable.ic_lock, stringResource(R.string.log_stat_attempts), null, Palette.OrangeFg, m, showOthers)
-        if (week.bloqueos > 0) Stat(
-            week.bloqueos, R.drawable.ic_block, stringResource(R.string.log_stat_blocks),
-            pluralStringResource(R.plurals.log_blocks_apps, week.bloqueoApps, week.bloqueoApps), Palette.Fg, m, showOthers,
-        )
-    }
-    if (look || week.bloqueos > 0) {
-        if (stack) Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { stats(Modifier.fillMaxWidth()) }
-        else Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) { stats(Modifier.weight(1f)) }
-    }
     // Pinned under the top bar once the page scrolls to it; it bleeds past the sheet's padding so rows never show at its sides.
     SegmentedControl(
         listOf(R.string.log_filter_all, R.string.log_filter_masked, R.string.log_filter_others).map { stringResource(it) },
@@ -450,7 +427,7 @@ private fun DayBars(days: List<LogDay>, modifier: Modifier) {
                     Box(Modifier.width(12.dp).height(h).clip(RoundedCornerShape(3.dp)).background(if (d.masked == 0) Text1.copy(alpha = .3f) else ink))
                 }
                 Text(
-                    d.date.dayOfWeek.getDisplayName(TextStyle.NARROW, Locale.getDefault()).uppercase(), Modifier.padding(top = 4.dp),
+                    d.date.dayOfWeek.getDisplayName(TextStyle.NARROW, appLocale()).let { it.uppercase(appLocale()) }, Modifier.padding(top = 4.dp),
                     style = MaterialTheme.typography.labelSmall, color = if (d.today) Text0 else Text1, maxLines = 1,
                 )
             }
@@ -477,22 +454,6 @@ private fun AppBars(apps: List<Pair<String, Int>>, label: (String) -> String) {
                 }
             }
         }
-    }
-}
-
-/** A figure for the week, under its rows' icon, with an optional [detail] line; it takes [tint] only when not zero, so a quiet week reads quiet. */
-@Composable
-private fun Stat(value: Int, @DrawableRes icon: Int, label: String, detail: String?, tint: Color, modifier: Modifier, onClick: () -> Unit) {
-    val shape = RoundedCornerShape(12.dp)
-    val ink = if (value == 0) Palette.Dim else tint
-    Column(modifier.fillMaxHeight().lift(shape).clip(shape).clickable(role = Role.Button, onClick = onClick).background(Palette.Card).padding(12.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            SIcon(icon, ink, 16.dp)
-            Text(value.toString(), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium.copy(fontFeatureSettings = "tnum"), color = Palette.Fg, maxLines = 1) // the hero holds the headline; a tile only counts
-            SIcon(R.drawable.ic_chev, Palette.Dim, 14.dp, Modifier.rotate(90f)) // a tile is a filter: the arrow says it takes you down to its rows
-        }
-        Text(label, Modifier.padding(top = 2.dp), style = MaterialTheme.typography.bodySmall, color = Palette.Dim, maxLines = 2)
-        if (detail != null) Text(detail, style = MaterialTheme.typography.bodySmall, color = tint, maxLines = 1)
     }
 }
 
@@ -622,7 +583,7 @@ internal fun EntryRow(row: LogRow, labels: Map<String, String>, inApp: Boolean =
                 Detail(open && debug) {
                     Text(
                         if (row.band == null || !debug) stringResource(R.string.log_detail_precise, review, zones)
-                        else stringResource(R.string.log_detail, review, "%.2f".format(Locale.getDefault(), row.score), zones),
+                        else stringResource(R.string.log_detail, review, "%.2f".format(appLocale(), row.score), zones),
                         style = MaterialTheme.typography.bodyMedium, color = Palette.Dim,
                     )
                 }

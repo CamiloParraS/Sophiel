@@ -48,7 +48,7 @@ fun LogAppsScreen(model: LogModel, labels: Map<String, String>, pick: String?, o
     val label = { app: String -> labels[app] ?: app }
     val up = { if (pick != null) onPick(null) else onBack() }
     BackHandler(onBack = up)
-    val locale = Locale.getDefault()
+    val locale = appLocale()
     val week = model.forApp(pick.orEmpty())
     Column(Modifier.fillMaxSize().background(Palette.Chalk)) {
         HeaderBar(

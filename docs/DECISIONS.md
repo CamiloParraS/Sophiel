@@ -1742,3 +1742,32 @@ Android keeps the choice and recreates the screen; `res/xml/locales_config.xml` 
 language page. Below Android 13 the group is hidden and the app follows the system language (appcompat would be needed).
 Also: Status's week row puts today and the last cover on two lines ("Hoy: 0" / "Última: hace 4 días"); joined, they wrapped
 mid-phrase in Spanish.
+
+## D73 — Second critique: a lit hero, one summary in Historial, the PIN lock in Moss (2026-10-20, human request, UI polish)
+
+From the second `/impeccable critique` (28/40, up from 25); the human picked "glow + fade + clear tiles" and every other fix.
+
+- **Hero light (GridHero):** a mint radial glow centred on the badge (.16 on Protected, .09 on Ready and Starting, none on
+  the stopped, broken and off pages) and an edge fade into the page colour, so the wall reads lit from the middle. Today's
+  covered tiles get a stronger camo and a 1 dp mint edge. The hero's floor is 360 dp (320 pushed the unlocked badge under
+  the header). Not "light as status": the glow stays mint, the page colours already carry the state.
+- **Historial:** the figure cards under "Por app" are gone; the hero's verdict ("Para revisar" and its cause) is the week's
+  one summary and now runs full width under the count and bars. Blocks are still in the rows and the day lines.
+- **PIN sheet:** the padlock disc is Moss with a light lock (mint on the right PIN, the hero's red ink on lockout), the
+  hero's badge rather than a grey disc. Amends D70's colours, not its motion.
+- **Small:** the week row's bars are 24 dp and centred on "Hoy / Última"; the countdown ring is 2.5 dp; "Revisar sin
+  destapar" reads "Sin parpadeo. Necesita Máscara completa."
+
+## D74 — The wizard joins the app's world; dates follow the app's language (2026-10-20, human request, UI polish)
+
+From the third `/impeccable critique` (Protected state and the wizard); the human took all four fixes.
+
+- **Wizard steps:** the top is a Moss band like every parent header (back chip on dark, a mint progress bar), so the light
+  status icons belong. The tile drawing (`TileVisual`) is a small window onto the hero: a Moss panel with a mint glow, the
+  hero's tiles, covered ones in lit camo with a mint edge. It is the same drawing in Ajustes's Revisión sheet.
+- **PIN creation** (wizard and Cambiar PIN) opens with the PIN sheet's mark: the light padlock, shut, on a Moss disc.
+- **"Todo listo"** is the welcome's bookend: the hero (Ready) says it, the capture notes and the buttons sit under it. No back
+  chip; the system Back still steps back.
+- **One button shape:** every text button is a 12 dp rounded rectangle, the main buttons' shape; the wizard's pills are gone.
+- **Language bug (from D72):** day letters and "hace N minutos" read the Activity's locale (`appLocale()`, `relativeTime()`
+  through ICU), not `Locale.getDefault()` or `DateUtils`, which could still be the phone's language after a cold start.

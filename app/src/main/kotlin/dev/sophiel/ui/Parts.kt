@@ -152,6 +152,22 @@ fun PreferenceGroup(modifier: Modifier = Modifier, title: String? = null, footno
     }
 }
 
+/** The app's language (D72): the Activity's configuration, which follows the Idioma switch; Locale.getDefault() may still be the phone's. */
+@Composable
+fun appLocale(): java.util.Locale = androidx.compose.ui.platform.LocalConfiguration.current.locales[0]
+
+/** "hace 12 minutos" / "12 minutes ago" in [locale], whatever the phone's language (DateUtils follows the system's). */
+fun relativeTime(at: Long, now: Long, locale: java.util.Locale): String {
+    val f = android.icu.text.RelativeDateTimeFormatter.getInstance(android.icu.util.ULocale.forLocale(locale))
+    val min = (now - at) / 60_000
+    return when {
+        min < 1 -> f.format(android.icu.text.RelativeDateTimeFormatter.Direction.PLAIN, android.icu.text.RelativeDateTimeFormatter.AbsoluteUnit.NOW)
+        min < 60 -> f.format(min.toDouble(), android.icu.text.RelativeDateTimeFormatter.Direction.LAST, android.icu.text.RelativeDateTimeFormatter.RelativeUnit.MINUTES)
+        min < 24 * 60 -> f.format((min / 60).toDouble(), android.icu.text.RelativeDateTimeFormatter.Direction.LAST, android.icu.text.RelativeDateTimeFormatter.RelativeUnit.HOURS)
+        else -> f.format((min / 1440).toDouble(), android.icu.text.RelativeDateTimeFormatter.Direction.LAST, android.icu.text.RelativeDateTimeFormatter.RelativeUnit.DAYS)
+    }
+}
+
 /** Minimum row height; Status packs its rows tighter. */
 val LocalRowMin = androidx.compose.runtime.compositionLocalOf { 56.dp }
 

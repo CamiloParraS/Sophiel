@@ -452,6 +452,7 @@ private fun WeekRow(days: List<LogDay>, seeLog: () -> Unit) {
     val last = days.asReversed().firstNotNullOfOrNull { d -> d.rows.firstOrNull { it is LogRow.Masked }?.at }
     val total = days.sumOf { it.masked }
     val stacked = LocalDensity.current.fontScale >= 1.3f
+    val locale = appLocale()
     val most = (days.maxOfOrNull { it.masked } ?: 0).coerceAtLeast(1)
     // An empty day is a flat 2 dp line, not a dot that reads as "loading".
     val bars: @Composable () -> Unit = {
@@ -460,11 +461,11 @@ private fun WeekRow(days: List<LogDay>, seeLog: () -> Unit) {
             days.forEach { d ->
                 val ink = if (d.today && d.masked > 0) Palette.GreenFg else if (d.masked > 0) Palette.Dim.copy(alpha = .5f) else Palette.Quiet
                 Column(Modifier.widthIn(min = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Box(Modifier.height(32.dp), contentAlignment = Alignment.BottomCenter) {
-                        Box(Modifier.width(8.dp).height(if (d.masked == 0) 2.dp else (6 + 26 * d.masked / most).dp).clip(RoundedCornerShape(4.dp)).background(ink))
+                    Box(Modifier.height(24.dp), contentAlignment = Alignment.BottomCenter) {
+                        Box(Modifier.width(8.dp).height(if (d.masked == 0) 2.dp else (5 + 19 * d.masked / most).dp).clip(RoundedCornerShape(4.dp)).background(ink))
                     }
                     Text(
-                        d.date.dayOfWeek.getDisplayName(TextStyle.NARROW, Locale.getDefault()), Modifier.padding(top = 4.dp),
+                        d.date.dayOfWeek.getDisplayName(TextStyle.NARROW, locale), Modifier.padding(top = 4.dp),
                         style = MaterialTheme.typography.labelMedium, color = if (d.today) Palette.GreenFg else Palette.Dim,
                     )
                 }
@@ -474,22 +475,25 @@ private fun WeekRow(days: List<LogDay>, seeLog: () -> Unit) {
     Column(
         Modifier.fillMaxWidth().clickable(role = Role.Button, onClickLabel = stringResource(R.string.proof_see), onClick = seeLog)
             .padding(start = 16.dp, end = 12.dp, top = 14.dp, bottom = 14.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            // The number is its own column, centred on the three lines beside it, not sat on the first one's baseline.
+        // The number and its label on one line, centred on each other, across the full width (beside the bars, "cubiertas en 7 días" wrapped).
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             CappedFontScale(1.3f) { Text(total.toString(), style = MaterialTheme.typography.headlineMedium.copy(fontFeatureSettings = "tnum"), color = Palette.Fg) }
+            Text(stringResource(R.string.log_hero_text), Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
+            SIcon(R.drawable.ic_chev)
+        }
+        // Today and the last cover under it, the bars beside them, centred on the two lines (bottom-aligned, they left a hole above).
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text(stringResource(R.string.log_hero_text), style = MaterialTheme.typography.titleSmall)
                 // Two lines, not one joined by a dot: "Hoy: 0 · Última: hace 4 días" wrapped mid-phrase in Spanish.
                 Text(stringResource(R.string.proof_day, today?.masked ?: 0), style = MaterialTheme.typography.bodyMedium, color = Palette.Dim)
                 if (last != null) Text(
-                    stringResource(R.string.proof_last, DateUtils.getRelativeTimeSpanString(last, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS)),
+                    stringResource(R.string.proof_last, relativeTime(last, System.currentTimeMillis(), locale)),
                     style = MaterialTheme.typography.bodyMedium, color = Palette.Dim,
                 )
             }
             if (!stacked) bars()
-            SIcon(R.drawable.ic_chev)
         }
         if (stacked) bars()
     }

@@ -119,7 +119,7 @@ fun SetupWizard(container: AppContainer, resumes: Int, fix: (Need) -> Unit, star
     Column(Modifier.fillMaxSize().background(Palette.Chalk)) {
         // The tiles stay put while the steps slide under them.
         AnimatedVisibility(
-            step >= 1,
+            step in 1 until STEPS, // the last step is a hero, like the welcome
             enter = expandVertically(motion(tween(240, easing = Ease))) + fadeIn(motion(tween(160))),
             exit = shrinkVertically(motion(tween(240, easing = Ease))) + fadeOut(motion(tween(160))),
         ) { WizardTop(step) { forward = false; step-- } }
@@ -211,15 +211,11 @@ fun SetupWizard(container: AppContainer, resumes: Int, fix: (Need) -> Unit, star
                 }
                 6 -> StepFrame(
                     VisualKind.PRESET, R.string.wiz_preset_title, R.string.wiz_preset_text, bottom = { PrimaryPill(R.string.pin_continue, next) },
-                    visual = { TileVisual(VisualKind.PRESET, height = 104.dp, preset = container.settings.state.collectAsState().value.preset) },
+                    visual = { TileVisual(VisualKind.PRESET, height = 128.dp, preset = container.settings.state.collectAsState().value.preset) },
                 ) {
                     PresetStep(container)
                 }
-                else -> StepFrame(VisualKind.START, R.string.wiz_start_title, R.string.wiz_start_text, bottom = {
-                    SButton(stringResource(R.string.action_start), start, Modifier.widthIn(max = 360.dp).fillMaxWidth(), style = BtnStyle.Suggested, large = true, icon = R.drawable.ic_play)
-                    SButton(stringResource(R.string.wiz_go_app), finish, Modifier.widthIn(max = 360.dp).fillMaxWidth())
-                    Text(stringResource(R.string.status_starting_note), style = MaterialTheme.typography.bodySmall, color = Palette.Dim, textAlign = TextAlign.Center)
-                }) {
+                else -> Done(start, finish) {
                     PreferenceGroup {
                         item { PrefRow(stringResource(R.string.status_capture_permission), description = stringResource(R.string.status_capture_permission_text), icon = R.drawable.ic_layers) }
                         // D21: Android 14 QPR2+ offers "A single app"; only the whole screen protects everything.
@@ -269,17 +265,43 @@ private fun advanceWhenGranted(granted: Boolean, forward: Boolean, next: () -> U
     }
 }
 
-/** Back chip and a thin progress bar, filled in green up to the current step. */
+/**
+ * The last step (D74): the welcome's bookend. The hero, Ready, says "Todo listo"; what Start will ask sits under it with the buttons.
+ * No back chip: the system Back still steps back.
+ */
+@Composable
+private fun Done(start: () -> Unit, finish: () -> Unit, rows: @Composable ColumnScope.() -> Unit) {
+    Column(Modifier.fillMaxSize().background(Palette.Chalk)) {
+        BoxWithConstraints(Modifier.weight(1f)) {
+            GridHero(Page.READY, stringResource(R.string.wiz_start_title), stringResource(R.string.wiz_start_text), fit = maxHeight)
+        }
+        Column(
+            Modifier.fillMaxWidth().navigationBarsPadding().cutoutPadding().pageWidth().padding(horizontal = 14.dp, vertical = 12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            rows()
+            SButton(stringResource(R.string.action_start), start, Modifier.widthIn(max = 360.dp).fillMaxWidth(), style = BtnStyle.Go, icon = R.drawable.ic_play)
+            SButton(stringResource(R.string.wiz_go_app), finish, Modifier.widthIn(max = 360.dp).fillMaxWidth())
+            Text(stringResource(R.string.status_starting_note), style = MaterialTheme.typography.bodySmall, color = Palette.Dim, textAlign = TextAlign.Center)
+        }
+    }
+}
+
+/** D74: a Moss band like every parent header (back chip, a mint progress bar), so the steps stay in the app's world. */
 @Composable
 private fun WizardTop(step: Int, back: () -> Unit) {
-    Row(Modifier.fillMaxWidth().statusBarsPadding().padding(start = 6.dp, end = 22.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-        SButton(null, back, icon = R.drawable.ic_back, label = stringResource(R.string.back))
+    LightStatusIcons()
+    Row(
+        Modifier.fillMaxWidth().background(Moss).statusBarsPadding().heightIn(min = 64.dp).padding(start = 6.dp, end = 22.dp, top = 4.dp, bottom = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        SButton(null, back, style = BtnStyle.OnDark, icon = R.drawable.ic_back, label = stringResource(R.string.back))
         val label = stringResource(R.string.wiz_step, step, STEPS)
         val fill by animateFloatAsState(step / STEPS.toFloat(), motion(tween(320, easing = Ease)), label = "progress")
         Box(
-            Modifier.weight(1f).padding(start = 12.dp).height(4.dp).clip(CircleShape).background(Palette.Moss.copy(alpha = .1f))
+            Modifier.weight(1f).padding(start = 12.dp).height(4.dp).clip(CircleShape).background(Palette.DarkFill)
                 .semantics { contentDescription = label }
-                .drawBehind { drawRect(Palette.Moss, size = Size(size.width * fill, size.height)) },
+                .drawBehind { drawRect(Palette.Mint, size = Size(size.width * fill, size.height)) },
         )
     }
 }
@@ -291,11 +313,11 @@ private fun WizardTop(step: Int, back: () -> Unit) {
 @Composable
 private fun StepFrame(
     kind: VisualKind, @StringRes title: Int, @StringRes text: Int, bottom: @Composable ColumnScope.() -> Unit,
-    visual: @Composable () -> Unit = { TileVisual(kind, height = 104.dp) }, content: @Composable ColumnScope.() -> Unit,
+    visual: @Composable () -> Unit = { TileVisual(kind, height = 128.dp) }, content: @Composable ColumnScope.() -> Unit,
 ) {
     Column(Modifier.fillMaxSize()) {
         Column(
-            Modifier.weight(1f, fill = false).fillMaxWidth().verticalScroll(rememberScrollState()).cutoutPadding().pageWidth().padding(start = 14.dp, end = 14.dp, top = 4.dp, bottom = 12.dp),
+            Modifier.weight(1f, fill = false).fillMaxWidth().verticalScroll(rememberScrollState()).cutoutPadding().pageWidth().padding(start = 14.dp, end = 14.dp, top = 16.dp, bottom = 12.dp),
             verticalArrangement = Arrangement.spacedBy(18.dp),
         ) {
             visual()

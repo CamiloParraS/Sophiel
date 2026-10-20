@@ -121,7 +121,7 @@ fun SButton(
         main || (iconOnly && bg != Color.Transparent) -> RoundedCornerShape(12.dp)
         iconOnly -> RoundedCornerShape(10.dp)
         style == BtnStyle.Fix -> RoundedCornerShape(8.dp)
-        else -> CircleShape
+        else -> RoundedCornerShape(12.dp) // D74: one shape for every text button, the main ones' (pills read as another app)
     }
     val big = large || main
     val source = remember { MutableInteractionSource() }

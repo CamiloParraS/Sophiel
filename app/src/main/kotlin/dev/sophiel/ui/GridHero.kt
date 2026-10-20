@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.coerceIn
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.mutableStateOf
@@ -135,10 +136,11 @@ internal fun CappedFontScale(max: Float, content: @Composable () -> Unit) {
 fun GridHero(page: Page, title: String, text: String, modifier: Modifier = Modifier, fit: Dp? = null, caution: Boolean = false, covered: Int = 0, gear: @Composable () -> Unit = {}) {
     val still = reducedMotion()
     val full = (LocalConfiguration.current.screenHeightDp * .5f).dp.coerceIn(340.dp, 440.dp)
-    // The hero takes what the sheet leaves (never below 320 dp), so spare height becomes atmosphere, not a gap above the button.
+    // The hero takes what the sheet leaves (never below 360 dp: at 320 the unlocked sheet pushed the badge up under the header),
+    // so spare height becomes atmosphere, not a gap above the button.
     // The first fit snaps: nothing animates on open.
     var fitted by remember { mutableStateOf(false) }
-    val hero by animateDpAsState((fit ?: full).coerceAtLeast(320.dp), if (fitted) motion(tween(240, easing = Ease)) else snap(), label = "hero")
+    val hero by animateDpAsState((fit ?: full).coerceAtLeast(360.dp), if (fitted) motion(tween(240, easing = Ease)) else snap(), label = "hero")
     SideEffect { if (fit != null) fitted = true }
     // Light icons on the dark hero; back to dark ones when leaving.
     LightStatusIcons() // counted, so a screen leaving after this one came can't turn them dark again
@@ -212,6 +214,7 @@ fun GridHero(page: Page, title: String, text: String, modifier: Modifier = Modif
     var nameAt by remember { mutableStateOf(Rect.Zero) }
     var gearAt by remember { mutableStateOf(Rect.Zero) }
     var textAt by remember { mutableStateOf(Rect.Zero) }
+    var badgeAt by remember { mutableStateOf(Rect.Zero) }
     fun at(c: LayoutCoordinates) = hero0[0]?.localBoundingBoxOf(c) ?: Rect.Zero
 
     // From 2x text the content can outgrow the hero: it grows with it (the page scrolls) instead of clipping.
@@ -222,6 +225,17 @@ fun GridHero(page: Page, title: String, text: String, modifier: Modifier = Modif
         Canvas(Modifier.matchParentSize()) {
             drawGrid(page, tile, now, waveAt, still, listOf(nameAt, textAt, gearAt), animated = true)
             drawRect(Brush.verticalGradient(listOf(Color.Transparent, bg.copy(alpha = .5f)), startY = size.height * .68f, endY = size.height))
+        }
+        // D73: light and depth. A mint glow behind the badge (stronger on Protected, none on the stopped and broken pages, whose
+        // stillness says enough), then the wall fades into the page at its edges, so it reads as a lit room, not a floor.
+        val glow by animateFloatAsState(
+            when (page) { Page.PROTECTED -> .16f; Page.READY, Page.STARTING -> .09f; else -> 0f }, motion(tween(400, easing = Ease)), label = "glow",
+        )
+        Canvas(Modifier.matchParentSize()) {
+            val c = if (badgeAt.isEmpty) Offset(size.width / 2, size.height * .45f) else badgeAt.center
+            if (glow > 0f) drawCircle(Brush.radialGradient(listOf(Palette.Mint.copy(alpha = glow), Color.Transparent), c, size.width * .62f), size.width * .62f, c)
+            val r = max(size.width, size.height) * .75f
+            drawRect(Brush.radialGradient(.55f to Color.Transparent, 1f to bg.copy(alpha = .78f), center = c, radius = r))
         }
         Row(Modifier.fillMaxWidth().statusBarsPadding().cutoutPadding().padding(start = 22.dp, end = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.weight(1f)) {
@@ -236,7 +250,7 @@ fun GridHero(page: Page, title: String, text: String, modifier: Modifier = Modif
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
-            Badge(badgeColor, bg, icon, spin = page == Page.STARTING, shut = { shut.value }, press = { press.value * (.8f + .2f * arrive.value) }, ring = { ring.value }, arrive = { arrive.value })
+            Box(Modifier.onGloballyPositioned { badgeAt = at(it) }) { Badge(badgeColor, bg, icon, spin = page == Page.STARTING, shut = { shut.value }, press = { press.value * (.8f + .2f * arrive.value) }, ring = { ring.value }, arrive = { arrive.value }) }
             Column(Modifier.padding(top = 4.dp).onGloballyPositioned { textAt = at(it) }, horizontalAlignment = Alignment.CenterHorizontally) {
                 CappedFontScale(1.3f) { Text(title, Modifier.asHeading(), style = MaterialTheme.typography.displaySmall, color = Text0, textAlign = TextAlign.Center) }
                 Text(text, Modifier.padding(top = 8.dp).widthIn(max = 300.dp), style = MaterialTheme.typography.bodyMedium, color = Text1, textAlign = TextAlign.Center)
@@ -336,9 +350,10 @@ internal fun DrawScope.drawGrid(page: Page, tile: Color, now: Long, waveAt: Long
         val quiet = texts.any { under(it, tileAt) }
         val dim = if (quiet) .35f else 1f
         val edge = Stroke(1.dp.toPx())
-        if (st && r * COLS + q in worn) {
-            drawRoundRect(Palette.GreenDeep.copy(alpha = .3f), at, box, corner)
-            drawRoundRect(CamoBrush, at, box, corner, alpha = .8f)
+        if (st && r * COLS + q in worn) { // a cover today: the mask's camo, lit, with a mint edge, so it reads as data at a glance
+            drawRoundRect(Palette.GreenDeep.copy(alpha = .55f), at, box, corner)
+            drawRoundRect(CamoBrush, at, box, corner)
+            drawRoundRect(Palette.Mint.copy(alpha = .55f), at, box, corner, style = Stroke(1.dp.toPx()))
         }
         if (st && page != Page.READY && page != Page.STARTING) {
             drawRoundRect(Edge.copy(alpha = .1f * (if (quiet) .5f else 1f)), at, box, corner, style = edge)
