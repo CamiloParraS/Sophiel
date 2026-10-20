@@ -180,7 +180,7 @@ fun SegmentedControl(options: List<String>, selected: Int, onSelect: (Int) -> Un
             // No outer padding: the segments fill the control, so each is a 48 dp target. The thumb is inset 3 dp inside its slot.
             BoxWithConstraints(Modifier.fillMaxWidth().clip(CircleShape).background(Palette.Btn).selectableGroup()) {
                 val slot = maxWidth / options.size
-                val pos by animateFloatAsState(selected.toFloat(), motion(tween(280, easing = Ease)), label = "thumb")
+                val pos by animateFloatAsState(selected.toFloat(), motion(tween(220, easing = Ease)), label = "thumb")
                 Box(
                     Modifier
                         .matchParentSize()

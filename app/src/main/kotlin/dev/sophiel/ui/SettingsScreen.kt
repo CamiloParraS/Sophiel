@@ -210,7 +210,7 @@ fun ColumnScope.OptionList(
                     end = {
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                             if (i == recommended) Tag(stringResource(R.string.group_recommended), TagKind.Recommended)
-                            SIcon(R.drawable.ic_check, Palette.GreenFg, modifier = Modifier.alpha(if (i == selected) 1f else 0f))
+                            SelectTick(i == selected, Palette.GreenFg)
                         }
                     },
                 )

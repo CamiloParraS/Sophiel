@@ -1668,3 +1668,27 @@ Amends D42/D44's wizard frame; the step order and the permission logic are uncha
 - **Cómo revisa and Cuidado stay on one step (6)**, so the wizard stays at 7 steps.
 - **Last step has two exits:** "Iniciar protección" and "Ir a la app" (leaves the wizard without starting).
 - `GridHero` now clips its tiles to its own height (they drew one row past it, over whatever sat below).
+
+## D67 — Log critique: quieter list, one bar ink (2026-10-18, human decision, UI polish)
+
+- **One unchecked line per day** ("No se pudo revisar · … · N veces"), across apps; it names the app only when all agree. Replaces the per-app 10 min fold for unchecked stretches (counts still see every stretch).
+- **Por app bars take one neutral ink**, minimum 40% wide so the label stays on its fill. Amends D59/D62's per-app icon hue; `appHue` is gone.
+- **Band words are Explícito / Probable / Dudoso** (was Muy seguro / Seguro / Dudoso): debug builds only, and "Muy seguro" in red read as good news.
+- **The hero's "Para revisar" names its cause** (gap time, else attempts). Stat tiles count in ink; colour stays on the icon and detail.
+- **Borrar historial** sits 24 dp under "Mostrar más", neutral pill with red ink (Destructive fill dropped).
+
+## D68 — Log by app: a screen for every app with something covered (2026-10-18, human decision, UI polish)
+
+- **Por app card shows the top 4** and a last row, "Ver las N apps" (or "Ver detalle por app" up to 4), in body weight. The card sits under the hero, above the stat tiles; the tiles carry a down chevron because they are filters.
+- **New screen inside the Log** (`LogAppsScreen`): a summary (the week's count large, "N apps"), then every app with a covered episode, most first: icon, name, count, a thin bar under the name (share of the top app, neutral ink, never behind text), last time. A final row, "N sin app identificada", makes the list add up to the hero. Tapping an app opens its episodes only, grouped by day, leading with what happened ("12 episodios") not the app's name. Back goes app, list, Log.
+- **Counts only, no usage time.** Per-app screen time and `UsageStats` stay out (SPEC §1.3, D58); the metric is covered episodes. A ring chart was rejected: slower to compare than bars, needs a colour legend, and reopens D67's one ink.
+- **The home launcher's covers read "Inicio y recientes"**: Recents is drawn by the launcher, so covers over other apps' thumbnails file under it. Kept (they protect the Child); renamed (the launcher's own name read as an app the Child opened). Resolved at read time from the default home app.
+- **Fixes found on device:** the Log's top bar height was measured without the status bar, so the pinned filter sat about 24 dp too high and its labels clipped; the status-bar icons stayed dark on the dark hero after returning from the by-app screen.
+
+## D69 — Motion pass: welcome on cold open, loading covers under 200 ms (2026-10-18, human decision, UI polish)
+
+- **A welcome on the first Status hero of each process** (`GridHero`): the badge fades in and springs up from 80%; off Protected a ring pulses out. On Protected the padlock starts open and falls shut after about 0.4 s, with the usual ring and squash but no haptic (it is not an event). Returning to Status, or rotating, shows the hero as it is. **Amends D44** ("opening the screen shows it as it is") for a cold open only. Reduced motion: none.
+- **Loading covers move 200 ms at most:** the Log's content and empty state fade in over 180 ms, and the skeleton no longer pulses (it was an 800 ms loop). Slides, the sheet rise, hero colours, the lock ring and the Wizard progress keep their longer times, on purpose.
+- **Seams that teleported now move** (all through `motion()`, so Remove animations still snaps them): the Log filter fades the list in (160 ms); the radio tick fades and grows from .8 (`SelectTick`, 120 ms); disabled rows dim over 200 ms (`Modifier.dimmed`) when the service binds; PIN dots fill over 100 ms.
+- **Tuned:** the hero height takes `Ease` (was the stock curve); the segmented thumb is 220 ms (was 280).
+- **Left alone:** `motion()` still snaps colour and opacity fades under Remove animations (D44); a gentler fallback stays an open question.

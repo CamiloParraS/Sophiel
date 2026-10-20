@@ -381,12 +381,12 @@ private fun PresetStep(container: AppContainer) {
             item {
                 PrefRow(
                     stringResource(name),
-                    Modifier.alpha(if (enabled) 1f else Palette.DISABLED).selectable(selected, enabled = enabled, role = Role.RadioButton) { container.settings.update { it.copy(preset = p) } },
+                    Modifier.dimmed(enabled).selectable(selected, enabled = enabled, role = Role.RadioButton) { container.settings.update { it.copy(preset = p) } },
                     description = stringResource(help),
                     end = {
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                             if (p == ParentPreset.BALANCED) Tag(stringResource(R.string.group_recommended), TagKind.Recommended)
-                            SIcon(R.drawable.ic_check, Palette.Moss, modifier = Modifier.alpha(if (selected) 1f else 0f))
+                            SelectTick(selected, Palette.Moss)
                         }
                     },
                 )

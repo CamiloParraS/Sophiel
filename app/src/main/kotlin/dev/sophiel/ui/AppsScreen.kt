@@ -114,7 +114,7 @@ fun BoxScope.AppsScreen(container: AppContainer, door: Door, onBack: () -> Unit)
                     if (i > 0) Spacer(Modifier.height(1.dp).fillMaxWidth().background(Palette.Border))
                     Row(
                         Modifier.fillMaxWidth().clickable(enabled = bound, role = Role.Button) { door.pass { picking = app.pkg } }
-                            .heightIn(min = 56.dp).padding(horizontal = 14.dp, vertical = 8.dp).alpha(if (bound) 1f else Palette.DISABLED),
+                            .heightIn(min = 56.dp).padding(horizontal = 14.dp, vertical = 8.dp).dimmed(bound),
                         horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically,
                     ) {
                         AppIcon(app.pkg, 32.dp)
@@ -142,32 +142,9 @@ fun BoxScope.AppsScreen(container: AppContainer, door: Door, onBack: () -> Unit)
 
 // Icons and their bar hues are read once per app for the process: lists and the Log redraw them on every scroll and visit.
 private val iconCache = android.util.LruCache<String, ImageBitmap>(64)
-private val hueCache = java.util.concurrent.ConcurrentHashMap<String, Color>()
-private val BarGrey = Color(0xFF999999)
 
 private fun PackageManager.cachedIcon(pkg: String): ImageBitmap? =
     iconCache.get(pkg) ?: runCatching { getApplicationIcon(pkg).toBitmap(96, 96).asImageBitmap() }.getOrNull()?.also { iconCache.put(pkg, it) }
-
-/**
- * The hue of an app's icon, so each Por app bar wears its app's colour: the icon averaged to one pixel, then brought
- * to one saturation and brightness so a busy icon doesn't come out muddy. A grey icon (X) stays grey. Grey until read.
- * The grey is a mid grey, not the Dim ink: at the bar's 20% the ink came out as heavy as a selected row.
- */
-@Composable
-fun appHue(pkg: String): Color {
-    val pm = LocalContext.current.packageManager
-    val hue by produceState(hueCache[pkg] ?: BarGrey, pkg) {
-        value = hueCache[pkg] ?: withContext(Dispatchers.IO) {
-            runCatching {
-                val small = android.graphics.Bitmap.createScaledBitmap(pm.cachedIcon(pkg)!!.asAndroidBitmap(), 32, 32, true)
-                val px = android.graphics.Bitmap.createScaledBitmap(small, 1, 1, true).getPixel(0, 0)
-                val hsv = FloatArray(3).also { android.graphics.Color.colorToHSV(px, it) }
-                if (hsv[1] < .12f) BarGrey else Color(android.graphics.Color.HSVToColor(floatArrayOf(hsv[0], .6f, .85f)))
-            }.getOrDefault(BarGrey)
-        }.also { hueCache[pkg] = it }
-    }
-    return hue
-}
 
 /** An app's launcher icon, loaded off the main thread; empty space until then or if it can't be read. */
 @Composable

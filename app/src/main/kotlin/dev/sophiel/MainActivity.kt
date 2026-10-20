@@ -20,12 +20,26 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.ContentTransform
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
+import androidx.compose.ui.unit.IntOffset
+import dev.sophiel.ui.theme.Drawer
+import dev.sophiel.ui.theme.Ease
+import dev.sophiel.ui.theme.motion
+import dev.sophiel.ui.theme.reducedMotion
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -77,6 +91,7 @@ import dev.sophiel.ui.HeaderBar
 import dev.sophiel.ui.DebugMenu
 import dev.sophiel.ui.DebugPage
 import dev.sophiel.ui.AppsScreen
+import dev.sophiel.ui.LogReads
 import dev.sophiel.ui.LogScreen
 import dev.sophiel.ui.SettingsScreen
 import dev.sophiel.ui.SButton
@@ -158,6 +173,10 @@ class MainActivity : ComponentActivity() {
         LaunchedEffect(door.unlocked) {
             if (!door.unlocked) { logOpen = false; appsOpen = false; settingsOpen = false; debugOpen = false; debugPage = null }
         }
+        val reduced = reducedMotion()
+        val ctx = androidx.compose.ui.platform.LocalContext.current
+        // Warm the Log while Status is showing, so opening it is instant.
+        LaunchedEffect(door.unlocked) { LogReads.load(container.log, ctx, java.time.ZoneId.systemDefault()) }
         BackHandler(logOpen || appsOpen || settingsOpen || debugOpen) {
             when {
                 debugPage != null -> debugPage = null
@@ -166,35 +185,6 @@ class MainActivity : ComponentActivity() {
                 appsOpen -> appsOpen = false
                 else -> settingsOpen = false
             }
-        }
-        if (debugOpen) {
-            val page = debugPage
-            if (page == null) {
-                DebugMenu(container, door, onBack = { debugOpen = false }, open = { debugPage = it }, rerunWizard = rerunWizard)
-            } else {
-                Column(Modifier.fillMaxSize()) {
-                    HeaderBar(stringResource(page.title), start = { SButton(null, { debugPage = null }, icon = R.drawable.ic_back, label = stringResource(R.string.back)) })
-                    val pageModifier = Modifier.weight(1f).navigationBarsPadding()
-                    when (page) {
-                        DebugPage.TestFeed -> testFeedScreen(pageModifier)
-                        DebugPage.Benchmark -> benchmarkScreen(pageModifier)
-                        DebugPage.Masks -> maskLookScreen(pageModifier)
-                    }
-                }
-            }
-            return
-        }
-        if (logOpen) {
-            LogScreen(container.log, door, onBack = { logOpen = false })
-            return
-        }
-        if (appsOpen) {
-            AppsScreen(container, door, onBack = { appsOpen = false })
-            return
-        }
-        if (settingsOpen) {
-            SettingsScreen(container, door, onBack = { settingsOpen = false }, onHistory = { logOpen = true }, onApps = { appsOpen = true }, onDebug = { debugOpen = true })
-            return
         }
         val actions = remember {
             StatusActions(
@@ -205,7 +195,48 @@ class MainActivity : ComponentActivity() {
                 seeLog = { door.pass { logOpen = true } },
             )
         }
-        statusScreen(controller, container, resumes.intValue, door, actions)
+        // Depth is how far from Status a screen sits: going deeper slides in from the end, going back slides out to it.
+        val depth = when {
+            debugOpen -> if (debugPage == null) 3 else 4
+            logOpen || appsOpen -> 2
+            settingsOpen -> 1
+            else -> 0
+        }
+        val dest = Triple(depth, if (debugOpen) debugPage else null, if (depth == 2) logOpen else false)
+        val slide = motion<IntOffset>(tween(340, easing = Drawer))
+        val fade = motion<Float>(tween(200, easing = Ease))
+        AnimatedContent(
+            dest,
+            Modifier.fillMaxSize(),
+            transitionSpec = {
+                val dir = if (targetState.first >= initialState.first) 1 else -1
+                if (reduced) fadeIn(fade) togetherWith fadeOut(fade)
+                // Stack, not crossfade: the screen that is deeper stays on top and opaque; the other one drifts a quarter-width behind it.
+                else ContentTransform(
+                    slideInHorizontally(slide) { if (dir > 0) it else -it / 4 },
+                    slideOutHorizontally(slide) { if (dir > 0) -it / 4 else it },
+                    targetContentZIndex = if (dir > 0) 1f else -1f,
+                )
+            },
+            label = "screen",
+        ) { (d, page, log) ->
+            Box(Modifier.fillMaxSize().background(Palette.Chalk)) { when {
+                d == 4 && page != null -> Column(Modifier.fillMaxSize()) {
+                    HeaderBar(stringResource(page.title), start = { SButton(null, { debugPage = null }, icon = R.drawable.ic_back, label = stringResource(R.string.back)) })
+                    val pageModifier = Modifier.weight(1f).navigationBarsPadding()
+                    when (page) {
+                        DebugPage.TestFeed -> testFeedScreen(pageModifier)
+                        DebugPage.Benchmark -> benchmarkScreen(pageModifier)
+                        DebugPage.Masks -> maskLookScreen(pageModifier)
+                    }
+                }
+                d == 3 -> DebugMenu(container, door, onBack = { debugOpen = false }, open = { debugPage = it }, rerunWizard = rerunWizard)
+                d == 2 && log -> LogScreen(container.log, door, onBack = { logOpen = false })
+                d == 2 -> AppsScreen(container, door, onBack = { appsOpen = false })
+                d == 1 -> SettingsScreen(container, door, onBack = { settingsOpen = false }, onHistory = { logOpen = true }, onApps = { appsOpen = true }, onDebug = { debugOpen = true })
+                else -> statusScreen(controller, container, resumes.intValue, door, actions)
+            } }
+        }
     }
 
     override fun onResume() {

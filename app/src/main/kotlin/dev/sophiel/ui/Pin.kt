@@ -110,7 +110,10 @@ private fun PinSlots(length: Int, shake: Int) {
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         repeat(maxOf(MIN_DIGITS, length)) { i ->
-            Box(Modifier.size(14.dp).clip(CircleShape).background(if (i < length) Palette.Moss else Palette.Moss.copy(alpha = .18f)))
+            val fill by androidx.compose.animation.animateColorAsState(
+                if (i < length) Palette.Moss else Palette.Moss.copy(alpha = .18f), motion(tween(100, easing = Ease)), label = "dot",
+            )
+            Box(Modifier.size(14.dp).clip(CircleShape).background(fill))
         }
     }
 }

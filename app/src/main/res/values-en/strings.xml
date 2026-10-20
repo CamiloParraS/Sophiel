@@ -136,17 +136,40 @@
     <string name="log_hero_text">covered in 7 days</string>
     <string name="log_week_title">Last 7 days</string>
     <string name="log_by_app">By app</string>
+    <string name="log_app_recents">Home and recents</string>
+    <string name="log_apps_unnamed">%d with no app identified</string>
+    <string name="log_apps_see">See detail by app</string>
+    <string name="log_apps_see_all">See all %d apps</string>
+    <string name="log_apps_last">Last: %s</string>
+    <string name="log_apps_none">No app had anything covered this week.</string>
+    <plurals name="log_apps_n">
+        <item quantity="one">%d app</item>
+        <item quantity="other">%d apps</item>
+    </plurals>
+    <plurals name="log_apps_week">
+        <item quantity="one">%d in 7 days</item>
+        <item quantity="other">%d in 7 days</item>
+    </plurals>
     <string name="log_top_app">Most in %1$s (%2$d)</string>
     <plurals name="log_day_total">
         <item quantity="one">%1$s · %2$d covered</item>
         <item quantity="other">%1$s · %2$d covered</item>
     </plurals>
     <string name="log_stat_masked">Covered</string>
-    <string name="log_stat_attempts">Tried to turn off</string>
-    <string name="log_stat_gap">Times unprotected</string>
-    <string name="log_stat_blocks">Blocked apps</string>
+    <string name="log_stat_attempts">Turn-off attempts</string>
+    <string name="log_stat_gap">Unprotected</string>
+    <string name="log_stat_blocks">App blocks</string>
+    <plurals name="log_blocks_apps">
+        <item quantity="one">%d different</item>
+        <item quantity="other">%d different</item>
+    </plurals>
     <string name="log_verdict_ok">All in order</string>
     <string name="log_verdict_look">Worth a look this week</string>
+    <string name="log_cause_gap">%1$s unprotected</string>
+    <plurals name="log_cause_attempts">
+        <item quantity="one">%d attempt to turn it off</item>
+        <item quantity="other">%d attempts to turn it off</item>
+    </plurals>
     <string name="log_filter_all">All</string>
     <string name="log_filter_masked">Covered</string>
     <string name="log_filter_others">Protection</string>
@@ -168,10 +191,15 @@
     </plurals>
     <string name="log_detail">Check: %1$s · score %2$s · %3$s</string>
     <string name="log_detail_precise">Check: %1$s · %2$s</string>
-    <string name="log_band_high">Very sure</string>
-    <string name="log_band_mid">Sure</string>
+    <string name="log_band_high">Explicit</string>
+    <string name="log_band_mid">Likely</string>
     <string name="log_band_low">Unsure</string>
     <string name="log_unchecked">Couldn\'t be checked</string>
+    <string name="log_unchecked_note">Some apps protect their screen and Sophiel can\'t look at it, so it couldn\'t be checked.</string>
+    <string name="log_kind_masked">Covered</string>
+    <string name="log_kind_unchecked">Couldn\'t be checked</string>
+    <string name="log_kind_block">Block</string>
+    <string name="log_unchecked_why">Screen protected by the app</string>
     <string name="log_app_unknown">Unknown app</string>
     <string name="log_app_line">%1$s · %2$s</string>
     <string name="log_on">Protection turned on</string>
@@ -188,12 +216,12 @@
     <string name="log_gap">Unprotected</string>
     <string name="log_gap_text">%1$s · %2$s</string>
     <string name="log_gap_accessibility">Accessibility is off</string>
-    <string name="log_tamper">Tried to turn off</string>
-    <string name="log_tamper_accessibility">Sophiel in Accessibility</string>
-    <string name="log_tamper_overlay">Appear on top</string>
-    <string name="log_tamper_app_info">App info for Sophiel</string>
-    <string name="log_tamper_uninstall">Uninstalling Sophiel</string>
-    <string name="log_tamper_active_apps">Active apps</string>
+    <string name="log_tamper">Tried to turn off Sophiel</string>
+    <string name="log_tamper_accessibility">Opened Accessibility</string>
+    <string name="log_tamper_overlay">Opened “Appear on top”</string>
+    <string name="log_tamper_app_info">Opened the app info</string>
+    <string name="log_tamper_uninstall">Opened the uninstall screen</string>
+    <string name="log_tamper_active_apps">Opened the list of active apps</string>
     <string name="log_blocked_open">Blocked open</string>
     <string name="log_blocked_rule">blocked by the Parent</string>
     <string name="log_blocked_escalation">blocked by Sophiel</string>

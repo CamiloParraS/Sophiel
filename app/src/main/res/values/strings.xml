@@ -136,17 +136,40 @@
     <string name="log_hero_text">cubiertas en 7 días</string>
     <string name="log_week_title">Últimos 7 días</string>
     <string name="log_by_app">Por app</string>
+    <string name="log_app_recents">Inicio y recientes</string>
+    <string name="log_apps_unnamed">%d sin app identificada</string>
+    <string name="log_apps_see">Ver detalle por app</string>
+    <string name="log_apps_see_all">Ver las %d apps</string>
+    <string name="log_apps_last">Último: %s</string>
+    <string name="log_apps_none">Ninguna app tuvo algo tapado esta semana.</string>
+    <plurals name="log_apps_n">
+        <item quantity="one">%d app</item>
+        <item quantity="other">%d apps</item>
+    </plurals>
+    <plurals name="log_apps_week">
+        <item quantity="one">%d en 7 días</item>
+        <item quantity="other">%d en 7 días</item>
+    </plurals>
     <string name="log_top_app">Más en %1$s (%2$d)</string>
     <plurals name="log_day_total">
         <item quantity="one">%1$s · %2$d tapado</item>
         <item quantity="other">%1$s · %2$d tapados</item>
     </plurals>
     <string name="log_stat_masked">Tapados</string>
-    <string name="log_stat_attempts">Intentos de apagar</string>
-    <string name="log_stat_gap">Veces sin protección</string>
-    <string name="log_stat_blocks">Apps bloqueadas</string>
+    <string name="log_stat_attempts">Intentos de apagarla</string>
+    <string name="log_stat_gap">Sin protección</string>
+    <string name="log_stat_blocks">Bloqueos de apps</string>
+    <plurals name="log_blocks_apps">
+        <item quantity="one">%d distinta</item>
+        <item quantity="other">%d distintas</item>
+    </plurals>
     <string name="log_verdict_ok">Todo en orden</string>
     <string name="log_verdict_look">Para revisar</string>
+    <string name="log_cause_gap">%1$s sin protección</string>
+    <plurals name="log_cause_attempts">
+        <item quantity="one">%d intento de apagarla</item>
+        <item quantity="other">%d intentos de apagarla</item>
+    </plurals>
     <string name="log_filter_all">Todo</string>
     <string name="log_filter_masked">Tapados</string>
     <string name="log_filter_others">Protección</string>
@@ -168,10 +191,15 @@
     </plurals>
     <string name="log_detail">Revisión: %1$s · puntuación %2$s · %3$s</string>
     <string name="log_detail_precise">Revisión: %1$s · %2$s</string>
-    <string name="log_band_high">Muy seguro</string>
-    <string name="log_band_mid">Seguro</string>
+    <string name="log_band_high">Explícito</string>
+    <string name="log_band_mid">Probable</string>
     <string name="log_band_low">Dudoso</string>
     <string name="log_unchecked">No se pudo revisar</string>
+    <string name="log_unchecked_note">Algunas apps protegen su pantalla y Sophiel no puede mirarla: por eso no se pudo revisar.</string>
+    <string name="log_kind_masked">Tapado</string>
+    <string name="log_kind_unchecked">No se pudo revisar</string>
+    <string name="log_kind_block">Bloqueo</string>
+    <string name="log_unchecked_why">Pantalla protegida por la app</string>
     <string name="log_app_unknown">App desconocida</string>
     <string name="log_app_line">%1$s · %2$s</string>
     <string name="log_on">Protección activada</string>
@@ -188,12 +216,12 @@
     <string name="log_gap">Sin protección</string>
     <string name="log_gap_text">%1$s · %2$s</string>
     <string name="log_gap_accessibility">La accesibilidad está apagada</string>
-    <string name="log_tamper">Intento de apagar</string>
-    <string name="log_tamper_accessibility">Sophiel en Accesibilidad</string>
-    <string name="log_tamper_overlay">Mostrar sobre otras apps</string>
-    <string name="log_tamper_app_info">Info de la app de Sophiel</string>
-    <string name="log_tamper_uninstall">Desinstalar Sophiel</string>
-    <string name="log_tamper_active_apps">Apps activas</string>
+    <string name="log_tamper">Intento de apagar Sophiel</string>
+    <string name="log_tamper_accessibility">Abrió Accesibilidad</string>
+    <string name="log_tamper_overlay">Abrió «Mostrar sobre otras apps»</string>
+    <string name="log_tamper_app_info">Abrió la info de la app</string>
+    <string name="log_tamper_uninstall">Abrió la pantalla para desinstalar</string>
+    <string name="log_tamper_active_apps">Abrió la lista de apps activas</string>
     <string name="log_blocked_open">Apertura bloqueada</string>
     <string name="log_blocked_rule">la bloqueó el Padre</string>
     <string name="log_blocked_escalation">la bloqueó Sophiel</string>

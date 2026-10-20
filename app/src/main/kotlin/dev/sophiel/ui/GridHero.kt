@@ -21,6 +21,12 @@ import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.vector.PathParser
 import kotlinx.coroutines.delay
+import androidx.compose.animation.core.FastOutLinearInEasing
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import dev.sophiel.ui.theme.Ease
+import kotlinx.coroutines.launch
 import androidx.compose.ui.unit.coerceIn
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.animateColorAsState
@@ -115,6 +121,9 @@ private val MaskBrush: ShaderBrush by lazy { ShaderBrush(ImageShader(DebugMask.p
 private val RedTiles = setOf(5 to 1, 1 to 2, 5 to 3, 0 to 4)
 private val OrangeTiles = setOf(5 to 1, 1 to 2, 6 to 3, 0 to 4)
 
+/** Set once the first hero of this process has been drawn: the welcome plays on a cold open only, never on coming back to Status. */
+private var welcomed = false
+
 /** Headlines are large text already: past [max] they stop growing, or one word no longer fits the line. */
 @Composable
 internal fun CappedFontScale(max: Float, content: @Composable () -> Unit) {
@@ -132,7 +141,7 @@ fun GridHero(page: Page, title: String, text: String, modifier: Modifier = Modif
     // The hero takes what the sheet leaves (never below 320 dp), so spare height becomes atmosphere, not a gap above the button.
     // The first fit snaps: nothing animates on open.
     var fitted by remember { mutableStateOf(false) }
-    val hero by animateDpAsState((fit ?: full).coerceAtLeast(320.dp), if (fitted) motion(tween(240)) else snap(), label = "hero")
+    val hero by animateDpAsState((fit ?: full).coerceAtLeast(320.dp), if (fitted) motion(tween(240, easing = Ease)) else snap(), label = "hero")
     SideEffect { if (fit != null) fitted = true }
     // Light icons on the dark hero; back to dark ones when leaving.
     val view = LocalView.current
@@ -163,12 +172,32 @@ fun GridHero(page: Page, title: String, text: String, modifier: Modifier = Modif
     // The shackle, 0 up, 1 shut. Opening the screen shows it as it is (D44); only Start (shuts) and Stop (lifts) move it.
     // On Protected it waits a beat so the open lock is seen first, then drops with a small spring: the click.
     val locked = page == Page.PROTECTED
-    val shut = remember { Animatable(if (locked) 1f else 0f) }
+    // Welcome: on the app's first open the badge arrives and, when protected, the lock starts open and falls shut (no haptic: it is not an event).
+    val welcome = remember { (!welcomed && !still).also { welcomed = true } }
+    val arrive = remember { Animatable(if (welcome) 0f else 1f) }
+    val shut = remember { Animatable(if (locked && !welcome) 1f else 0f) }
+    // Weight: the shackle falls under gravity (accelerating, no bounce) and stops hard; the body takes the hit,
+    // squashing and springing back, a ring leaves it, and the phone thuds once.
+    val press = remember { Animatable(1f) }
+    val ring = remember { Animatable(1f) } // 0 at impact, 1 spent
+    val haptics = LocalHapticFeedback.current
     LaunchedEffect(locked, still) {
         val to = if (locked) 1f else 0f
         if (still) return@LaunchedEffect shut.snapTo(to)
-        if (locked) delay(140)
-        shut.animateTo(to, spring(dampingRatio = .55f, stiffness = 900f))
+        if (!locked) { shut.animateTo(0f, spring(dampingRatio = .55f, stiffness = 900f)); return@LaunchedEffect }
+        if (shut.value >= 1f) return@LaunchedEffect // opened already shut: nothing falls
+        delay(if (welcome) 380 else 140)
+        shut.animateTo(1f, tween(130, easing = FastOutLinearInEasing))
+        if (!welcome) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+        launch { ring.snapTo(0f); ring.animateTo(1f, tween(620, easing = Ease)) }
+        press.snapTo(.9f)
+        press.animateTo(1f, spring(dampingRatio = .42f, stiffness = 420f))
+    }
+
+    LaunchedEffect(Unit) {
+        if (!welcome) return@LaunchedEffect
+        if (!locked) launch { ring.snapTo(0f); ring.animateTo(1f, tween(620, easing = Ease)) } // protected has its own ring, at the click
+        arrive.animateTo(1f, spring(dampingRatio = .6f, stiffness = 300f))
     }
 
     // One clock, only while something moves: the idle glow and the entry wave (protected), the travelling outline (starting).
@@ -215,7 +244,7 @@ fun GridHero(page: Page, title: String, text: String, modifier: Modifier = Modif
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
-            Badge(badgeColor, bg, icon, spin = page == Page.STARTING, shut = { shut.value })
+            Badge(badgeColor, bg, icon, spin = page == Page.STARTING, shut = { shut.value }, press = { press.value * (.8f + .2f * arrive.value) }, ring = { ring.value }, arrive = { arrive.value })
             Column(Modifier.padding(top = 4.dp).onGloballyPositioned { textAt = at(it) }, horizontalAlignment = Alignment.CenterHorizontally) {
                 CappedFontScale(1.3f) { Text(title, Modifier.asHeading(), style = MaterialTheme.typography.displaySmall, color = Text0, textAlign = TextAlign.Center) }
                 Text(text, Modifier.padding(top = 8.dp).widthIn(max = 300.dp), style = MaterialTheme.typography.bodyMedium, color = Text1, textAlign = TextAlign.Center)
@@ -226,10 +255,12 @@ fun GridHero(page: Page, title: String, text: String, modifier: Modifier = Modif
 
 /** 96 dp disc in the state colour (tint, 1.5 dp ring, soft outer halo). */
 @Composable
-private fun Badge(color: Color, bg: Color, @DrawableRes icon: Int?, spin: Boolean, shut: () -> Float) {
-    Box(Modifier.size(120.dp), contentAlignment = Alignment.Center) {
+private fun Badge(color: Color, bg: Color, @DrawableRes icon: Int?, spin: Boolean, shut: () -> Float, press: () -> Float, ring: () -> Float, arrive: () -> Float) {
+    Box(Modifier.size(120.dp).graphicsLayer { scaleX = press(); scaleY = press(); alpha = arrive().coerceIn(0f, 1f) }, contentAlignment = Alignment.Center) {
         Canvas(Modifier.size(120.dp)) {
             val r = 48.dp.toPx()
+            val e = ring()
+            if (e < 1f) drawCircle(color.copy(alpha = .45f * (1f - e)), r + 4.dp.toPx() + 22.dp.toPx() * e, style = Stroke(2.dp.toPx()))
             drawCircle(color.copy(alpha = .07f), r + 6.dp.toPx(), style = Stroke(12.dp.toPx()))
             drawCircle(bg, r)
             drawCircle(MaskBrush, r, alpha = .22f) // the real mask, 1:1, faint: the badge wears what Sophiel puts on a screen

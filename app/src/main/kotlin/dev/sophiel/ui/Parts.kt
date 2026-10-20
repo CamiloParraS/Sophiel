@@ -43,6 +43,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -184,6 +185,24 @@ fun PrefRow(
     }
 }
 
+/** Dims a disabled row over 200 ms, so a list does not change brightness in one frame when the service binds. */
+@Composable
+fun Modifier.dimmed(enabled: Boolean): Modifier {
+    val a by androidx.compose.animation.core.animateFloatAsState(
+        if (enabled) 1f else Palette.DISABLED, motion(tween(200, easing = dev.sophiel.ui.theme.Ease)), label = "dim",
+    )
+    return graphicsLayer { alpha = a }
+}
+
+/** The radio answer: the tick fades and grows from .8 when its row is chosen, fades out when it is not. */
+@Composable
+fun SelectTick(selected: Boolean, tint: Color) {
+    val t by androidx.compose.animation.core.animateFloatAsState(
+        if (selected) 1f else 0f, motion(tween(120, easing = dev.sophiel.ui.theme.Ease)), label = "tick",
+    )
+    SIcon(dev.sophiel.R.drawable.ic_check, tint, modifier = Modifier.graphicsLayer { alpha = t; scaleX = .8f + .2f * t; scaleY = .8f + .2f * t })
+}
+
 /** A switch row toggles from anywhere on it. */
 @Composable
 fun SwitchRow(
@@ -192,7 +211,7 @@ fun SwitchRow(
 ) =
     PrefRow(
         title,
-        modifier.alpha(if (enabled) 1f else Palette.DISABLED).toggleable(checked, enabled = enabled, role = Role.Switch, onValueChange = onChange),
+        modifier.dimmed(enabled).toggleable(checked, enabled = enabled, role = Role.Switch, onValueChange = onChange),
         description,
         icon,
         end = { RoundSwitch(checked, onChange = null) },

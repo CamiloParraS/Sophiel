@@ -20,6 +20,8 @@ enum class Band {
 
 enum class LogFilter { ALL, MASKED, OTHERS }
 
+private const val BRIEF_SECONDS = LogModel.BRIEF_SECONDS
+
 sealed interface LogRow {
     val at: Long
 
@@ -35,14 +37,20 @@ sealed interface LogRow {
     }
 
     /** [count] stretches back to back in one app, folded by [LogDay.grouped]; [since] is the oldest. */
-    class Unanalyzable(override val at: Long, val seconds: Int, val app: String, val count: Int = 1, val since: Long = at) : LogRow
+    class Unanalyzable(override val at: Long, val seconds: Int, val app: String, val count: Int = 1, val since: Long = at) : LogRow {
+        val brief get() = seconds < BRIEF_SECONDS
+    }
     class On(override val at: Long, val preset: String, val sensitivity: String) : LogRow
     class Off(override val at: Long, val reason: String) : LogRow
 
     /** An [Off] and the [On] after it, folded by [LogDay.grouped]: off at [at] for [seconds]. */
     class Paused(override val at: Long, val seconds: Int, val reason: String) : LogRow
     class ShareStopped(override val at: Long) : LogRow
-    class Unprotected(override val at: Long, val seconds: Int, val reason: String) : LogRow
+    /** [count] gaps for one [reason], back to back, folded by [LogDay.grouped]; [seconds] is their sum, [since] the oldest start. */
+    class Unprotected(override val at: Long, val seconds: Int, val reason: String, val count: Int = 1, val since: Long = at) : LogRow {
+        /** Under a minute in total: a blip, not something to act on, so the list shows it as a quiet line. */
+        val brief get() = seconds < BRIEF_SECONDS
+    }
     class Tamper(override val at: Long, val target: String, val count: Int) : LogRow
     class AppBlocked(override val at: Long, val app: String, val minutes: Int) : LogRow
     class BlockedOpen(override val at: Long, val app: String, val reason: String, val count: Int) : LogRow
@@ -61,8 +69,8 @@ class LogDay(val date: LocalDate, val today: Boolean, val rows: List<LogRow>) {
 
     /**
      * [rows] with runs in the same app, each within [RUN_GAP_MS] of the last, folded: masked episodes into one
-     * [LogRow.MaskedRun], unchecked stretches into one [LogRow.Unanalyzable] with their time summed. A stop and the
-     * turn-on right after it become one [LogRow.Paused].
+     * [LogRow.MaskedRun], all the day's unchecked stretches into one [LogRow.Unanalyzable] with their time summed. A stop and the
+     * turn-on right after it become one [LogRow.Paused]; back-to-back gaps with one reason become one [LogRow.Unprotected].
      */
     fun grouped(filter: LogFilter): List<LogRow> {
         val out = ArrayList<LogRow>()
@@ -77,14 +85,24 @@ class LogDay(val date: LocalDate, val today: Boolean, val rows: List<LogRow>) {
             val last = out.lastOrNull()
             when {
                 r is LogRow.Masked -> run += r
-                r is LogRow.Unanalyzable && last is LogRow.Unanalyzable && last.app == r.app && last.since - r.at <= LogModel.RUN_GAP_MS ->
-                    out[out.lastIndex] = LogRow.Unanalyzable(last.at, last.seconds + r.seconds, r.app, last.count + 1, r.at)
+                r is LogRow.Unprotected && last is LogRow.Unprotected && last.reason == r.reason && last.since - r.at <= LogModel.RUN_GAP_MS ->
+                    out[out.lastIndex] = LogRow.Unprotected(last.at, last.seconds + r.seconds, r.reason, last.count + 1, r.at)
                 // Newest first, so the turn-on is already out when its stop comes.
                 r is LogRow.Off && last is LogRow.On -> out[out.lastIndex] = LogRow.Paused(r.at, ((last.at - r.at) / 1000).toInt(), r.reason)
                 else -> out += r
             }
         }
         flush()
+        // Unchecked stretches are the noisiest rows (a dozen 1 s lines a day): one line per day, at the newest, app named only when all agree.
+        val unchecked = out.filterIsInstance<LogRow.Unanalyzable>()
+        if (unchecked.size > 1) {
+            val one = LogRow.Unanalyzable(
+                unchecked.first().at, unchecked.sumOf { it.seconds }, unchecked.map { it.app }.distinct().singleOrNull().orEmpty(),
+                unchecked.sumOf { it.count }, unchecked.last().since,
+            )
+            out[out.indexOf(unchecked.first())] = one
+            out.removeAll(unchecked.drop(1).toSet())
+        }
         return out
     }
 
@@ -100,7 +118,10 @@ class LogDay(val date: LocalDate, val today: Boolean, val rows: List<LogRow>) {
  * tamper attempts, [bloqueos] a block placed or an open stopped; both count merged lines by their count.
  * [perApp] is masked episodes per known app, most first (blank apps are left out, as in [LogDay.topApp]).
  */
-class LogCounts(val masked: Int, val unchecked: Int, val unprotected: Int, val unprotectedSeconds: Int, val intentos: Int, val bloqueos: Int, val perApp: List<Pair<String, Int>>) {
+class LogCounts(val masked: Int, val unchecked: Int, val unprotected: Int, val unprotectedSeconds: Int, val intentos: Int, val bloqueos: Int, val perApp: List<Pair<String, Int>>, val bloqueoApps: Int = 0) {
+    /** Something the Parent should look at: protection was off or someone tried to turn it off. Blocks are the Parent's own rules, so they never count. */
+    val look get() = unprotected > 0 || intentos > 0
+
     companion object {
         fun of(days: List<LogDay>): LogCounts {
             val rows = days.flatMap { it.rows }
@@ -114,14 +135,31 @@ class LogCounts(val masked: Int, val unchecked: Int, val unprotected: Int, val u
                 intentos = rows.sumOf { (it as? LogRow.Tamper)?.count ?: 0 },
                 bloqueos = rows.sumOf { when (it) { is LogRow.AppBlocked -> 1; is LogRow.BlockedOpen -> it.count; else -> 0 } },
                 perApp = perApp,
+                bloqueoApps = rows.mapNotNull { (it as? LogRow.AppBlocked)?.app ?: (it as? LogRow.BlockedOpen)?.app }.filter(String::isNotEmpty).toSet().size,
             )
         }
     }
 }
 
+/** An app with covered episodes this week: how many, and when the last one was. */
+class AppCover(val app: String, val count: Int, val lastAt: Long)
+
 /** The Log screen (D39, D44), pure: entries + now + zone -> the last 7 local days, oldest first, today last. */
 class LogModel(val days: List<LogDay>, val empty: Boolean) {
     val weekMasked = days.sumOf { it.masked }
+
+    /** Every known app that had something covered, most first (a tie goes to the latest); blank apps are left out, as in [LogCounts.perApp]. */
+    val covered: List<AppCover> = days.flatMap { it.rows }.filterIsInstance<LogRow.Masked>().filter { it.app.isNotEmpty() }
+        .groupBy { it.app }.map { (app, r) -> AppCover(app, r.size, r.maxOf { it.at }) }
+        .sortedWith(compareByDescending<AppCover> { it.count }.thenByDescending { it.lastAt })
+
+    /** Covered episodes with no app on them (lines from before D57, or an app Android would not name): in the week's count, not in [covered]. */
+    val unnamed: Int = days.sumOf { d -> d.rows.count { it is LogRow.Masked && it.app.isEmpty() } }
+
+    /** The week's covered episodes in one [app], newest day first, days with none left out. */
+    fun forApp(app: String): List<LogDay> = days.asReversed()
+        .map { LogDay(it.date, it.today, it.rows.filter { r -> r is LogRow.Masked && r.app == app }) }
+        .filter { it.rows.isNotEmpty() }
 
     /** "Hoy" is since local midnight (the last day); the week is every day held. */
     val today get() = LogCounts.of(days.takeLast(1))
@@ -130,6 +168,7 @@ class LogModel(val days: List<LogDay>, val empty: Boolean) {
     companion object {
         const val PRECISE = "PRECISE"
         const val RUN_GAP_MS = 10 * 60_000L
+        const val BRIEF_SECONDS = 60
 
         /** A Sin protección length in its largest units: "45 s", "12 min", "2 h 5 min" (the same in es and en). */
         fun length(seconds: Int): String {

@@ -157,6 +157,11 @@ class LogModelTest {
         assertEquals(1, w.unprotected)
         assertEquals(3, m.today.masked)
         assertEquals(2, m.today.bloqueos)
+        assertEquals(listOf("b", "a"), m.covered.map { it.app })
+        assertEquals(listOf(2, 1), m.covered.map { it.count })
+        assertEquals(at(6, 10), m.covered.first().lastAt)
+        assertEquals(listOf(2), m.forApp("b").map { it.rows.size })
+        assertTrue(m.forApp("nobody").isEmpty())
     }
 
     private fun inApp(t: Long, app: String) = Entry(t, "MASKED", listOf("BALANCED", "2", "0.90", app))
@@ -176,16 +181,33 @@ class LogModelTest {
     }
 
     @Test
-    fun uncheckedStretchesInOneAppFoldIntoOneLineWithTheirTimeSummed() {
+    fun uncheckedStretchesFoldIntoOneLinePerDayWithTheirTimeSummed() {
         fun unchecked(t: Long, s: Int, app: String) = Entry(t, "UNANALYZABLE", listOf("$s", app))
         val m = model(unchecked(at(6, 1, 0), 3, "s"), unchecked(at(6, 1, 1), 1, "s"), unchecked(at(6, 1, 2), 2, "s"), unchecked(at(6, 1, 3), 4, "t"))
         val rows = m.days.last().grouped(LogFilter.ALL)
-        assertEquals(2, rows.size)
-        val s = rows[1] as LogRow.Unanalyzable
-        assertEquals(3, s.count)
-        assertEquals(6, s.seconds)
-        assertEquals(at(6, 1, 2), s.at)
+        assertEquals(1, rows.size)
+        val s = rows[0] as LogRow.Unanalyzable
+        assertEquals(4, s.count)
+        assertEquals(10, s.seconds)
+        assertEquals("", s.app) // two apps: none named
+        assertEquals(at(6, 1, 3), s.at)
         assertEquals(4, m.week.unchecked) // the counts still see every stretch
+        val one = model(unchecked(at(6, 1, 0), 3, "s"), unchecked(at(6, 3, 0), 1, "s")).days.last().grouped(LogFilter.ALL)
+        assertEquals("s", (one.single() as LogRow.Unanalyzable).app)
+    }
+
+    @Test
+    fun gapsWithOneReasonBackToBackFoldIntoOneLineAndBlipsStayBrief() {
+        fun gap(t: Long, s: Int, r: String) = Entry(t, "UNPROTECTED", listOf("$s", r))
+        val m = model(gap(at(6, 1, 0), 30, "APP_CLOSED"), gap(at(6, 1, 3), 40, "APP_CLOSED"), gap(at(6, 1, 4), 12, "RESTARTED"), gap(at(6, 3, 0), 20, "APP_CLOSED"))
+        val rows = m.days.last().grouped(LogFilter.ALL)
+        assertEquals(3, rows.size)
+        val folded = rows[2] as LogRow.Unprotected
+        assertEquals(2, folded.count)
+        assertEquals(70, folded.seconds)
+        assertEquals(false, folded.brief)
+        assertEquals(true, (rows[0] as LogRow.Unprotected).brief)
+        assertEquals(4, m.week.unprotected) // the counts still see every gap
     }
 
     @Test
