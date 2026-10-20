@@ -1,5 +1,10 @@
 package dev.sophiel.ui
 
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
@@ -52,6 +57,8 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.pluralStringResource
@@ -177,6 +184,52 @@ private fun PinKeys(
 private enum class Attempt { Idle, Wrong, Right }
 
 /**
+ * D70: the PIN sheet's padlock, large and upright. A wrong PIN rattles it; the right one springs the shackle open, turns it
+ * green, then shrinks it toward the top end, where the header's open-lock chip takes over. [onOpened] runs when that is done.
+ */
+@Composable
+private fun PinLock(attempt: Attempt, locked: Boolean, shake: Int, onOpened: () -> Unit) {
+    val reduced = reducedMotion()
+    val shut = remember { Animatable(1f) }
+    val fly = remember { Animatable(0f) }
+    val wobble = remember { Animatable(0f) }
+    var width by remember { mutableIntStateOf(0) }
+    val opened by rememberUpdatedState(onOpened)
+    LaunchedEffect(shake) {
+        if (shake > 0 && !reduced) wobble.animateTo(0f, keyframes { durationMillis = 360; -12f at 60; 10f at 150; -6f at 240; 3f at 300; 0f at 360 })
+    }
+    LaunchedEffect(attempt == Attempt.Right) {
+        if (attempt != Attempt.Right) return@LaunchedEffect
+        if (reduced) { shut.snapTo(0f); delay(450); opened(); return@LaunchedEffect }
+        shut.animateTo(0f, spring(dampingRatio = .45f, stiffness = 500f))
+        delay(120)
+        fly.animateTo(1f, tween(320, easing = Ease))
+        opened()
+    }
+    val color by animateColorAsState(
+        when { attempt == Attempt.Right -> Palette.GreenFg; locked -> Palette.RedFg; else -> Palette.Moss }, motion(tween(200, easing = Ease)), label = "lock",
+    )
+    // The sheet doesn't scroll: a short screen gets a smaller disc so the keys still fit.
+    val disc = if (LocalConfiguration.current.screenHeightDp < 720) 80.dp else 112.dp
+    Box(Modifier.fillMaxWidth().onSizeChanged { width = it.width }, contentAlignment = Alignment.Center) {
+        Box(
+            Modifier.size(disc).graphicsLayer {
+                val f = fly.value
+                // Toward the header's unlocked chip at the top end; tuned by eye to the sheet's padding, not measured.
+                translationX = f * (width / 2f - 28.dp.toPx())
+                translationY = -f * 36.dp.toPx()
+                scaleX = 1f - .65f * f; scaleY = 1f - .65f * f
+                alpha = 1f - .6f * f
+                rotationZ = wobble.value
+            }.clip(CircleShape).background(color.copy(alpha = .12f)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Canvas(Modifier.size(disc * .6f)) { drawPadlock(color, shut.value, tilt = 0f) }
+        }
+    }
+}
+
+/**
  * The PIN sheet's content (D38, D44): slots, keys (the ✓ key unlocks), Cancelar.[onUnlocked] runs after a right PIN and a
  * short "Desbloqueado" message; the caller extends the unlock and closes the sheet. Digits live in plain
  * `remember`, never in saved state.
@@ -212,9 +265,7 @@ fun ColumnScope.PinPrompt(pin: PinStore, clock: () -> Long, onUnlocked: () -> Un
             when (result) {
                 PinResult.Ok -> {
                     haptic.performHapticFeedback(HapticFeedbackType.Confirm)
-                    attempt = Attempt.Right
-                    delay(450)
-                    onUnlocked()
+                    attempt = Attempt.Right // PinLock opens, then calls onUnlocked
                 }
                 PinResult.Wrong -> {
                     // The 5th wrong PIN locks: the countdown says it, so no stale "attempts left" afterwards.
@@ -226,6 +277,7 @@ fun ColumnScope.PinPrompt(pin: PinStore, clock: () -> Long, onUnlocked: () -> Un
         }
     }
 
+    PinLock(attempt, locked, shake, onUnlocked)
     Text(stringResource(R.string.pin_title), Modifier.asHeading(), style = MaterialTheme.typography.titleLarge)
     Text(stringResource(R.string.pin_subtitle), style = MaterialTheme.typography.bodyMedium, color = Palette.Dim)
     PinSlots(digits.length, shake)

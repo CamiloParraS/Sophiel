@@ -81,10 +81,11 @@ fun DoorHost(container: AppContainer, content: @Composable BoxScope.(Door) -> Un
             PinPrompt(
                 container.pin, clock,
                 onUnlocked = {
+                    // The padlock animates first; a sheet dismissed meanwhile must not unlock.
+                    val action = pending ?: return@PinPrompt
                     unlock.extend()
-                    val action = pending
                     pending = null
-                    action?.invoke()
+                    action()
                 },
                 onCancel = { pending = null },
             )

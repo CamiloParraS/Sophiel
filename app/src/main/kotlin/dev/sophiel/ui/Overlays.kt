@@ -96,7 +96,7 @@ fun BoxScope.BottomSheet(visible: Boolean, title: String, onDismiss: () -> Unit,
     val settle = motion<Float>(spring(dampingRatio = 1f, stiffness = Spring.StiffnessMediumLow))
     LaunchedEffect(visible) { if (visible) { drag = 0f; back = 0f } }
     AnimatedVisibility(visible, enter = fadeIn(motion(tween(240))), exit = fadeOut(motion(tween(240)))) {
-        Box(Modifier.fillMaxSize().graphicsLayer { alpha = 1f - .6f * back }.background(Color.Black.copy(alpha = .4f)).clickable(remember { MutableInteractionSource() }, indication = null, onClickLabel = close, role = Role.Button, onClick = onDismiss).semantics { contentDescription = close })
+        Box(Modifier.fillMaxSize().graphicsLayer { alpha = 1f - .6f * back }.background(Palette.Ink.copy(alpha = .45f)).clickable(remember { MutableInteractionSource() }, indication = null, onClickLabel = close, role = Role.Button, onClick = onDismiss).semantics { contentDescription = close })
     }
     AnimatedVisibility(
         visible,

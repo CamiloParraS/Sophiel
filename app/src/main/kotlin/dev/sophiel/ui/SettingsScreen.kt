@@ -1,5 +1,6 @@
 package dev.sophiel.ui
 
+import dev.sophiel.settings.AppRule
 import android.os.Build
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
@@ -76,6 +77,7 @@ fun BoxScope.SettingsScreen(container: AppContainer, door: Door, onBack: () -> U
     val presetNames = listOf(R.string.preset_light, R.string.preset_balanced, R.string.preset_thorough, R.string.preset_precise).map { stringResource(it) }
     val careHelps = listOf(R.string.care_help_strict, R.string.care_help_normal, R.string.care_help_relaxed).map { stringResource(it) }
     val presetHelps = listOf(R.string.how_help_light, R.string.how_help_balanced, R.string.how_help_thorough, R.string.how_help_precise).map { stringResource(it) }
+    val ruled = container.appRules.state.collectAsState().value.filterValues { it != AppRule.NORMAL }.keys.take(3)
     val careIx = Sensitivity.entries.indexOf(settings.sensitivity)
     val presetIx = presets.indexOf(settings.preset)
     Column(Modifier.fillMaxSize().behindSheet(picking != null).background(Palette.Chalk)) { // the page; the groups are Surface cards on it
@@ -97,18 +99,13 @@ fun BoxScope.SettingsScreen(container: AppContainer, door: Door, onBack: () -> U
                         onClick = { door.pass { picking = Pick.HOW } }, end = { Value(presetNames[presetIx]) },
                     )
                 }
-                item {
-                    SwitchRow(
-                        stringResource(R.string.set_keep), settings.keepProtecting && bound,
-                        { v -> door.pass { container.settings.update { it.copy(keepProtecting = v) } } },
-                        description = stringResource(if (bound) R.string.set_keep_text else R.string.needs_full_mask),
-                        icon = R.drawable.ic_shield, enabled = bound,
-                    )
-                }
+            }
+            // D70: what gets covered, then the apps and what happened in them, then the mask, then what guards it all.
+            PreferenceGroup(title = stringResource(R.string.group_apps_activity)) {
                 item {
                     PrefRow(
                         stringResource(R.string.set_apps), description = stringResource(R.string.set_apps_text), icon = R.drawable.ic_block,
-                        onClick = { door.pass(onApps) }, end = { SIcon(R.drawable.ic_chev) },
+                        onClick = { door.pass(onApps) }, end = { RuledApps(ruled) },
                     )
                 }
                 item {
@@ -136,6 +133,14 @@ fun BoxScope.SettingsScreen(container: AppContainer, door: Door, onBack: () -> U
                 }
             }
             PreferenceGroup(title = stringResource(R.string.group_security)) {
+                item {
+                    SwitchRow(
+                        stringResource(R.string.set_keep), settings.keepProtecting && bound,
+                        { v -> door.pass { container.settings.update { it.copy(keepProtecting = v) } } },
+                        description = stringResource(if (bound) R.string.set_keep_text else R.string.needs_full_mask),
+                        icon = R.drawable.ic_shield, enabled = bound,
+                    )
+                }
                 item {
                     PrefRow(
                         stringResource(R.string.set_change_pin), description = stringResource(R.string.set_change_pin_text), icon = R.drawable.ic_key,
@@ -219,3 +224,11 @@ fun ColumnScope.OptionList(
     }
     Spacer(Modifier.height(10.dp)) // the list sat close to the gesture bar
 }
+
+/** The Apps row's end: the icons of up to three apps with a rule, overlapping, then the chevron. */
+@Composable
+private fun RuledApps(apps: List<String>) =
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(horizontalArrangement = Arrangement.spacedBy((-8).dp)) { apps.forEach { AppIcon(it, 26.dp) } }
+        SIcon(R.drawable.ic_chev)
+    }

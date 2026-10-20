@@ -281,15 +281,15 @@ private val LockBody: Path by lazy {
     ).toPath().apply { fillType = PathFillType.EvenOdd }
 }
 
-/** The launcher padlock, tilted 15°, with the shackle at [shut] (0 up, 1 shut; the spring may overshoot a little). */
-private fun DrawScope.drawPadlock(color: Color, shut: Float) {
+/** The launcher padlock, tilted [tilt]°, with the shackle at [shut] (0 up, 1 shut; the spring may overshoot a little). */
+internal fun DrawScope.drawPadlock(color: Color, shut: Float, tilt: Float = 15f) {
     val k = size.minDimension / 108f
     val pivot = Offset(54f, 60f)
     withTransform({
         scale(k, k, Offset.Zero)
         translate(0f, 2f)
         scale(1.1f, 1.1f, pivot)
-        rotate(15f, pivot)
+        rotate(tilt, pivot)
     }) {
         val y = 33f - 9f * (1f - shut) // the arc's centre: 24 up, 33 shut
         val shackle = Path().apply {

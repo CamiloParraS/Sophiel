@@ -142,7 +142,7 @@ fun PreferenceGroup(modifier: Modifier = Modifier, title: String? = null, footno
     val scope = GroupScope().apply(content)
     Column(modifier) {
         if (title != null) Text(title, Modifier.asHeading().padding(start = 4.dp, end = 4.dp, bottom = 6.dp), style = MaterialTheme.typography.labelMedium, color = Palette.Dim)
-        val shape = RoundedCornerShape(12.dp)
+        val shape = RoundedCornerShape(16.dp)
         Column(Modifier.fillMaxWidth().lift(shape).clip(shape).background(Palette.Card)) {
             scope.items.forEachIndexed { i, row ->
                 if (i > 0) Box(Modifier.fillMaxWidth().height(1.dp).background(Palette.Border))

@@ -24,12 +24,12 @@ private fun style(size: Int, line: Int, weight: FontWeight = FontWeight.Normal) 
 // The mockup's bold (700/800) maps to SemiBold: Plex ships 400/500/600 only.
 val SophielTypography = Typography(
     displayLarge = style(56, 56, FontWeight.SemiBold), // Log masked count
-    displayMedium = style(40, 40, FontWeight.SemiBold), // Status today count
-    displaySmall = style(34, 36, FontWeight.SemiBold), // hero title
-    headlineMedium = style(26, 30, FontWeight.SemiBold), // status page title
+    displayMedium = style(46, 46, FontWeight.SemiBold), // Status today count
+    displaySmall = style(38, 40, FontWeight.SemiBold), // hero title
+    headlineMedium = style(28, 32, FontWeight.SemiBold), // status page title
     headlineSmall = style(24, 28), // PIN digits
-    titleLarge = style(19, 24, FontWeight.SemiBold), // sheet and alert titles
-    titleMedium = style(16, 22, FontWeight.SemiBold), // header title, row title
+    titleLarge = style(21, 26, FontWeight.SemiBold), // sheet and alert titles
+    titleMedium = style(17, 22, FontWeight.SemiBold), // header title, row title
     titleSmall = style(15, 21, FontWeight.SemiBold), // Fix buttons
     bodyLarge = style(16, 23),
     bodyMedium = style(14, 20), // row description

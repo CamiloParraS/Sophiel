@@ -1,5 +1,8 @@
 package dev.sophiel.ui
 
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.ui.text.style.TextOverflow
 import android.text.format.DateFormat
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
@@ -198,7 +201,10 @@ fun StatusScreen(model: StatusModel, door: Door, actions: StatusActions, modifie
                     // One Revisión card: what needs fixing on top, the rest folded under it. The week's proof follows.
                     Health(model, actions.fix)
                     merged = true
-                    Proof(week, actions.seeLog)
+                    // D70: unlocked, the Parent gets the week's figures and apps; locked, only the proof anyone may see.
+                    Crossfade(week.takeIf { door.unlocked }, animationSpec = motion(tween(200, easing = Ease)), label = "glance") { w ->
+                        if (w != null) Glance(w, actions.seeLog) else Proof(week, actions.seeLog)
+                    }
                 }
                 Page.OFF -> Health(model, actions.fix, titled = true)
                 Page.STARTING -> PreferenceGroup(title = stringResource(R.string.status_what_will_happen)) {
@@ -428,7 +434,7 @@ private fun Proof(week: LogModel?, seeLog: () -> Unit) {
             return@PreferenceGroup
         }
         item {
-            // The number stays under the hero headline (34 sp): one headline per screen.
+            // The number stays under the hero headline (38 sp): one headline per screen.
             // From 1.3x font scale the week of bars drops under the count instead of squeezing the text.
             val stacked = LocalDensity.current.fontScale >= 1.3f
             val most = (days.maxOfOrNull { it.masked } ?: 0).coerceAtLeast(1)
@@ -469,5 +475,53 @@ private fun Proof(week: LogModel?, seeLog: () -> Unit) {
             }
         }
         item { PrefRow(stringResource(R.string.proof_see), icon = R.drawable.ic_list, onClick = seeLog, end = { SIcon(R.drawable.ic_chev) }) }
+    }
+}
+
+/** D70: the week at a glance, behind the door: four figures, the apps with the most covered (their real icons), the way into the Historial. */
+@Composable
+private fun Glance(week: LogModel, seeLog: () -> Unit) {
+    val counts = week.week
+    val pm = LocalContext.current.packageManager
+    PreferenceGroup(title = stringResource(R.string.glance_title)) {
+        item {
+            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    GlanceTile((week.days.lastOrNull()?.masked ?: 0).toString(), stringResource(R.string.glance_today), R.drawable.ic_shield_ok, Palette.GreenFg)
+                    GlanceTile(week.weekMasked.toString(), stringResource(R.string.glance_week), R.drawable.ic_list, Palette.Fg)
+                }
+                Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    GlanceTile(
+                        if (counts.unprotectedSeconds == 0) "0" else LogModel.length(counts.unprotectedSeconds), stringResource(R.string.log_stat_gap),
+                        R.drawable.ic_shield_off, if (counts.unprotected > 0) Palette.RedFg else Palette.Dim,
+                    )
+                    GlanceTile(counts.intentos.toString(), stringResource(R.string.log_stat_attempts), R.drawable.ic_lock, if (counts.intentos > 0) Palette.OrangeFg else Palette.Dim)
+                }
+            }
+        }
+        week.covered.take(3).forEach { c ->
+            item {
+                Row(
+                    Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}.heightIn(min = 52.dp).padding(horizontal = 14.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    AppIcon(c.app, 32.dp)
+                    Text(remember(c.app) { appLabel(pm, c.app) }, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(c.count.toString(), style = MaterialTheme.typography.titleMedium.copy(fontFeatureSettings = "tnum"))
+                }
+            }
+        }
+        item { PrefRow(stringResource(R.string.proof_see), icon = R.drawable.ic_list, onClick = seeLog, end = { SIcon(R.drawable.ic_chev) }) }
+    }
+}
+
+/** One figure: big number, its icon and label under it. [tint] marks a figure that needs a look. */
+@Composable
+private fun RowScope.GlanceTile(value: String, label: String, @DrawableRes icon: Int, tint: Color) {
+    val shape = RoundedCornerShape(12.dp)
+    Column(Modifier.weight(1f).fillMaxHeight().clip(shape).background(Palette.Chalk).padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        SIcon(icon, tint, 20.dp)
+        CappedFontScale(1.3f) { Text(value, style = MaterialTheme.typography.headlineMedium.copy(fontFeatureSettings = "tnum"), color = if (tint == Palette.Dim) Palette.Fg else tint, maxLines = 1) }
+        Text(label, style = MaterialTheme.typography.bodySmall, color = Palette.Dim, maxLines = 2)
     }
 }

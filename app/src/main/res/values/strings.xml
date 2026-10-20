@@ -329,4 +329,8 @@
     <string name="log_app_blocked">App bloqueada</string>
     <string name="minutes_short">%d min</string>
     <string name="apps_escalate">Bloquear apps que muestran contenido explícito repetidamente</string>
+    <string name="glance_title">De un vistazo</string>
+    <string name="glance_today">Cubiertas hoy</string>
+    <string name="glance_week">Cubiertas en 7 días</string>
+    <string name="group_apps_activity">Apps y actividad</string>
 </resources>

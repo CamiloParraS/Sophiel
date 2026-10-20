@@ -1692,3 +1692,21 @@ Amends D42/D44's wizard frame; the step order and the permission logic are uncha
 - **Seams that teleported now move** (all through `motion()`, so Remove animations still snaps them): the Log filter fades the list in (160 ms); the radio tick fades and grows from .8 (`SelectTick`, 120 ms); disabled rows dim over 200 ms (`Modifier.dimmed`) when the service binds; PIN dots fill over 100 ms.
 - **Tuned:** the hero height takes `Ease` (was the stock curve); the segmented thumb is 220 ms (was 280).
 - **Left alone:** `motion()` still snaps colour and opacity fades under Remove animations (D44); a gentler fallback stays an open question.
+
+## D70 — Bolder neutrals, an unlocking padlock, a glance card, regrouped Ajustes (2026-10-20, human request, UI polish)
+
+Amends D64's surfaces and D65's ink. The human asked for a bolder look: pure white for light elements, a dark grey
+(not black) for dark ones.
+
+- **Neutrals:** `Surface` is `#FFFFFF`, the page `Chalk` a cool `#ECEDEF`. The ink is `#1C1E21` at full strength for
+  text (`Fg`), `.74` for `Dim`. `Moss` is now a dark grey, `#26282C`; the hero and header tiles are greys too, with only a
+  trace of green, red or amber per page. Light inks on the dark (`Text0`, `OnMoss`) are pure white. Cards round to 16 dp
+  with a 2 dp lift; display and title sizes went up a step.
+- **The PIN sheet's padlock:** a large upright padlock (the hero's drawing, `drawPadlock` with no tilt) heads the sheet.
+  A wrong PIN rattles it, lockout turns it red; the right PIN springs the shackle open, turns it green, and shrinks it
+  toward the top end, where the header's open-lock `UnlockedChip` takes over. Reduced motion: it snaps open, 450 ms, done.
+- **De un vistazo:** unlocked, Status's proof card becomes a glance card: today, 7 days, time unprotected, attempts to turn
+  it off, the top three apps with their launcher icons and counts, and Ver historial. Locked, the D44 proof card stays,
+  since per-app figures are behind the door like the Log.
+- **Ajustes groups:** Protección (Cuidado, Revisión) · Apps y actividad (Apps, showing the icons of apps with a rule;
+  Historial) · Máscara · Seguridad (Seguir protegiendo siempre, Cambiar PIN).

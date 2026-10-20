@@ -13,7 +13,7 @@ Read this file, then only the slices the pointers below name. SPEC (~15k tokens)
 MILESTONE:  M8 Solution fit (freeze lifted for M8 only, D53). Then UI polish, then M7 (no tickets yet).
 DONE:       M5 (D36), M6 (D52), M8 deliverables 1-4: capture modes, tamper guard, episode app, escalation + rules (V6 passed A and B).
 NEXT:       M8 deliverable 5: Log dashboard + text report + M8 sign-off (tickets 29-31, D59).
-IN FLIGHT:  branch feat/ui-mockup-v2, UI polish (latest D69: motion pass, cold-open welcome). Open: fold sub-minute pause rows in the Log list.
+IN FLIGHT:  branch feat/ui-mockup-v2, UI polish (latest D70: bolder neutrals, unlocking padlock, glance card, Ajustes regrouped; not yet seen on a device). Open: fold sub-minute pause rows in the Log list.
 BLOCKED ON: Nothing.
 ```
 

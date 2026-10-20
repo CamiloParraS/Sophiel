@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <style name="Theme.Sophiel" parent="android:Theme.Material.Light.NoActionBar" />
+    <!-- D70: the page grey (Palette.Chalk), so a cold start doesn't flash the platform's off-white. -->
+    <style name="Theme.Sophiel" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">#FFECEDEF</item>
+    </style>
 </resources>
