@@ -1771,3 +1771,159 @@ From the third `/impeccable critique` (Protected state and the wizard); the huma
 - **One button shape:** every text button is a 12 dp rounded rectangle, the main buttons' shape; the wizard's pills are gone.
 - **Language bug (from D72):** day letters and "hace N minutos" read the Activity's locale (`appLocale()`, `relativeTime()`
   through ICU), not `Locale.getDefault()` or `DateUtils`, which could still be the phone's language after a cold start.
+
+## D76 — C1 reopened for M9 Remote (2026-10-20, human scope change, `/wayfinder` charting of `.scratch/m9-remote/`)
+
+A professor requires a password-protected remote Parent function. This reopens C1, hard rule 1 and §1.3's "remote parent
+alerts, accounts, sync, backend" on purpose, for a new milestone **M9 — Remote** after M8 sign-off and UI polish, before M7.
+
+- **Two flavors:** `offline` keeps C1 and its `aapt` check unchanged; `remote` adds `INTERNET`. Details in M9 ticket 07.
+- **One APK, two roles** chosen on first launch: Parent phone (needs a login for everything) and Child phone (never logs in; pairing replaces it, M9 ticket 04).
+- **Remote does exactly four things:** fetch the newest Log entries, set apps Normal / Bloqueada / De confianza (D58), Start, Stop.
+  Remote Start only works in accessibility capture.
+- **Pure relay:** the server (Bun + Elysia, host by research) stores Parent accounts and Pairings only; every message is end-to-end
+  encrypted and never written. An offline Child phone means the request fails. A mailbox that holds messages is a stretch goal.
+- **Pairing by QR** carrying the key, shown on the Child phone behind the door (D38); one account, many named Child phones; the Child
+  phone's Status says it is paired; either side unpairs, and unpairing deletes the key.
+
+## D77 — The relay runs on one always-on Fly.io Machine (2026-10-20, research, M9 ticket 01)
+
+Fly.io: one `shared-cpu-1x` 256 MB Machine, a 1 GB volume for the SQLite file, `auto_stop_machines = "off"`, about $2.34 a month
+(shared IPv4 and `*.fly.dev` TLS free). Fly's proxy is reported to cut a connection after ~60 s of silence, so the server's
+`idleTimeout` is 25 s and the server pings. Elysia pinned to 1.4.x (2.0 is only an rc); `.ws()` is built in, runs in an `oven/bun` image.
+
+- **Fallback:** Railway Hobby, flat $5 a month, WebSockets exempt from time limits.
+- **Rejected:** Render (free tier sleeps after 15 min, no disk), Koyeb (free scales to zero, volumes in preview), Hetzner (unavailable,
+  self-managed TLS), Oracle free tier (reclaims idle instances). Anything that sleeps drops the Child phone's socket.
+- Findings: branch `research/m9-hosting`, `.scratch/m9-remote/research/01-hosting.md`.
+
+## D78 — The Child phone's socket lives in the process the accessibility service keeps alive (2026-10-20, research, M9 ticket 02)
+
+The WebSocket is held by the app process while `MaskWindowService` is bound (protection on or off). AOSP binds accessibility services
+with flags that keep network access through Doze, App Standby and Android 15's background restriction. With the screen off Doze ignores
+the app's wakelocks unless it is battery-exempt, so Remote asks for `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` (D82 says where). Phone-side
+timers stop in deep sleep, so the **server** pings; the phone reconnects on network change, screen on, and a 5-minute
+`setAndAllowWhileIdle` alarm. Client: OkHttp 5 behind a small `callbackFlow` (hard rule 5).
+
+- **Worst case on A:** silently dead for up to one 5-minute check plus reconnect. Unreachable while the service is off (amended by D83)
+  and before the first unlock after a reboot.
+- **Rejected:** high-priority FCM (Firebase, 4 KB payload, demoted within 7 days, Google sees metadata); a foreground service for the
+  socket (breaks D54's "no FGS in accessibility mode"; `dataSync` capped at 6 h a day on 15+); WorkManager (does not run in Doze).
+- Findings: branch `research/m9-reachability`, `.scratch/m9-remote/research/02-reachability.md` (five device checks listed there).
+
+## D79 — Protocol: email accounts, QR pairing, end-to-end AES-GCM through a pure relay (2026-10-20, human decision, M9 ticket 04)
+
+- **Account:** email + password; the email is only a login name (no verification, no mail of any kind). Hash with `Bun.password`
+  (argon2id). Forgotten password = new account and re-pair. No password change.
+- **Session:** login returns a random token; the server keeps its hash; the Parent phone keeps it in app-private storage until logout
+  or account deletion.
+- **The Child phone never logs in** (rewords D76's "login optional"). Behind the door it opens a socket, gets a one-time **claim code**
+  (10 min, memory only) and shows a QR with the claim code + a fresh AES-256 **pairing key**. The logged-in Parent phone scans it and
+  sends the claim code; the server binds a pairing to the account and sends the Child phone a **device token** over the socket. The
+  server URL is fixed in the build, not in the QR. "Mostrar código otra vez" mints a fresh claim code with the same key, so another
+  Parent phone of the account joins the same pairing.
+- **Names** live only on the Parent phone, in its local list (pairing id, name, key). A reinstalled Parent phone must scan again.
+- **Envelope:** AES-256-GCM (`javax.crypto`), random 96-bit nonce per message, pairing id as associated data; inside, a message id and
+  a timestamp. The Child phone rejects anything older than 2 min or an id already seen.
+- **Transport:** Parent phone POSTs one request; the server forwards it down the Child socket and holds the POST until the reply (10 s
+  timeout), or answers "sin conexión" at once if no socket is open.
+- **Log fetch** sends the whole 7-day Log each time, gzipped before encryption; the Parent phone holds it in memory only. Messages cap
+  at 256 KB.
+- **Unpair** from either side deletes key and token on the phones and the row on the server; the side that was offline cleans up on its
+  next contact (rejected token or unknown pairing id). Logout deletes the session; "Borrar cuenta" deletes account, sessions, pairings.
+- **Server stores, exactly:** on disk `accounts(id, email, password_hash, created_at)`, `sessions(token_hash, account_id, created_at)`,
+  `pairings(id, account_id, device_token_hash, created_at)`; in memory claim codes, open sockets, requests awaiting a reply; never
+  message bodies, Log entries, app lists, names, keys or last-seen times. It logs no bodies and no ids.
+
+## D80 — Pairing QR: ZXing core to draw, Google code scanner to read (2026-10-20, research, M9 ticket 03)
+
+- **Draw:** ZXing `core` 3.5.4, a plain JAR with no manifest; `QRCodeWriter().encode()` to a `BitMatrix` drawn on a Compose `Canvas`.
+- **Read:** `play-services-code-scanner` 16.1.0: no CAMERA permission, a few lines (`GmsBarcodeScanning.getClient().startScan()`), needs
+  Play services; the `barcode_ui` meta-data installs the module with the app.
+- **Cost, accepted (D83):** the scanner pulls `transport-backend-cct`, which merges `INTERNET` + `ACCESS_NETWORK_STATE` and sends ML Kit
+  usage metrics to Google; the terms require telling users. Both deps are `remoteImplementation`; never strip its permissions with
+  `tools:node="remove"`.
+- **Fallback, not taken:** zxing-android-embedded 4.3.0 (CAMERA, no INTERNET). ML Kit bundled + CameraX rejected (CAMERA, ~2.4 MB,
+  still INTERNET).
+- Findings: branch `research/m9-qr`, `.scratch/m9-remote/research/03-qr.md`.
+
+## D81 — The Parent phone's screens: one state card per Child phone (2026-10-21, human decision, M9 ticket 05, variant B)
+
+Chosen from `.scratch/m9-remote/prototype-parent-screens.html?variant=B`, in Design A's world (D75).
+
+- **First launch** (Remote build only) asks the role, Hijo by default. Padre skips the protection wizard and goes to login.
+- **Login / sign-up:** password 8+ characters, one amber "no recovery" warning on sign-up, one error for wrong email or password.
+  Back to the Child role only while logged out, from the login screen's last link.
+- **Home:** one small state card per Child phone, all fetched on open, each stamped "hace N s", with Start or Stop on the card. Cards
+  for "Sin conexión" (Reintentar) and "Se desvinculó" (Quitar de la lista). Loading is a skeleton card; an in-flight action spins in its
+  pill; a failure drops a banner under its card naming the reason ("Ya estaba protegido", "Protección iniciada", or the failure).
+  The empty list says where the Child phone's QR is. No last-known state is kept for an offline phone.
+- **Adding:** scan (with a line disclosing the Google scanner), then name the phone. A bad scan names the fix ("Mostrar código otra vez").
+- **Per Child phone:** tabs Historial (the Child's Log rows) and Apps (D58's rows and rule sheet). Apps arrive as labels only, drawn as
+  letter tiles; no icons on the wire.
+- **Cuenta** (gear): Cerrar sesión, Borrar cuenta.
+
+## D82 — What Remote changes on the Child phone (2026-10-20, human decision, M9 ticket 06)
+
+- **Pairing screen:** Child role, Remote build only. An Ajustes row "Teléfono del Padre" behind the door (D38): QR, "Mostrar código otra
+  vez", "Desvincular", and a connection line ("Conectado" / "Sin conexión"). The battery exemption is asked here before the QR shows,
+  only if missing; no wizard step. While paired and not exempt, Status shows a Recomendado item "Sin restricción de batería".
+- **No PIN on incoming commands:** the pairing key authorises them. The door already implies a PIN.
+- **Remote Stop** = a PIN Stop: `CaptureModeController.stop()` (clears escalation blocks, D58), OFF reason `REMOTE`
+  ("Detenido a distancia").
+- **Remote Start:** service bound and "Seguir protegiendo siempre" on → protection on, ON entry with a remote marker ("Iniciado a
+  distancia"). Already on → "Ya estaba protegido". Service unbound → "El servicio de accesibilidad está apagado en el teléfono del
+  Hijo". Switch off → "‘Seguir protegiendo siempre’ está apagado en el teléfono del Hijo". A remote command never changes any other
+  setting.
+- **Remote app rules** are a local Apps change: same store, the local screen redraws, last write wins. Bloqueada with that app in front
+  blocks at once; De confianza applies on the next window change. Exclusions kept.
+- **Log:** no kinds for commands (Start/Stop carry the marker); rule changes and Log fetches are not logged. New kinds **Vinculado** and
+  **Desvinculado** (by the Padre or by this phone).
+- **Status:** paired → "Vinculado con el teléfono del Padre"; nothing while a claim code waits; after a "desvinculado" notice the line
+  goes and the Log says "Desvinculado (por el Padre)". No notification.
+
+## D83 — Offline and Remote flavors; C1 and the privacy claim reworded (2026-10-21, human decision, M9 ticket 07)
+
+- **Split:** flavor dimension `net`: `offline` / `remote`, same `applicationId` `dev.sophiel`. The main manifest names neither network
+  permission; `src/offline/AndroidManifest.xml` keeps the `tools:node="remove"` lines for `INTERNET` and `ACCESS_NETWORK_STATE`;
+  `src/remote/AndroidManifest.xml` adds `INTERNET`, `ACCESS_NETWORK_STATE`, `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`.
+- **Code:** OkHttp, ZXing and the code scanner are `remoteImplementation`. All Remote code lives in `src/remote/kotlin`; `main` reaches it
+  through one same-named object, empty in `src/offline/kotlin`. `offline` opens straight into today's app, no role choice.
+- **Default target:** `installRemoteDebug` on Device A. C5 / hard rule 6: both flavors assemble and the default install launches.
+- **Checks:** `offline`'s `aapt … | grep -i internet` prints nothing; the `aapt dump permissions` diff between the two APKs is exactly
+  the three permissions above.
+- **Code scanner metrics:** accepted and disclosed (D80), no CAMERA fallback.
+- **C1:** "The `offline` flavor MUST NOT declare `INTERNET` in any manifest (debug and test included). The `remote` flavor adds exactly
+  `INTERNET`, `ACCESS_NETWORK_STATE` and `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`, nothing else (D76)."
+- **Remote privacy claim** (SPEC §7, `docs/LIMITATIONS.md`, one short in-app line on sign-up and before the Pairing QR): the server keeps
+  only accounts (email, password hash), sessions and pairings; it passes messages along without being able to read them (end-to-end
+  encrypted with a key that never leaves the two phones) and never stores the Log, app lists, phone names or commands; no frame or
+  screen content ever leaves the Child phone; the QR scanner (Google) sends anonymous usage data to Google.
+- **Amends D78:** the socket is also held whenever the process lives for another reason (screen-share FGS, Sophiel open). Then the Child
+  phone answers Log fetch, Stop and app rules (saved, applied when the service returns); Start is rejected. Every reply carries an
+  "accesibilidad apagada" flag; the Parent card shows it and disables Start.
+- **Seven §7 items:** 27-32 added, 26 reworded.
+
+## D84 — The relay lives in `server/`, deployed by hand to Fly (2026-10-21, human decision, M9 ticket 09)
+
+- **Repo:** `server/` in this repo, Bun + Elysia 1.4.x, TypeScript. C6 / hard rule 5: "Kotlin only in the app; the relay in `server/`
+  is TypeScript on Bun."
+- **Backups:** Fly's automatic daily volume snapshots, default retention. Losing the volume means re-sign-up and re-pair; no Log is lost.
+- **Abuse limits** (memory only, reset on restart): 5 failed logins per email in 15 min lock that email for 15 min; 20 login/sign-up
+  attempts per IP per minute; a claim code dies after 5 wrong guesses. Nothing about IPs touches disk.
+- **Server checks** (`bun test`): relay round trip; offline Child phone → "sin conexión" at once; 10 s timeout; unpair from each side;
+  a deleted account's device token rejected; login lockout; schema check (only D79's three tables and columns). Replay rejection is a
+  Kotlin test on the Child phone.
+- **Deploy:** the human holds the Fly account. A `/wizard` script covers sign-up, `flyctl`, `fly launch --no-deploy`, the 1 GB volume
+  and the first `fly deploy`; `fly.toml`, `Dockerfile` and `idleTimeout` 25 s live in `server/`. Later deploys are a by-hand
+  `fly deploy`, no CI.
+- **Server URL per build type:** `remoteRelease` uses `https://<app>.fly.dev`; `remoteDebug` uses `http://localhost:3000` through
+  `adb reverse tcp:3000 tcp:3000` to a local `bun run`, with a debug-only network security config allowing cleartext to `localhost`
+  only. The real server is verified with a release build.
+
+## D85 — M9 written into SPEC; the freeze is lifted for M9 only (2026-10-21, `/wayfinder` ticket 08)
+
+M9 — Remote is in SPEC §5 with its deliverables in build order and V1-V9, and C1, C5, C6, §1, §3, §4.1, §7, §8, §9 and M7 amended to
+match D76-D84. M9 is new feature work by D76's scope change, so the feature freeze that returns at the end of M8 (D53) is lifted again
+for M9 only and returns at its end. The wire details SPEC fixes beyond D79 (endpoint list, frame shapes, QR text, token sizes) are
+implementation choices made while writing, not human decisions: change them freely if the build finds a reason.

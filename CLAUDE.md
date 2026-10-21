@@ -10,7 +10,7 @@ Read this file, then only the slices the pointers below name. SPEC (~15k tokens)
 > Update at the end of every work session. Keep it to this block; history goes to `docs/STATUS-LOG.md`.
 
 ```
-MILESTONE:  M8 Solution fit (freeze lifted for M8 only, D53). Then UI polish, then M7 (no tickets yet).
+MILESTONE:  M8 Solution fit (freeze lifted for M8 only, D53). Then UI polish, then M9 Remote (specified in SPEC §5, D76-D85; map `.scratch/m9-remote/map.md`), then M7.
 DONE:       M5 (D36), M6 (D52), M8 deliverables 1-4: capture modes, tamper guard, episode app, escalation + rules (V6 passed A and B).
 NEXT:       M8 deliverable 5: Log dashboard + text report + M8 sign-off (tickets 29-31, D59).
 IN FLIGHT:  branch feat/ui-mockup-v2, UI polish (latest D74: wizard in the app world, Todo listo bookend, one button shape, date language fix; D73: lit hero, Historial dedupe; D72: language switch; D71: critique pass, counting hero wall, one week row, Historial day summaries, ring unlock chip; Status seen on Device B, Historial and unlocked screens not yet seen). Uncommitted.
@@ -61,12 +61,12 @@ Absolute; breaking one is a defect even if the code works.
 
 | #   | Rule                                                                                                                           |
 | --- | ------------------------------------------------------------------------------------------------------------------------------ |
-| 1   | **No `INTERNET` permission**, in any manifest, including debug and test. This is a verifiable product claim, not a preference. |
+| 1   | **No `INTERNET` in the `offline` flavor**, in any manifest, debug and test included. `remote` (M9) adds exactly `INTERNET`, `ACCESS_NETWORK_STATE`, `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` (C1, D83). Verifiable product claims, not preferences. |
 | 2   | **No model training or fine-tuning.** Pre-trained weights only.                                                                |
 | 3   | **No captured frame is ever persisted.** Frames stay in memory. Only scalars (hashes, scores, timings) may be written to disk. |
 | 4   | **No image data is ever committed to git.** `eval/images/` is gitignored. Commit labels and metrics, never pixels.             |
-| 5   | **Kotlin only.** No Java sources. Coroutines + Flow for async; no RxJava.                                                      |
-| 6   | **Every milestone ends buildable.** `./gradlew :app:installDebug` must produce a launchable app before you stop working.       |
+| 5   | **Kotlin only in the app.** No Java sources. Coroutines + Flow for async; no RxJava. The relay in `server/` is TypeScript on Bun (D84). |
+| 6   | **Every milestone ends buildable.** `./gradlew :app:installDebug` (from M9: both flavors assemble and `:app:installRemoteDebug`) must produce a launchable app before you stop working. |
 | 7   | **`:safecore` stays UI-free.** It must not reference `MediaProjection`, `WindowManager`, or any Compose symbol.                |
 | 8   | **No features outside `SPEC.md` §1.2.** If it isn't in scope, it isn't in scope. §1.3 lists what to refuse.                    |
 
@@ -107,7 +107,7 @@ Milestones are strictly sequential: M(n+1) starts after every verification item 
 ## Commands
 
 `./gradlew :app:installDebug` (Device A). `./gradlew :safecore:test` (JVM). `adb logcat -s Sophiel:D`. Everything else: SPEC §8.
-Verify the no-INTERNET claim (must print nothing): `aapt dump permissions app/build/outputs/apk/debug/app-debug.apk | grep -i internet`.
+Verify the no-INTERNET claim (must print nothing): `aapt dump permissions app/build/outputs/apk/debug/app-debug.apk | grep -i internet` (from M9: the `offline` APK, plus the flavor diff in SPEC §8).
 
 ## Commit convention
 
