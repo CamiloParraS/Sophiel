@@ -21,6 +21,8 @@ private class PairApi(var reply: Reply) : Api {
     override suspend fun logout(token: String) = Reply.Ok
     override suspend fun deleteAccount(token: String) = Reply.Ok
     override suspend fun pair(token: String, claimCode: String) = reply.also { calls += "pair:$token:$claimCode" }
+    override suspend fun request(token: String, pairingId: String, body: String) = reply
+    override suspend fun unpair(token: String, pairingId: String) = reply
 }
 
 class PairingTest {

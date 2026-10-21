@@ -28,17 +28,17 @@ class ChildCommands(private val phone: ChildPhone, private val clock: () -> Long
         var ok = true
         var reason: String? = null
         when (req.type) {
-            "log" -> {
+            RequestType.LOG -> {
                 logCsv = phone.log().joinToString("") { it.line() + "\n" }
                 apps = apps()
             }
-            "rules" -> {
+            RequestType.RULES -> {
                 val excluded = phone.excluded()
                 req.rules.filterKeys { it !in excluded }.forEach { (pkg, r) -> phone.setRule(pkg, r.local) }
                 apps = apps() // the Parent redraws from this, not from what it asked
             }
-            "stop" -> phone.stop()
-            "start" -> {
+            RequestType.STOP -> phone.stop()
+            RequestType.START -> {
                 val s = phone.state()
                 when {
                     s.protecting && s.holdsSession -> reason = Reason.ALREADY_ON

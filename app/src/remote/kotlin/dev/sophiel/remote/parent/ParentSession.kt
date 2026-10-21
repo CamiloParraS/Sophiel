@@ -36,8 +36,8 @@ interface Api {
     suspend fun logout(token: String): Reply
     suspend fun deleteAccount(token: String): Reply
     suspend fun pair(token: String, claimCode: String): Reply
-    suspend fun request(token: String, pairingId: String, body: String): Reply = Reply.Fail(Failure.OTHER)
-    suspend fun unpair(token: String, pairingId: String): Reply = Reply.Fail(Failure.OTHER)
+    suspend fun request(token: String, pairingId: String, body: String): Reply
+    suspend fun unpair(token: String, pairingId: String): Reply
 }
 
 /** Key-value storage; app-private SharedPreferences on the phone. */

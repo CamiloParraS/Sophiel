@@ -7,6 +7,7 @@ import dev.sophiel.remote.ChildCommands
 import dev.sophiel.remote.ChildPhone
 import dev.sophiel.remote.Envelope
 import dev.sophiel.remote.Protocol
+import dev.sophiel.remote.RequestType
 import dev.sophiel.remote.Rule
 import dev.sophiel.settings.AppEntry
 import dev.sophiel.settings.AppRule
@@ -46,6 +47,7 @@ private class Relay(private val key: ByteArray, private val phone: Phone) : Api 
     override suspend fun logout(token: String) = Reply.Ok
     override suspend fun deleteAccount(token: String) = Reply.Ok
     override suspend fun pair(token: String, claimCode: String) = Reply.Ok
+    override suspend fun unpair(token: String, pairingId: String) = Reply.Ok
     override suspend fun request(token: String, pairingId: String, body: String): Reply {
         fail?.let { return Reply.Fail(it) }
         val req = Protocol.decodeRequest(Envelope.open(key, pairingId, Protocol.fromWire(body)!!)!!)!!
@@ -77,7 +79,7 @@ class PhoneViewTest {
         assertEquals(listOf(Apps("Bravo", "com.b", Rule.Bloqueada), Apps("Alfa", "com.a"), Apps("Charlie", "com.c")), r.apps)
         assertEquals(mapOf("com.b" to "Bravo", "com.a" to "Alfa", "com.c" to "Charlie"), r.labels)
         assertEquals(9_000L, r.at)
-        assertEquals(listOf("log"), relay.sent.map { it.type })
+        assertEquals(listOf(RequestType.LOG), relay.sent.map { it.type })
     }
 
     @Test fun aRuleChangeSendsRulesAndRedrawsFromTheReplyInTheSameOrder() = runBlocking {

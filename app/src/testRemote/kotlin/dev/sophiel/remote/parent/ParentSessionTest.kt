@@ -18,6 +18,8 @@ private class FakeApi(var reply: Reply = Reply.Ok) : Api {
     override suspend fun logout(token: String) = reply.also { calls += "logout:$token" }
     override suspend fun deleteAccount(token: String) = reply.also { calls += "delete:$token" }
     override suspend fun pair(token: String, claimCode: String) = reply
+    override suspend fun request(token: String, pairingId: String, body: String) = reply
+    override suspend fun unpair(token: String, pairingId: String) = reply
 }
 
 class ParentSessionTest {

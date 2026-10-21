@@ -76,6 +76,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.layout.Spacer
 import dev.sophiel.R
+import dev.sophiel.remote.Remote
 import dev.sophiel.settings.appLabel
 import dev.sophiel.capture.CaptureMode
 import dev.sophiel.core.Sensitivity
@@ -191,7 +192,7 @@ fun StatusScreen(
                             }
                         }
                     }
-                    dev.sophiel.remote.Remote.StatusRecommended() // D82: nothing in offline
+                    Remote.StatusRecommended() // D82: nothing in offline
                     when (model.page) {
                         Page.PROTECTED, Page.READY -> {
                             FallbackNote(model)
@@ -250,7 +251,7 @@ fun StatusScreen(
         ) {
             // The screen's one action: full width up to 360 dp, so Start, Starting and Stop share one slot.
             val buttonWidth = Modifier.widthIn(max = 360.dp).fillMaxWidth()
-            dev.sophiel.remote.Remote.StatusLine() // D83: nothing in offline
+            Remote.StatusLine() // D83: nothing in offline
             when (model.page) {
                 Page.PROTECTED -> {
                     Note(R.string.door_footnote, icon = R.drawable.ic_lock)

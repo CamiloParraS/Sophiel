@@ -2,6 +2,7 @@ package dev.sophiel.remote.parent
 
 import dev.sophiel.log.Entry
 import dev.sophiel.remote.Apps
+import dev.sophiel.remote.RequestType
 import dev.sophiel.remote.Rule
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -38,7 +39,7 @@ class PhoneView(private val api: Api, private val session: ParentSession, val id
     /** A `log` request: the 7-day rows and the Apps list. */
     suspend fun fetch() {
         _state.value = PhoneState.Loading
-        _state.value = when (val a = session.ask(api, id, "log", clock = clock)) {
+        _state.value = when (val a = session.ask(api, id, RequestType.LOG, clock = clock)) {
             is Answer.Got -> a.reply.run {
                 PhoneState.Ready(logCsv.orEmpty().lineSequence().mapNotNull(Entry::parse).toList(), apps.orEmpty(), protecting, accessibilityOff, clock())
             }
@@ -51,7 +52,7 @@ class PhoneView(private val api: Api, private val session: ParentSession, val id
         val before = _state.value as? PhoneState.Ready ?: return
         if (before.saving != null) return
         _state.value = before.copy(saving = pkg, unsaved = null)
-        _state.value = when (val a = session.ask(api, id, "rules", mapOf(pkg to rule), clock)) {
+        _state.value = when (val a = session.ask(api, id, RequestType.RULES, mapOf(pkg to rule), clock)) {
             is Answer.Got -> a.reply.run {
                 val order = before.apps.withIndex().associate { (i, app) -> app.pkg to i }
                 before.copy(

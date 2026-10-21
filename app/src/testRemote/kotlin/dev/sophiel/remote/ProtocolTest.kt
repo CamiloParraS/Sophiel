@@ -6,19 +6,19 @@ import org.junit.Test
 
 class ProtocolTest {
     @Test fun simpleRequestsRoundTrip() {
-        for (type in listOf("log", "start", "stop")) {
+        for (type in listOf(RequestType.LOG, RequestType.START, RequestType.STOP)) {
             val r = Request("id1", 123L, type)
             assertEquals(r, Protocol.decodeRequest(Protocol.encode(r)))
         }
     }
 
     @Test fun rulesRoundTrip() {
-        val r = Request("id2", 5L, "rules", mapOf("com.a" to Rule.Bloqueada, "com.b" to Rule.DeConfianza, "com.c" to Rule.Normal))
+        val r = Request("id2", 5L, RequestType.RULES, mapOf("com.a" to Rule.Bloqueada, "com.b" to Rule.DeConfianza, "com.c" to Rule.Normal))
         assertEquals(r, Protocol.decodeRequest(Protocol.encode(r)))
     }
 
     @Test fun ruleWireNamesAreTheSpanishLabels() {
-        val json = String(Protocol.encode(Request("i", 1, "rules", mapOf("p" to Rule.DeConfianza))))
+        val json = String(Protocol.encode(Request("i", 1, RequestType.RULES, mapOf("p" to Rule.DeConfianza))))
         assertEquals(true, json.contains("\"De confianza\""))
     }
 
@@ -56,9 +56,9 @@ class ProtocolTest {
 
     @Test fun fullPipelineThroughEnvelopeAndWire() {
         val key = Envelope.newKey()
-        val wire = Protocol.toWire(Envelope.seal(key, "pid", Protocol.encode(Request("i", 1, "stop"))))
+        val wire = Protocol.toWire(Envelope.seal(key, "pid", Protocol.encode(Request("i", 1, RequestType.STOP))))
         val back = Protocol.decodeRequest(Envelope.open(key, "pid", Protocol.fromWire(wire)!!)!!)
-        assertEquals(Request("i", 1, "stop"), back)
+        assertEquals(Request("i", 1, RequestType.STOP), back)
         assertNull(Protocol.fromWire("***"))
     }
 }

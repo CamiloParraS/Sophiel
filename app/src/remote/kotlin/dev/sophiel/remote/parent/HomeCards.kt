@@ -4,6 +4,7 @@ import dev.sophiel.remote.Envelope
 import dev.sophiel.remote.Protocol
 import dev.sophiel.remote.Reason
 import dev.sophiel.remote.Request
+import dev.sophiel.remote.RequestType
 import dev.sophiel.remote.Rule
 import java.util.UUID
 import dev.sophiel.remote.Reply as ChildReply
@@ -19,7 +20,7 @@ sealed interface Answer {
 }
 
 /** One request to Child phone [id] through the relay, sealed and opened with its key: the reply, or why not. A dead session logs out. */
-suspend fun ParentSession.ask(api: Api, id: String, type: String, rules: Map<String, Rule> = emptyMap(), clock: () -> Long): Answer {
+suspend fun ParentSession.ask(api: Api, id: String, type: RequestType, rules: Map<String, Rule> = emptyMap(), clock: () -> Long): Answer {
     val child = children.list.value.firstOrNull { it.id == id } ?: return Answer.No(Failure.GONE)
     val token = token.value ?: return Answer.No(Failure.SESSION)
     val req = Request(UUID.randomUUID().toString(), clock(), type, rules)
@@ -62,12 +63,12 @@ class HomeCards(private val api: Api, private val session: ParentSession, privat
     suspend fun open() = coroutineScope {
         val ids = session.children.list.value.map { it.id }
         _cards.value = ids.associateWith { Card.Loading }
-        ids.forEach { launch { ask(it, "log") } }
+        ids.forEach { launch { ask(it, RequestType.LOG) } }
     }
 
-    suspend fun refresh(id: String) { put(id, Card.Loading); ask(id, "log") }
-    suspend fun start(id: String) = act(id, "start")
-    suspend fun stop(id: String) = act(id, "stop")
+    suspend fun refresh(id: String) { put(id, Card.Loading); ask(id, RequestType.LOG) }
+    suspend fun start(id: String) = act(id, RequestType.START)
+    suspend fun stop(id: String) = act(id, RequestType.STOP)
 
     /** Quitar de la lista: the entry, its key and its card go. */
     fun remove(id: String) {
@@ -86,14 +87,14 @@ class HomeCards(private val api: Api, private val session: ParentSession, privat
         remove(id)
     }
 
-    private suspend fun act(id: String, type: String) {
+    private suspend fun act(id: String, type: RequestType) {
         val live = _cards.value[id] as? Card.Live ?: return
         if (live.busy) return
         put(id, live.copy(busy = true, banner = null))
         ask(id, type)
     }
 
-    private suspend fun ask(id: String, type: String) {
+    private suspend fun ask(id: String, type: RequestType) {
         val before = _cards.value[id] as? Card.Live
         val card = when (val a = session.ask(api, id, type, clock = clock)) {
             is Answer.Got -> Card.Live(a.reply.protecting, a.reply.accessibilityOff, clock(), banner = outcome(type, a.reply.ok, a.reply.reason))
@@ -106,13 +107,13 @@ class HomeCards(private val api: Api, private val session: ParentSession, privat
         put(id, card)
     }
 
-    private fun outcome(type: String, ok: Boolean, reason: String?): Outcome? = when {
-        type == "log" -> null
+    private fun outcome(type: RequestType, ok: Boolean, reason: String?): Outcome? = when {
+        type == RequestType.LOG -> null
         reason == Reason.ALREADY_ON -> Outcome.ALREADY_ON
         reason == Reason.ACCESSIBILITY_OFF -> Outcome.ACCESSIBILITY_OFF
         reason == Reason.SWITCH_OFF -> Outcome.SWITCH_OFF
         !ok -> Outcome.FAILED
-        type == "start" -> Outcome.STARTED
+        type == RequestType.START -> Outcome.STARTED
         else -> Outcome.STOPPED
     }
 

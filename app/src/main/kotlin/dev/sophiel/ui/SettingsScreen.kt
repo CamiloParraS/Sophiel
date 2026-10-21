@@ -40,6 +40,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import dev.sophiel.AppContainer
 import dev.sophiel.R
+import dev.sophiel.remote.Remote
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -171,7 +172,7 @@ fun BoxScope.SettingsScreen(container: AppContainer, door: Door, onBack: () -> U
                     }
                 }
             }
-            dev.sophiel.remote.Remote.SettingsRow(door) // D83: nothing in offline
+            Remote.SettingsRow(door) // D83: nothing in offline
             // Not a setting, so no row: a fact, under the groups.
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
                 SIcon(R.drawable.ic_shield_ok, Palette.GreenFg, size = 16.dp)

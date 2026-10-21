@@ -22,8 +22,11 @@ enum class Rule(val wire: String, val local: AppRule) {
     }
 }
 
-/** `type` is one of log, rules, start, stop. `rules` (package -> rule) only for `rules`. */
-data class Request(val id: String, val ts: Long, val type: String, val rules: Map<String, Rule> = emptyMap())
+/** What a request asks for; [wire] is its `type` on the wire. */
+enum class RequestType { LOG, RULES, START, STOP; val wire get() = name.lowercase() }
+
+/** `rules` (package -> rule) only for [RequestType.RULES]. */
+data class Request(val id: String, val ts: Long, val type: RequestType, val rules: Map<String, Rule> = emptyMap())
 
 /** One row of the Child's Apps screen: label, package, its rule (D58). No icons on the wire (D81). */
 data class Apps(val label: String, val pkg: String, val rule: Rule = Rule.Normal)
@@ -50,18 +53,15 @@ data class Reply(
 
 /** Plaintext JSON of D79. Decoders return null for anything malformed. */
 object Protocol {
-    private val TYPES = setOf("log", "rules", "start", "stop")
-
     fun encode(r: Request): ByteArray {
-        val o = JSONObject().put("id", r.id).put("ts", r.ts).put("type", r.type)
-        if (r.type == "rules") o.put("rules", JSONObject().also { j -> r.rules.forEach { (p, v) -> j.put(p, v.wire) } })
+        val o = JSONObject().put("id", r.id).put("ts", r.ts).put("type", r.type.wire)
+        if (r.type == RequestType.RULES) o.put("rules", JSONObject().also { j -> r.rules.forEach { (p, v) -> j.put(p, v.wire) } })
         return o.toString().toByteArray()
     }
 
     fun decodeRequest(bytes: ByteArray): Request? = parse {
         val o = JSONObject(String(bytes))
-        val type = o.getString("type")
-        if (type !in TYPES) return@parse null
+        val type = o.getString("type").let { t -> RequestType.entries.firstOrNull { it.wire == t } } ?: return@parse null
         val rules = o.optJSONObject("rules")?.let { j ->
             j.keys().asSequence().associateWith { k -> Rule.ofWire(j.getString(k)) }
         } ?: emptyMap()

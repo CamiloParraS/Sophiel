@@ -4,6 +4,7 @@ import dev.sophiel.remote.Envelope
 import dev.sophiel.remote.Protocol
 import dev.sophiel.remote.Reason
 import dev.sophiel.remote.Request
+import dev.sophiel.remote.RequestType
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -39,14 +40,15 @@ private class FakeRelay(private val key: ByteArray) : Api {
     override suspend fun request(token: String, pairingId: String, body: String): Reply {
         fail?.let { return Reply.Fail(it) }
         val req: Request = Protocol.decodeRequest(Envelope.open(key, pairingId, Protocol.fromWire(body)!!)!!)!!
-        seen += req.type
+        seen += req.type.wire
         var ok = true
         var reason: String? = null
         when (req.type) {
-            "start" -> { ok = startOk; reason = startReason; if (ok && reason == null) protecting = true }
-            "stop" -> protecting = false
+            RequestType.START -> { ok = startOk; reason = startReason; if (ok && reason == null) protecting = true }
+            RequestType.STOP -> protecting = false
+            else -> {}
         }
-        val r = ChildReply(req.id, req.ts, ok, reason, protecting, "ACCESSIBILITY", accessibilityOff, logCsv = if (req.type == "log") "" else null)
+        val r = ChildReply(req.id, req.ts, ok, reason, protecting, "ACCESSIBILITY", accessibilityOff, logCsv = if (req.type == RequestType.LOG) "" else null)
         return Reply.Body(Protocol.toWire(Envelope.seal(key, pairingId, Protocol.encode(r))))
     }
 }

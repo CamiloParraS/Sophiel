@@ -43,12 +43,12 @@ class ChildCommandsTest {
 
     private val phone = FakePhone()
     private val commands = ChildCommands(phone)
-    private fun ask(type: String, rules: Map<String, Rule> = emptyMap()) = runBlocking { commands.handle(Request("r-$type", now, type, rules)) }
+    private fun ask(type: RequestType, rules: Map<String, Rule> = emptyMap()) = runBlocking { commands.handle(Request("r-${type.wire}", now, type, rules)) }
 
     @Test fun `log sends the 7-day rows and the Apps list with exclusions applied`() {
         phone.entries = listOf(Entry(now - 1000, "ON", listOf("BALANCED", "NORMAL")), Entry(now, "MASKED", listOf("BALANCED", "2", "0.90", "com.a")))
         phone.rules["com.b"] = AppRule.BLOCKED
-        val r = ask("log")
+        val r = ask(RequestType.LOG)
         assertTrue(r.ok)
         assertEquals("r-log", r.id)
         assertEquals("${now - 1000},ON,BALANCED,NORMAL\n$now,MASKED,BALANCED,2,0.90,com.a\n", r.logCsv)
@@ -56,16 +56,16 @@ class ChildCommandsTest {
     }
 
     @Test fun `rules go through the Apps store, excluded apps are left alone`() {
-        val r = ask("rules", mapOf("com.a" to Rule.Bloqueada, "com.b" to Rule.DeConfianza, "com.android.settings" to Rule.Bloqueada))
+        val r = ask(RequestType.RULES, mapOf("com.a" to Rule.Bloqueada, "com.b" to Rule.DeConfianza, "com.android.settings" to Rule.Bloqueada))
         assertTrue(r.ok)
         assertEquals(mapOf("com.a" to AppRule.BLOCKED, "com.b" to AppRule.TRUSTED), phone.rules)
-        ask("rules", mapOf("com.a" to Rule.Normal))
+        ask(RequestType.RULES, mapOf("com.a" to Rule.Normal))
         assertEquals(mapOf("com.b" to AppRule.TRUSTED), phone.rules)
     }
 
     @Test fun `stop stops and the reply says protection is off`() {
         phone.mode = phone.mode.copy(protecting = true, mode = CaptureMode.ACCESSIBILITY)
-        val r = ask("stop")
+        val r = ask(RequestType.STOP)
         assertTrue(r.ok)
         assertEquals(1, phone.stops)
         assertFalse(r.protecting)
@@ -73,24 +73,24 @@ class ChildCommandsTest {
     }
 
     @Test fun `start is on, then already on, then the two rejections`() {
-        val on = ask("start")
+        val on = ask(RequestType.START)
         assertTrue(on.ok)
         assertNull(on.reason)
         assertTrue(on.protecting)
         assertEquals("ACCESSIBILITY", on.captureMode)
 
-        val again = ask("start")
+        val again = ask(RequestType.START)
         assertTrue(again.ok)
         assertEquals(Reason.ALREADY_ON, again.reason)
         assertEquals(1, phone.starts)
 
         phone.mode = ModeState(serviceBound = false, keepProtecting = true)
-        val noService = ask("start")
+        val noService = ask(RequestType.START)
         assertFalse(noService.ok)
         assertEquals(Reason.ACCESSIBILITY_OFF, noService.reason)
 
         phone.mode = ModeState(serviceBound = true, keepProtecting = false)
-        val switchOff = ask("start")
+        val switchOff = ask(RequestType.START)
         assertFalse(switchOff.ok)
         assertEquals(Reason.SWITCH_OFF, switchOff.reason)
         assertEquals(1, phone.starts)
@@ -98,19 +98,19 @@ class ChildCommandsTest {
 
     @Test fun `start from a Sin protección stretch resumes`() {
         phone.mode = ModeState(protecting = true, serviceBound = true, keepProtecting = true, interrupted = true)
-        assertNull(ask("start").reason)
+        assertNull(ask(RequestType.START).reason)
         assertEquals(1, phone.starts)
     }
 
     @Test fun `service off - log, stop and rules answer with the flag, start is rejected`() {
         phone.mode = ModeState(protecting = true, serviceBound = false, keepProtecting = true, interrupted = true)
-        for (t in listOf("log", "stop", "rules")) {
+        for (t in listOf(RequestType.LOG, RequestType.STOP, RequestType.RULES)) {
             val r = ask(t, mapOf("com.a" to Rule.Bloqueada))
-            assertTrue(t, r.ok)
-            assertTrue(t, r.accessibilityOff)
+            assertTrue(t.wire, r.ok)
+            assertTrue(t.wire, r.accessibilityOff)
         }
         assertEquals(AppRule.BLOCKED, phone.rules["com.a"]) // saved, applied when the service returns
-        val start = ask("start")
+        val start = ask(RequestType.START)
         assertFalse(start.ok)
         assertTrue(start.accessibilityOff)
     }
@@ -138,7 +138,7 @@ class ChildCommandsTest {
     @Test fun `a sealed request gets a sealed res, a replay or a bad envelope gets nothing`() {
         val key = paired()
         val l = link()
-        val frame = req(key, Request("m1", now, "stop"))
+        val frame = req(key, Request("m1", now, RequestType.STOP))
         val res = JSONObject(runBlocking { l.onFrame(frame) }!!)
         assertEquals("res", res.getString("t"))
         assertEquals("rid1", res.getString("rid"))
@@ -146,8 +146,8 @@ class ChildCommandsTest {
         assertEquals("m1", reply.id)
         assertTrue(reply.ok)
         assertNull(runBlocking { l.onFrame(frame) }) // replayed id
-        assertNull(runBlocking { l.onFrame(req(key, Request("m2", now - 3 * 60_000, "stop"))) }) // too old
-        assertNull(runBlocking { l.onFrame(req(key, Request("m3", now, "stop"), pairingId = "p2")) }) // wrong pairing id
+        assertNull(runBlocking { l.onFrame(req(key, Request("m2", now - 3 * 60_000, RequestType.STOP))) }) // too old
+        assertNull(runBlocking { l.onFrame(req(key, Request("m3", now, RequestType.STOP), pairingId = "p2")) }) // wrong pairing id
         assertEquals(1, phone.stops)
     }
 
