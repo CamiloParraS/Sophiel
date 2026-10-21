@@ -50,7 +50,7 @@
     <string name="pin_create_note">For parents only. It can\'t be recovered if forgotten.</string>
     <string name="pin_continue">Continue</string>
     <string name="pin_save">Save PIN</string>
-    <string name="door_footnote">Stopping and opening Settings ask for the PIN</string>
+    <string name="door_footnote">Only whoever has the PIN can stop it or open Settings</string>
     <string name="unlocked_banner">Settings unlocked · Locks in %1$s</string>
     <string name="lock_now">Lock now</string>
     <string name="settings_title">Settings</string>
@@ -114,6 +114,7 @@
     <string name="health_ok">All good</string>
     <string name="health_ok_text">Mask, notices and permissions</string>
     <string name="health_rest">The rest is in order</string>
+    <string name="status_guardian">Sophiel looks after this phone. It covers only what is explicit; nothing leaves it.</string>
     <string name="status_ready_promise">Covers only what is explicit. Nothing leaves the phone.</string>
     <string name="status_ready_caution_service">Accessibility is off: the mask will look slightly see-through</string>
     <string name="status_ready_caution_other">You can start, but notices are still off</string>

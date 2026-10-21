@@ -250,7 +250,7 @@ fun GridHero(
     }
 }
 
-/** The state's badge, 78 dp: a 10-lobed cookie while the shield is up or armed, a rounded square once it is not (the shape says it too). */
+/** The state's badge, 78 dp: a shield while the shield is up or armed, a rounded square once it is not (the shape says it too). */
 @Composable
 private fun Badge(page: Page, color: Color, ink: Color, shut: () -> Float, press: () -> Float, ring: () -> Float, arrive: () -> Float) {
     val cookie = page == Page.PROTECTED || page == Page.READY || page == Page.STARTING
@@ -259,7 +259,7 @@ private fun Badge(page: Page, color: Color, ink: Color, shut: () -> Float, press
             val e = ring()
             val r = size.minDimension / 2
             if (e < 1f) drawCircle(color.copy(alpha = .45f * (1f - e)), r + 4.dp.toPx() + 22.dp.toPx() * e, style = Stroke(2.dp.toPx()))
-            if (cookie) drawPath(cookiePath(size.minDimension, 10), color)
+            if (cookie) drawPath(shieldPath(size.minDimension), color)
             else drawRoundRect(color, cornerRadius = CornerRadius(size.minDimension * .24f))
         }
         when (page) {
@@ -276,6 +276,12 @@ private fun Badge(page: Page, color: Color, ink: Color, shut: () -> Float, press
         }
     }
 }
+
+/** The guardian's shield in a 100-unit box, scaled to [side]. */
+internal fun shieldPath(side: Float): Path =
+    PathParser().parsePathString("M50,5C63,14 76,18 90,18V48C90,71 73,87 50,96C27,87 10,71 10,48V18C24,18 37,14 50,5Z").toPath().apply {
+        transform(androidx.compose.ui.graphics.Matrix().apply { scale(side / 100f, side / 100f) })
+    }
 
 /** A cookie: radius 44 + 5 cos(lobes * angle) in a 100-unit box, scaled to [side]. */
 internal fun cookiePath(side: Float, lobes: Int): Path = Path().apply {

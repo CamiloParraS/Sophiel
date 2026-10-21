@@ -50,7 +50,7 @@
     <string name="pin_create_note">Solo para padres. No se puede recuperar si se olvida.</string>
     <string name="pin_continue">Continuar</string>
     <string name="pin_save">Guardar PIN</string>
-    <string name="door_footnote">Detener y abrir Ajustes piden el PIN</string>
+    <string name="door_footnote">Solo quien tiene el PIN puede detenerlo o abrir Ajustes</string>
     <string name="unlocked_banner">Ajustes desbloqueado · Se bloquea en %1$s</string>
     <string name="lock_now">Bloquear ahora</string>
     <string name="settings_title">Ajustes</string>
@@ -114,6 +114,7 @@
     <string name="health_ok">Todo en orden</string>
     <string name="health_ok_text">Máscara, avisos y permisos</string>
     <string name="health_rest">Lo demás está en orden</string>
+    <string name="status_guardian">Sophiel cuida este teléfono. Solo tapa lo explícito; nada sale de él.</string>
     <string name="status_ready_promise">Solo tapa lo explícito. Nada sale del teléfono.</string>
     <string name="status_ready_caution_service">Falta Accesibilidad: la máscara se verá algo transparente</string>
     <string name="status_ready_caution_other">Puedes iniciar, pero falta activar los avisos</string>

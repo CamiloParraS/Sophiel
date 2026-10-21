@@ -291,7 +291,7 @@ private fun Hero(model: StatusModel, since: String, covered: Int) {
     // Ready with a recommended check off: the card says so instead of looking all clear.
     val caution = model.page == Page.READY && StatusModel.RECOMMENDED.any { it in model.missing }
     val (title, text) = when (model.page) {
-        Page.PROTECTED -> stringResource(R.string.status_protected) to stringResource(R.string.status_ready_promise)
+        Page.PROTECTED -> stringResource(R.string.status_protected) to stringResource(R.string.status_guardian)
         Page.OFF -> stringResource(R.string.status_idle) to pluralStringResource(R.plurals.status_missing, blocking, blocking)
         Page.READY -> stringResource(R.string.status_ready) to stringResource(
             when {
