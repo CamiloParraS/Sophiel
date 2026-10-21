@@ -98,10 +98,16 @@ class CaptureModeController(context: Context, private val container: AppContaine
     /** MainActivity came to the front. */
     fun uiOpened() = onEvent(ModeEvent.UiOpened)
 
-    /** The Parent's PIN Stop. */
-    fun stop() {
+    /** The Parent's PIN Stop; [remote] from the Parent phone (D82), the same Stop logged as REMOTE. */
+    fun stop(remote: Boolean = false) {
         container.escalation.clear() // D58
-        onEvent(ModeEvent.Stop)
+        onEvent(if (remote) ModeEvent.RemoteStop else ModeEvent.Stop)
+    }
+
+    /** D82: the Parent phone's Start, accessibility capture only. The caller checked the service, the switch and that it is not already on. */
+    fun startRemote() {
+        container.settings.value.let { container.log.on(it.preset.name, it.sensitivity.name, remote = true) }
+        onEvent(ModeEvent.RemoteStart)
     }
 
     private fun onEvent(e: ModeEvent) {

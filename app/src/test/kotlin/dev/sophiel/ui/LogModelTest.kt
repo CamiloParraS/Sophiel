@@ -247,4 +247,20 @@ class LogModelTest {
         assertEquals(listOf(LogRow.Masked::class, LogRow.Off::class, LogRow.Paired::class), rows.map { it::class })
         assertEquals(1, m.today.masked)
     }
+
+    @Test
+    fun remoteMarkerAndUnpairParseAndOldOnLinesAreLocal() {
+        val m = model(
+            Entry(at(6, 8), "ON", listOf("BALANCED", "NORMAL")), // an old line, before M9
+            Entry(at(6, 9), "OFF", listOf("REMOTE")),
+            Entry(at(6, 10), "ON", listOf("BALANCED", "NORMAL", "REMOTE")),
+            Entry(at(6, 11), "UNPAIRED", listOf("PARENT")),
+            Entry(at(6, 11, 30), "UNPAIRED", listOf("CHILD")),
+        )
+        val rows = m.days.last().rows
+        val unpaired = rows.filterIsInstance<LogRow.Unpaired>()
+        assertEquals(listOf(false, true), unpaired.map { it.byParent })
+        assertEquals(listOf(true, false), rows.filterIsInstance<LogRow.On>().map { it.remote })
+        assertEquals("REMOTE", rows.filterIsInstance<LogRow.Off>().single().reason)
+    }
 }

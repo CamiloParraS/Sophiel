@@ -293,4 +293,27 @@ class CaptureModeMachineTest {
         assertEquals(false, lostAfter(sharing, ScreenOff)) // API 35+: resumes at screen-on
         assertEquals(false, lostAfter(sharing.copy(keepProtecting = false), ShareEnded)) // switch off: the OFF posts it
     }
+
+    @Test
+    fun remoteStopEndsProtectionWithReasonRemote() { // D82: a PIN Stop, logged as REMOTE
+        val s = run(sharing, ModeEvent.RemoteStop)
+        assertEquals(false, s.protecting)
+        assertEquals(NONE, s.mode)
+        assertEquals(OffReason.REMOTE, offAfter(sharing, ModeEvent.RemoteStop))
+        assertNull(offAfter(idle, ModeEvent.RemoteStop))
+    }
+
+    @Test
+    fun remoteStartIsAccessibilityCaptureOrWaitsForScreenOn() { // D82
+        val ready = idle.copy(serviceBound = true, keepProtecting = true)
+        assertEquals(ModeState(protecting = true, mode = ACCESSIBILITY, serviceBound = true), run(ready, ModeEvent.RemoteStart))
+        val dark = run(ready.copy(screenOn = false), ModeEvent.RemoteStart)
+        assertEquals(NONE, dark.mode)
+        assertEquals(true, dark.holdsSession)
+        assertEquals(ACCESSIBILITY, run(dark, ScreenOn).mode)
+        // an interrupted protection (service came back without a Start) resumes
+        val interrupted = run(ready.copy(protecting = true, mode = ACCESSIBILITY), ServiceUnbound, ServiceBound)
+        assertEquals(true, interrupted.uncovered)
+        assertEquals(ACCESSIBILITY, run(interrupted, ModeEvent.RemoteStart).mode)
+    }
 }

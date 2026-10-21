@@ -8,9 +8,9 @@
 
 **Status:** open
 
-- [ ] Each command driven by a scripted Parent against local Bun
+- [ ] Each command driven by a scripted Parent against local Bun (`server/scripts/parent.ts "<QR text>" log stop start rules:pkg=Bloqueada`)
 - [ ] Remote Stop clears escalation blocks, as a PIN Stop does
 - [ ] Service off, Sophiel open: `log`, `stop`, `rules` answer with `accessibilityOff`; `start` is rejected
 - [ ] Logcat shows a reconnect after airplane mode off and after screen on
-- [ ] JVM: command handling over a fake capture controller and rule store
-- [ ] Ends buildable
+- [x] JVM: command handling over a fake capture controller and rule store (`ChildCommandsTest`)
+- [x] Ends buildable

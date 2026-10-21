@@ -42,6 +42,8 @@ sealed interface ModeEvent {
     data object SwitchOff : ModeEvent
     data object UiOpened : ModeEvent // the app came to the front
     data object Stop : ModeEvent // the Parent's PIN Stop
+    data object RemoteStop : ModeEvent // D82: the same Stop, from the Parent phone
+    data object RemoteStart : ModeEvent // D82: Start without a share; the caller checks the service and the switch
 }
 
 /** Pure transition function for the SPEC.md §4.7 diagram (D54, D55). */
@@ -75,12 +77,14 @@ object CaptureModeMachine {
         ModeEvent.SwitchOff ->
             if (s.mode == CaptureMode.SCREEN_SHARE) s.copy(keepProtecting = false)
             else s.copy(keepProtecting = false, protecting = false, mode = CaptureMode.NONE, interrupted = false)
-        ModeEvent.Stop -> s.copy(protecting = false, mode = CaptureMode.NONE, interrupted = false)
+        ModeEvent.Stop, ModeEvent.RemoteStop -> s.copy(protecting = false, mode = CaptureMode.NONE, interrupted = false)
+        ModeEvent.RemoteStart -> s.copy(protecting = true, interrupted = false).resume()
     }
 
     /** D39's OFF for [e], or null: only where protection ends (D54); the screen and system reasons need the switch off. */
     fun offReason(old: ModeState, new: ModeState, e: ModeEvent): String? = when {
         !old.protecting || new.protecting -> null
+        e == ModeEvent.RemoteStop -> OffReason.REMOTE
         e == ModeEvent.Stop || e == ModeEvent.SwitchOff -> OffReason.USER
         new.screenOn -> OffReason.SYSTEM
         else -> OffReason.SCREEN_OFF

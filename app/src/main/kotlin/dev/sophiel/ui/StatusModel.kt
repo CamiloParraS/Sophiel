@@ -60,7 +60,7 @@ class StatusModel(
             val missing = Need.entries.filter { met[it] != true }
             val blocking = REQUIRED.filter { it in missing }
             // D45: an OFF the user did not cause, until the next start logs an ON.
-            val stopped = i.last?.takeIf { it.kind == "OFF" && it.fields.firstOrNull().let { r -> r != null && r != OffReason.USER } }
+            val stopped = i.last?.takeIf { it.kind == "OFF" && it.fields.firstOrNull().let { r -> r != null && r != OffReason.USER && r != OffReason.REMOTE } }
             // D54: accessibility mode protects with no share running.
             val running = i.phase == ControllerPhase.RUNNING || i.phase == ControllerPhase.STOPPING || i.mode == CaptureMode.ACCESSIBILITY
             val page = when {

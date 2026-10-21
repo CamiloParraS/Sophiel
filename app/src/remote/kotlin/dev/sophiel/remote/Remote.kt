@@ -13,6 +13,7 @@ object Remote {
     fun attach(app: Application) {
         RemoteState.init(app)
         ParentGraph.init(app)
+        ChildSocket.start(app as dev.sophiel.SophielApp) // opens nothing until paired
     }
 
     @Composable

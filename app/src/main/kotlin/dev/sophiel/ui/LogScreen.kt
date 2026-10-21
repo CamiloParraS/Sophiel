@@ -141,6 +141,7 @@ private fun careName(sensitivity: String) = when (sensitivity) {
 @StringRes
 private fun offText(reason: String) = when (reason) {
     OffReason.USER -> R.string.log_off_user
+    OffReason.REMOTE -> R.string.log_off_remote
     OffReason.SCREEN_OFF -> R.string.log_off_screen
     OffReason.RESTARTED -> R.string.log_off_restarted
     OffReason.APP_CLOSED -> R.string.log_off_app
@@ -631,7 +632,7 @@ internal fun EntryRow(row: LogRow, labels: Map<String, String>, inApp: Boolean =
         )
         is LogRow.On -> Line(
             time, R.drawable.ic_power, Palette.GreenFg, stringResource(R.string.log_on),
-            null, quiet = true,
+            if (row.remote) stringResource(R.string.log_on_remote) else null, quiet = true,
         )
         is LogRow.ShareStopped -> Line(
             time, R.drawable.ic_stop, Palette.Dim, stringResource(R.string.log_share_stopped), stringResource(R.string.log_share_stopped_text), quiet = true,
@@ -639,6 +640,10 @@ internal fun EntryRow(row: LogRow, labels: Map<String, String>, inApp: Boolean =
         // A blip of a gap steps back like Off/On; red is for gaps that add up to a minute or more.
         is LogRow.Paired -> Line(
             time, R.drawable.ic_phone, Palette.GreenFg, stringResource(R.string.log_paired), stringResource(R.string.log_paired_text), quiet = true,
+        )
+        is LogRow.Unpaired -> Line(
+            time, R.drawable.ic_phone, Palette.Dim, stringResource(R.string.log_unpaired),
+            stringResource(if (row.byParent) R.string.log_unpaired_parent else R.string.log_unpaired_child), quiet = true,
         )
         is LogRow.Unprotected -> Line(
             time, R.drawable.ic_shield_off, if (row.brief) Palette.Dim else Palette.RedFg, stringResource(R.string.log_gap),

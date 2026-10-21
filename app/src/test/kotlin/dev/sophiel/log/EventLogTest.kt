@@ -240,4 +240,17 @@ class EventLogTest {
         assertEquals(listOf("PAIRED"), l.entries().map { it.kind })
         assertEquals("${now},PAIRED", l.entries().single().line())
     }
+
+    @Test fun `remote start marks the ON, unpair names the side, old ON lines keep two fields`() {
+        val l = log()
+        l.on("BALANCED", "NORMAL")
+        l.on("BALANCED", "NORMAL", remote = true)
+        l.unpaired(byParent = true)
+        l.unpaired(byParent = false)
+        assertEquals(
+            listOf(listOf("BALANCED", "NORMAL"), listOf("BALANCED", "NORMAL", "REMOTE"), listOf("PARENT"), listOf("CHILD")),
+            l.entries().map { it.fields },
+        )
+        assertEquals(listOf("ON", "ON", "UNPAIRED", "UNPAIRED"), l.entries().map { it.kind })
+    }
 }

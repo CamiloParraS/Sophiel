@@ -137,6 +137,11 @@
     <string name="group_required">To work</string>
     <string name="log_paired">Paired</string>
     <string name="log_paired_text">With the Parent\'s phone</string>
+    <string name="log_unpaired">Unpaired</string>
+    <string name="log_unpaired_parent">By the Parent</string>
+    <string name="log_unpaired_child">From this phone</string>
+    <string name="log_on_remote">Started remotely</string>
+    <string name="log_off_remote">Stopped remotely</string>
     <string name="group_recommended">Recommended</string>
     <string name="note_overlay">Allow showing the mask to start</string>
 

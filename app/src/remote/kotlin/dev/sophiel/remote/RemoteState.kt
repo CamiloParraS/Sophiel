@@ -37,5 +37,8 @@ object RemoteState {
         app.container.log.paired()
     }
 
+    /** [ChildLink] already deleted key and token and wrote the Log line: the Status line goes, the socket closes. */
+    fun unpaired() { _paired.value = false }
+
     fun isBatteryExempt(ctx: Context) = ctx.getSystemService(PowerManager::class.java).isIgnoringBatteryOptimizations(ctx.packageName)
 }

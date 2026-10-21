@@ -16,6 +16,13 @@ data class Request(val id: String, val ts: Long, val type: String, val rules: Ma
 
 data class Apps(val label: String, val pkg: String)
 
+/** A Start reply's `reason` (D82); the Parent phone words it. A rejected Start has ok = false. */
+object Reason {
+    const val ALREADY_ON = "ALREADY_ON" // "Ya estaba protegido"
+    const val ACCESSIBILITY_OFF = "ACCESSIBILITY_OFF" // "El servicio de accesibilidad está apagado en el teléfono del Hijo"
+    const val SWITCH_OFF = "SWITCH_OFF" // "'Seguir protegiendo siempre' está apagado en el teléfono del Hijo"
+}
+
 /** `logCsv` and `apps` are set only on a `log` reply; such a reply is gzipped before encryption. */
 data class Reply(
     val id: String,
