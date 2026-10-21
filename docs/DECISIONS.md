@@ -1847,7 +1847,7 @@ timers stop in deep sleep, so the **server** pings; the phone reconnects on netw
   a timestamp. The Child phone rejects anything older than 2 min or an id already seen.
 - **Transport:** Parent phone POSTs one request; the server forwards it down the Child socket and holds the POST until the reply (10 s
   timeout), or answers "sin conexión" at once if no socket is open.
-- **Log fetch** sends the whole 7-day Log each time, gzipped before encryption; the Parent phone holds it in memory only. Messages cap
+- **Log fetch** sends the whole 7-day Log and the Apps list (each app with its `rule`; `rules` replies carry the list too), gzipped before encryption; the Parent phone holds it in memory only. Messages cap
   at 256 KB.
 - **Unpair** from either side deletes key and token on the phones and the row on the server; the side that was offline cleans up on its
   next contact (rejected token or unknown pairing id). Logout deletes the session; "Borrar cuenta" deletes account, sessions, pairings.
