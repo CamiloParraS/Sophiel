@@ -6,7 +6,11 @@
 
 **Type:** AFK, then human check on A + B
 
-**Status:** open
+**Status:** resolved (code; human check on A + B pending)
 
 - [ ] SPEC M9 V7 on A + B, including each side offline and Borrar cuenta
 - [ ] Ends buildable
+
+## Answer
+
+Built in 0c24950. Child keeps a pending "farewell" (hello + unpair) until the relay accepts, so the Parent sees 410 rather than Sin conexión. Parent action in `parent/UnpairAction.kt`, strings in `strings_unpair.xml`. bun test 14/14.

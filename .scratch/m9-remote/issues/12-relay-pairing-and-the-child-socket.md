@@ -6,9 +6,13 @@
 
 **Type:** AFK
 
-**Status:** open
+**Status:** resolved
 
 - [ ] `bun test`: claim, paired, then `hello` accepted
 - [ ] `bun test`: unpair from the Parent side (row gone, `unpaired` sent) and from the Child side (row gone)
 - [ ] `bun test`: a deleted account's device token gets `unpaired` on `hello`
 - [ ] `bun test`: an expired or over-guessed claim code is 404
+
+## Answer
+
+Built in `server/` (commits 109f1c7, 7f91ee6); `bun test` 12 pass. Claim-code guess limit is per Parent account, not per code.

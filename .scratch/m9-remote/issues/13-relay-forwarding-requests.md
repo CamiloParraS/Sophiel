@@ -6,10 +6,14 @@
 
 **Type:** AFK
 
-**Status:** open
+**Status:** resolved
 
 - [ ] `bun test`: relay round trip
 - [ ] `bun test`: offline Child phone gets 503 at once
 - [ ] `bun test`: 10 s timeout gives 504 (injectable timeout)
 - [ ] `bun test`: 410 for another account's pairing; 413 over the cap
 - [ ] All seven D84 checks pass (SPEC M9 V2)
+
+## Answer
+
+Built in `server/` (commits 109f1c7, 7f91ee6); `bun test` 12 pass. Claim-code guess limit is per Parent account, not per code.

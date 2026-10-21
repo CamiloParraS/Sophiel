@@ -6,7 +6,7 @@
 
 **Type:** AFK, then human check on B
 
-**Status:** open
+**Status:** resolved (code; human check on B pending)
 
 - [ ] Sign-up, login, logout, Borrar cuenta work against local Bun
 - [ ] The Parent role never shows protection screens, the wizard or the door

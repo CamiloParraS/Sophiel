@@ -6,9 +6,13 @@
 
 **Type:** AFK, then human check on A + B
 
-**Status:** open
+**Status:** resolved (code; human check on A + B pending)
 
 - [ ] A (Child) paired with B (Parent) end to end on `remoteDebug` (SPEC M9 V4 first half)
 - [ ] Reinstalling the Parent app empties the list; "Mostrar código otra vez" and a scan restore it with the same key
 - [ ] Noted: the first scan with no network before the scanner module installed (D80 open question)
 - [ ] Ends buildable
+
+## Answer
+
+Built in f545113, merged ff1a12a. PairingTest (5) + ParentSessionTest (8) pass. Device checks and the D80 no-network first-scan note are for the human.

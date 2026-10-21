@@ -6,9 +6,13 @@
 
 **Type:** AFK
 
-**Status:** open
+**Status:** resolved
 
 - [ ] `bun test`: login lockout; schema check (only the three tables and their columns)
 - [ ] `bun test`: sign-up, login, logout (token rejected after), delete account (sessions and pairings gone)
 - [ ] The DB path comes from an env var (the Fly volume later, a temp file in tests)
 - [ ] No request bodies, tokens, emails or ids in logs
+
+## Answer
+
+Built in `server/` (commits 109f1c7, 7f91ee6); `bun test` 12 pass. Claim-code guess limit is per Parent account, not per code.

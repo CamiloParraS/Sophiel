@@ -12,8 +12,8 @@ Read this file, then only the slices the pointers below name. SPEC (~15k tokens)
 ```
 MILESTONE:  M8 Solution fit (freeze lifted for M8 only, D53). Then UI polish, then M9 Remote (specified in SPEC §5, D76-D85; map `.scratch/m9-remote/map.md`), then M7.
 DONE:       M5 (D36), M6 (D52), M8 deliverables 1-4: capture modes, tamper guard, episode app, escalation + rules (V6 passed A and B).
-NEXT:       M8 deliverable 5: Log dashboard + text report + M8 sign-off (tickets 29-31, D59).
-IN FLIGHT:  branch feat/ui-mockup-v2, design A ported and committed (D75: Geist, Esmeralda, state card + bento, light headers). Status and PIN seen on Device A; Ajustes, Apps, Historial, wizard, block screen not yet seen.
+NEXT:       M9 human steps: run scripts/deploy-relay-wizard.sh (ticket 22), device checks on tickets 15-21, then M9 sign-off (ticket 23). M8 ticket 31: M5 V1/V2 still open (D86).
+IN FLIGHT:  branch feat/m9-remote: M9 tickets 10-21 code-complete and reviewed (head 9a33a36); 22 agent part done, deploy pending. Relay must be (re)deployed for the claim-with-token fix.
 BLOCKED ON: Nothing.
 ```
 

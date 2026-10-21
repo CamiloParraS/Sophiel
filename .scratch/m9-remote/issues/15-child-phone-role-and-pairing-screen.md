@@ -6,7 +6,7 @@
 
 **Type:** AFK, then human check on A
 
-**Status:** open
+**Status:** resolved (code; human check on A pending)
 
 - [ ] Role stored; `offline` never asks
 - [ ] The claim socket is open only while the pairing screen shows; leaving relocks and drops it
@@ -14,3 +14,7 @@
 - [ ] JVM: old Log lines parse as before
 - [ ] Checked on A by the human
 - [ ] Ends buildable
+
+## Answer
+
+Built in 024df1a, merged in e3e0826 with 16 (Padre opens ParentRoot; one role store). 16's RoleStore now unused, cleanup at code review.

@@ -6,9 +6,13 @@
 
 **Type:** AFK, then human check on A + B
 
-**Status:** open
+**Status:** resolved (code; human check on A + B pending)
 
 - [ ] Historial on B matches A's Log rows
 - [ ] Bloqueada on the app in front of A blocks it at once; De confianza stops masking on the next window change; A's Apps screen shows both
 - [ ] The size of a real 7-day `log` reply on A measured and recorded in DECISIONS against the 256 KB cap (SPEC M9 V3)
 - [ ] Ends buildable
+
+## Answer
+
+Built in f5c6f69, merged 457cf58. `parent/PhoneScreen.kt` + `PhoneView.kt`; Child Historial and Apps rows shared. Replies now carry each app rule; `rules` reply includes the Apps list. LogSizeTest: worst-case 7-day reply 114,056 B wire vs 262,144 cap; on-device measurement pending.

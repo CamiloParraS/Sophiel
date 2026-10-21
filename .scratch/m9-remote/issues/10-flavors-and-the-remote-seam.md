@@ -6,7 +6,7 @@
 
 **Type:** AFK
 
-**Status:** open
+**Status:** resolved
 
 - [ ] `assembleOfflineDebug` and `assembleRemoteDebug` build; `installRemoteDebug` launches on A and behaves exactly as today
 - [ ] `remoteImplementation` entries for OkHttp 5, ZXing core 3.5.4, code scanner 16.1.0 in `libs.versions.toml`

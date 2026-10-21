@@ -6,7 +6,7 @@
 
 **Type:** HITL
 
-**Status:** open
+**Status:** open (agent part merged in 882a514; human runs scripts/deploy-relay-wizard.sh)
 
 - [ ] The human ran the wizard; the app URL recorded in DECISIONS
 - [ ] `https://<app>.fly.dev` answers a login

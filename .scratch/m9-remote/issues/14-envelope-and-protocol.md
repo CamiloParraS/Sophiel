@@ -6,7 +6,7 @@
 
 **Type:** AFK
 
-**Status:** open
+**Status:** resolved
 
 - [ ] JVM: round trip; flipped bit, wrong pairing id, wrong key rejected
 - [ ] JVM: replayed id and stale message rejected; the seen-id set never grows past the 2-min window

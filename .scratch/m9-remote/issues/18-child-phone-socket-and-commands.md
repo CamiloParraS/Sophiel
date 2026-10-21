@@ -6,7 +6,7 @@
 
 **Type:** AFK, then human check on A
 
-**Status:** open
+**Status:** resolved (code; human check on A pending)
 
 - [ ] Each command driven by a scripted Parent against local Bun (`server/scripts/parent.ts "<QR text>" log stop start rules:pkg=Bloqueada`)
 - [ ] Remote Stop clears escalation blocks, as a PIN Stop does
@@ -14,3 +14,7 @@
 - [ ] Logcat shows a reconnect after airplane mode off and after screen on
 - [x] JVM: command handling over a fake capture controller and rule store (`ChildCommandsTest`)
 - [x] Ends buildable
+
+## Answer
+
+Built in 3316ca0, merged 61cf6d2. ChildCommands/ChildLink/ChildSocket; start rejections go out as codes (ALREADY_ON, ACCESSIBILITY_OFF, SWITCH_OFF) for the Parent to word. Scripted Parent: `bun scripts/parent.ts` in server/. Escalation clear on remote stop not JVM-tested (needs Android context).

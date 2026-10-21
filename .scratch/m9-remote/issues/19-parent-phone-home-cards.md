@@ -6,8 +6,12 @@
 
 **Type:** AFK, then human check on A + B
 
-**Status:** open
+**Status:** resolved (code; human check on A + B pending)
 
 - [ ] SPEC M9 V5's Start/Stop half on A + B
 - [ ] Airplane mode on A: B shows "Sin conexión" within 1 s
 - [ ] Ends buildable
+
+## Answer
+
+Built in 8b5ad67 (`parent/HomeCards.kt`, HomeCardsTest 8). Card tap target left for ticket 20; prototype line "N tapados en 7 días" omitted. RoleStore deleted.
