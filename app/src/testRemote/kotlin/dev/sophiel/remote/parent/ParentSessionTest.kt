@@ -75,6 +75,23 @@ class ParentSessionTest {
         assertNull(s.token.value)
     }
 
+    @Test fun logoutAndDeleteAccountDropTheChildListAndKeys() = runBlocking {
+        api.reply = Reply.Token("t1"); val s = session(); s.login("a@b.co", "password1")
+        s.children.add(Child("p1", "Tablet", ByteArray(32)))
+        s.logout()
+        assertEquals(emptyList<Child>(), s.children.list.value)
+        assertEquals(emptyList<Child>(), session().children.list.value) // gone from storage too
+
+        api.reply = Reply.Token("t2"); s.login("a@b.co", "password1")
+        s.children.add(Child("p2", "Tablet", ByteArray(32)))
+        api.reply = Reply.Fail(Failure.OFFLINE)
+        s.deleteAccount()
+        assertEquals(1, s.children.list.value.size) // a failed delete keeps everything
+        api.reply = Reply.Ok
+        s.deleteAccount()
+        assertEquals(emptyList<Child>(), session().children.list.value)
+    }
+
     @Test fun aSessionFailureAnywhereReturnsToLogin() = runBlocking {
         api.reply = Reply.Token("t1"); val s = session(); s.login("a@b.co", "password1")
         s.expireOn(Failure.OFFLINE); assertEquals("t1", s.token.value)

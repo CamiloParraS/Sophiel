@@ -76,6 +76,9 @@ class Children(private val kv: Kv) {
 
     fun add(c: Child) = save(_list.value.filter { it.id != c.id } + c)
 
+    /** Logout and Borrar cuenta: every entry and key go. */
+    fun clear() = save(emptyList())
+
     /** "Quitar de la lista": the entry and its key go. */
     fun remove(id: String) = save(_list.value.filter { it.id != id })
 
@@ -107,17 +110,18 @@ class ParentSession(private val api: Api, private val store: TokenStore, val chi
     suspend fun signup(email: String, password: String): Failure? =
         if (!email.contains('@') || password.length < 8) Failure.INVALID else take(api.signup(email.trim(), password))
 
-    /** Local logout never fails: the relay call is best effort. */
+    /** Local logout never fails: the relay call is best effort. The Child list and its keys go too; after login, scan again. */
     suspend fun logout() {
         _token.value?.let { api.logout(it) }
         save(null)
+        children.clear()
     }
 
     suspend fun deleteAccount(): Failure? {
         val t = _token.value ?: return null
         return when (val r = api.deleteAccount(t)) {
             is Reply.Fail -> r.why.also { expireOn(it) }
-            else -> { save(null); null }
+            else -> { save(null); children.clear(); null }
         }
     }
 
