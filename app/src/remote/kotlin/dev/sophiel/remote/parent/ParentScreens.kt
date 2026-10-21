@@ -60,7 +60,15 @@ import dev.sophiel.ui.asHeading
 import dev.sophiel.ui.cutoutPadding
 import dev.sophiel.ui.pageWidth
 import dev.sophiel.ui.theme.Palette
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.foundation.layout.height
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 
 /** The Parent phone's whole app: login while there is no token, the home once there is (D81). A 401 anywhere clears the token and lands here. */
 @Composable
@@ -75,6 +83,7 @@ private fun Failure.text() = when (this) {
     Failure.EMAIL_TAKEN -> R.string.par_err_taken
     Failure.INVALID -> R.string.par_err_invalid
     Failure.OFFLINE -> R.string.par_err_offline
+    Failure.GONE -> R.string.par_card_gone_text
     Failure.BAD_CODE -> R.string.par_scan_bad_text
     Failure.SESSION, Failure.OTHER -> R.string.par_err_other
 }
@@ -197,9 +206,17 @@ private fun ParentHome() {
                 // It says where the Child phone's QR is.
                 StatusPage(R.drawable.ic_phone, stringResource(R.string.par_empty_title), stringResource(R.string.par_empty_text), Tone.Off)
                 SButton(stringResource(R.string.par_scan_do), { adding = true }, Modifier.fillMaxWidth().padding(top = 10.dp), style = BtnStyle.Go)
-            } else Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).navigationBarsPadding().cutoutPadding().pageWidth().padding(14.dp)) {
-                // Names only; ticket 19 turns each row into its state card.
-                PreferenceGroup { children.forEach { c -> item { PrefRow(c.name, icon = R.drawable.ic_phone) } } }
+            } else Column(
+                Modifier.weight(1f).verticalScroll(rememberScrollState()).navigationBarsPadding().cutoutPadding().pageWidth().padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                val home = ParentGraph.home
+                val cards by home.cards.collectAsState()
+                // All asked on open, and again when a phone is added or removed (D81).
+                LaunchedEffect(children.map { it.id }) { home.open() }
+                var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
+                LaunchedEffect(Unit) { while (true) { delay(1_000); now = System.currentTimeMillis() } }
+                children.forEach { c -> ChildCard(c.name, cards[c.id] ?: Card.Loading, now, c.id, home) }
             }
         }
         AddSheet(adding) { adding = false }
@@ -283,5 +300,94 @@ private fun androidx.compose.foundation.layout.BoxScope.AddSheet(visible: Boolea
                 style = BtnStyle.Go, enabled = name.isNotBlank(),
             )
         }
+    }
+}
+
+/** "hace 12 s" under a minute, then the app's usual relative time. */
+@Composable
+private fun ago(at: Long, now: Long): String {
+    val locale = dev.sophiel.ui.appLocale()
+    val s = ((now - at) / 1000).coerceAtLeast(0)
+    if (s >= 60) return dev.sophiel.ui.relativeTime(at, now, locale)
+    val f = android.icu.text.RelativeDateTimeFormatter.getInstance(android.icu.util.ULocale.forLocale(locale))
+    return f.format(s.toDouble(), android.icu.text.RelativeDateTimeFormatter.Direction.LAST, android.icu.text.RelativeDateTimeFormatter.RelativeUnit.SECONDS)
+}
+
+/** One Child phone's state card (D81), in the Status card's dark look (D75); its banner sits under it. */
+@Composable
+private fun ChildCard(name: String, card: Card, now: Long, id: String, home: HomeCards) {
+    val scope = rememberCoroutineScope()
+    val live = card as? Card.Live
+    val bg = when {
+        live == null -> Palette.HeroOff
+        live.protecting -> Palette.Moss
+        else -> Palette.HeroAmber
+    }
+    Column {
+        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(bg).padding(18.dp)) {
+            Text(name, style = MaterialTheme.typography.titleSmall, color = Palette.Text1)
+            val (title, line) = when (card) {
+                Card.Loading -> null to null
+                Card.Offline -> stringResource(R.string.par_card_offline) to stringResource(R.string.par_card_offline_text)
+                Card.Gone -> stringResource(R.string.par_card_gone) to stringResource(R.string.par_card_gone_text)
+                is Card.Live -> stringResource(if (card.protecting) R.string.par_card_on else R.string.par_card_off) to
+                    (if (card.accessibilityOff) stringResource(R.string.par_card_acc_off) + " · " else "") + ago(card.at, now)
+            }
+            if (title == null) {
+                // Skeleton while the log request is out.
+                Box(Modifier.padding(top = 10.dp).fillMaxWidth(.6f).height(26.dp).clip(RoundedCornerShape(8.dp)).background(Palette.DarkFill))
+                Box(Modifier.padding(top = 8.dp).fillMaxWidth(.8f).height(14.dp).clip(RoundedCornerShape(6.dp)).background(Palette.DarkFill))
+            } else {
+                Text(title, Modifier.padding(top = 4.dp).asHeading(), style = MaterialTheme.typography.headlineSmall, color = Palette.Text0)
+                Text(
+                    line.orEmpty(), Modifier.padding(top = 4.dp), style = MaterialTheme.typography.bodyMedium,
+                    color = if (live?.accessibilityOff == true) Palette.AmberInk else Palette.Text1,
+                )
+            }
+            Row(Modifier.padding(top = 12.dp)) {
+                when (card) {
+                    Card.Loading -> {}
+                    Card.Offline -> Pill(stringResource(R.string.par_card_retry)) { scope.launch { home.refresh(id) } }
+                    Card.Gone -> Pill(stringResource(R.string.par_card_remove)) { home.remove(id) }
+                    is Card.Live ->
+                        if (card.protecting) Pill(stringResource(R.string.par_stop), busy = card.busy) { scope.launch { home.stop(id) } }
+                        else Pill(stringResource(R.string.par_start), busy = card.busy, enabled = card.canStart || card.busy, go = true) { scope.launch { home.start(id) } }
+                }
+            }
+        }
+        live?.banner?.let { Banner(it) }
+    }
+}
+
+@Composable
+private fun Pill(text: String, busy: Boolean = false, enabled: Boolean = true, go: Boolean = false, onClick: () -> Unit) =
+    SButton(
+        text, onClick, style = BtnStyle.OnDark, busy = busy, enabled = enabled,
+        fill = if (go && enabled && !busy) Palette.Mint else Color.Unspecified, tint = if (go && enabled && !busy) Palette.Moss else Color.Unspecified,
+    )
+
+@Composable
+private fun Banner(o: Outcome) {
+    val good = o == Outcome.STARTED || o == Outcome.ALREADY_ON || o == Outcome.STOPPED
+    val tone = if (good) Palette.GreenFg else Palette.RedFg
+    Row(
+        Modifier.fillMaxWidth().padding(top = 6.dp).clip(RoundedCornerShape(16.dp)).background(Palette.tint(tone, .12f)).padding(14.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically,
+    ) {
+        SIcon(if (good) R.drawable.ic_shield_ok else R.drawable.ic_warn, tone, 20.dp)
+        Text(
+            stringResource(
+                when (o) {
+                    Outcome.STARTED -> R.string.par_out_started
+                    Outcome.ALREADY_ON -> R.string.par_out_already
+                    Outcome.STOPPED -> R.string.par_out_stopped
+                    Outcome.ACCESSIBILITY_OFF -> R.string.par_out_acc_off
+                    Outcome.SWITCH_OFF -> R.string.par_out_switch_off
+                    Outcome.FAILED -> R.string.par_out_failed
+                },
+            ),
+            Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+            style = MaterialTheme.typography.bodyMedium, color = Palette.Fg,
+        )
     }
 }

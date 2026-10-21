@@ -8,12 +8,13 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 /** Why a relay call failed, as the screens name it (D81: one error for wrong email or password). */
-enum class Failure { WRONG_CREDENTIALS, LOCKED, EMAIL_TAKEN, INVALID, SESSION, OFFLINE, BAD_CODE, OTHER }
+enum class Failure { WRONG_CREDENTIALS, LOCKED, EMAIL_TAKEN, INVALID, SESSION, OFFLINE, GONE, BAD_CODE, OTHER }
 
 sealed interface Reply {
     data object Ok : Reply
     data class Token(val value: String) : Reply
     data class Paired(val pairingId: String) : Reply
+    data class Body(val body: String) : Reply
     data class Fail(val why: Failure) : Reply
 }
 
@@ -24,6 +25,8 @@ fun failureOf(code: Int, login: Boolean): Failure = when (code) {
     409 -> Failure.EMAIL_TAKEN
     404 -> Failure.BAD_CODE // POST /pairings: unknown, used, expired or too many wrong guesses
     400 -> Failure.INVALID
+    503, 504 -> Failure.OFFLINE // no Child socket, or no reply in 10 s: "Sin conexión"
+    410 -> Failure.GONE // "Este teléfono se desvinculó"
     else -> Failure.OTHER
 }
 
@@ -33,6 +36,7 @@ interface Api {
     suspend fun logout(token: String): Reply
     suspend fun deleteAccount(token: String): Reply
     suspend fun pair(token: String, claimCode: String): Reply
+    suspend fun request(token: String, pairingId: String, body: String): Reply = Reply.Fail(Failure.OTHER)
 }
 
 /** Key-value storage; app-private SharedPreferences on the phone. */
@@ -71,6 +75,9 @@ class Children(private val kv: Kv) {
 
     fun add(c: Child) = save(_list.value.filter { it.id != c.id } + c)
 
+    /** "Quitar de la lista": the entry and its key go. */
+    fun remove(id: String) = save(_list.value.filter { it.id != id })
+
     fun rename(id: String, name: String) {
         val n = name.trim().ifEmpty { return }
         save(_list.value.map { if (it.id == id) Child(it.id, n, it.key) else it })
@@ -80,14 +87,6 @@ class Children(private val kv: Kv) {
 sealed interface Scan {
     data class Ok(val pairingId: String) : Scan
     data class Fail(val why: Failure) : Scan
-}
-
-enum class ParentRole { CHILD, PARENT }
-
-/** Which side this phone is. Unset means the Child, today's app. */
-class RoleStore(private val kv: Kv) {
-    val role = MutableStateFlow(if (kv.get("role") == "parent") ParentRole.PARENT else ParentRole.CHILD)
-    fun set(r: ParentRole) { kv.put("role", r.name.lowercase()); role.value = r }
 }
 
 class ParentSession(private val api: Api, private val store: TokenStore, val children: Children) {

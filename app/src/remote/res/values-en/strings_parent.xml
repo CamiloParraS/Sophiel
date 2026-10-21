@@ -43,4 +43,22 @@
     <string name="par_name_hint">Sofi\'s phone</string>
     <string name="par_name_default">Child phone</string>
     <string name="par_name_do">Save</string>
+    <string name="par_card_on">Protected</string>
+    <string name="par_card_off">Not protected</string>
+    <string name="par_card_acc_off">The accessibility service is off</string>
+    <string name="par_card_offline">Offline</string>
+    <string name="par_card_offline_text">Not answering. It may be off or without internet.</string>
+    <string name="par_card_retry">Retry</string>
+    <string name="par_card_gone">Unpaired</string>
+    <string name="par_card_gone_text">This phone is no longer paired with your account.</string>
+    <string name="par_card_remove">Remove from the list</string>
+    <string name="par_card_loading">Asking…</string>
+    <string name="par_start">Start</string>
+    <string name="par_stop">Stop</string>
+    <string name="par_out_started">Protection started</string>
+    <string name="par_out_already">It was already protected</string>
+    <string name="par_out_stopped">Protection stopped</string>
+    <string name="par_out_acc_off">The accessibility service is off on the Child phone</string>
+    <string name="par_out_switch_off">‘Keep protecting always’ is off on the Child phone</string>
+    <string name="par_out_failed">That did not work. Try again.</string>
 </resources>

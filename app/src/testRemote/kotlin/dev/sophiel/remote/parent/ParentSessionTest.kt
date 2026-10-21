@@ -2,7 +2,6 @@ package dev.sophiel.remote.parent
 
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Test
 
@@ -80,12 +79,5 @@ class ParentSessionTest {
         api.reply = Reply.Token("t1"); val s = session(); s.login("a@b.co", "password1")
         s.expireOn(Failure.OFFLINE); assertEquals("t1", s.token.value)
         s.expireOn(Failure.SESSION); assertNull(s.token.value)
-    }
-
-    @Test fun roleDefaultsToChildAndPersists() {
-        val r = RoleStore(kv)
-        assertFalse(r.role.value == ParentRole.PARENT)
-        r.set(ParentRole.PARENT)
-        assertEquals(ParentRole.PARENT, RoleStore(kv).role.value)
     }
 }

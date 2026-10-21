@@ -43,4 +43,22 @@
     <string name="par_name_hint">Teléfono de Sofi</string>
     <string name="par_name_default">Teléfono del Hijo</string>
     <string name="par_name_do">Guardar</string>
+    <string name="par_card_on">Protegido</string>
+    <string name="par_card_off">Sin protección</string>
+    <string name="par_card_acc_off">El servicio de accesibilidad está apagado</string>
+    <string name="par_card_offline">Sin conexión</string>
+    <string name="par_card_offline_text">No responde. Puede estar apagado o sin internet.</string>
+    <string name="par_card_retry">Reintentar</string>
+    <string name="par_card_gone">Se desvinculó</string>
+    <string name="par_card_gone_text">Este teléfono ya no está vinculado a tu cuenta.</string>
+    <string name="par_card_remove">Quitar de la lista</string>
+    <string name="par_card_loading">Preguntando…</string>
+    <string name="par_start">Iniciar</string>
+    <string name="par_stop">Detener</string>
+    <string name="par_out_started">Protección iniciada</string>
+    <string name="par_out_already">Ya estaba protegido</string>
+    <string name="par_out_stopped">Protección detenida</string>
+    <string name="par_out_acc_off">El servicio de accesibilidad está apagado en el teléfono del Hijo</string>
+    <string name="par_out_switch_off">‘Seguir protegiendo siempre’ está apagado en el teléfono del Hijo</string>
+    <string name="par_out_failed">No se pudo completar. Inténtalo de nuevo.</string>
 </resources>
