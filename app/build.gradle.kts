@@ -1,3 +1,5 @@
+import com.android.build.api.variant.BuildConfigField
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -32,13 +34,7 @@ android {
     }
 
     buildTypes {
-        debug {
-            buildConfigField("String", "RELAY_URL", "\"http://localhost:3000\"") // reached through adb reverse tcp:3000 (D84)
-        }
         release {
-            // Fly URL from the /wizard deploy (ticket 22): set relayUrl in gradle.properties or pass -PrelayUrl=...
-            val relayUrl = providers.gradleProperty("relayUrl").get()
-            buildConfigField("String", "RELAY_URL", "\"$relayUrl\"")
             // Local release testing only (D32 gates, no debug overlay); real signing is M7.
             signingConfig = signingConfigs.getByName("debug")
             optimization {
@@ -53,6 +49,15 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
+    }
+}
+
+// RELAY_URL exists only in `remote` (D83). Debug reaches a local relay through adb reverse tcp:3000 (D84); release takes the
+// Fly URL from the /wizard deploy (ticket 22): relayUrl in gradle.properties or -PrelayUrl=..., read only when remoteRelease builds.
+androidComponents {
+    onVariants(selector().withFlavor("net" to "remote")) { v ->
+        val url = if (v.buildType == "release") providers.gradleProperty("relayUrl") else providers.provider { "http://localhost:3000" }
+        v.buildConfigFields?.put("RELAY_URL", url.map { BuildConfigField("String", "\"$it\"", null) })
     }
 }
 
