@@ -29,6 +29,12 @@ class ChildStore(private val read: (String) -> String?, private val write: (Map<
     fun savePaired(pairingId: String, deviceToken: String) = write(mapOf("pairingId" to pairingId, "deviceToken" to deviceToken))
 
     fun clear() = write(mapOf("key" to null, "pairingId" to null, "deviceToken" to null))
+
+    /** Desvincular here: like [clear], but the token is kept as [unpairToken] until the relay has heard `unpair`. */
+    // ponytail: one pending farewell; unpairing a second pairing before the first farewell lands drops the first (its Parent sees "Sin conexión")
+    fun clearKeepingFarewell() = write(mapOf("key" to null, "pairingId" to null, "deviceToken" to null, "unpairToken" to deviceToken))
+    val unpairToken get() = read("unpairToken")
+    fun farewellDone() = write(mapOf("unpairToken" to null))
 }
 
 /** What the relay sends a Child socket during pairing (SPEC M9 deliverable 2). Anything else is ignored here. */

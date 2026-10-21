@@ -71,12 +71,21 @@ class ChildLink(
     private val guard: ReplayGuard,
     private val onUnpaired: () -> Unit,
 ) {
-    fun hello(): String? = store.deviceToken?.let { JSONObject().put("t", "hello").put("deviceToken", it).toString() }
+    fun hello(): String? = store.deviceToken?.let(::helloFrame)
+
+    /** After [unpairHere]: what a fresh socket sends so the relay deletes the pairing (D79: cleanup on next contact). */
+    fun farewell(): List<String>? = store.unpairToken?.let { listOf(helloFrame(it), JSONObject().put("t", "unpair").toString()) }
+
+    /** The relay closed the farewell socket (it got `unpair`) or rejected the token: nothing left to tell it. */
+    fun farewellDone() = store.farewellDone()
+
+    private fun helloFrame(token: String) = JSONObject().put("t", "hello").put("deviceToken", token).toString()
 
     suspend fun onFrame(text: String): String? {
         val o = try { JSONObject(text) } catch (_: JSONException) { return null }
         return when (o.optString("t")) {
             "unpaired" -> {
+                store.farewellDone()
                 if (store.paired) {
                     store.clear()
                     log.unpaired(byParent = true)
@@ -97,4 +106,12 @@ class ChildLink(
         val reply = Envelope.seal(key, pairingId, Protocol.encode(commands.handle(req)))
         return JSONObject().put("t", "res").put("rid", rid).put("body", Protocol.toWire(reply)).toString()
     }
+}
+
+/** "Desvincular" on the Child phone: key and token go, the Log says Desvinculado (este teléfono). False if not paired. */
+fun unpairHere(store: ChildStore, log: EventLog): Boolean {
+    if (!store.paired) return false
+    store.clearKeepingFarewell()
+    log.unpaired(byParent = false)
+    return true
 }

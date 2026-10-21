@@ -40,5 +40,8 @@ object RemoteState {
     /** [ChildLink] already deleted key and token and wrote the Log line: the Status line goes, the socket closes. */
     fun unpaired() { _paired.value = false }
 
+    /** Desvincular on this phone: key and token go now; [ChildSocket] tells the relay now or on the next contact. */
+    fun unpairFromHere() { if (unpairHere(child, app.container.log)) _paired.value = false }
+
     fun isBatteryExempt(ctx: Context) = ctx.getSystemService(PowerManager::class.java).isIgnoringBatteryOptimizations(ctx.packageName)
 }

@@ -42,6 +42,7 @@ class RelayClient(private val http: OkHttpClient = OkHttpClient(), private val b
     override suspend fun logout(token: String) = call("/logout", "POST", token)
     override suspend fun deleteAccount(token: String) = call("/account", "DELETE", token)
     override suspend fun pair(token: String, claimCode: String) = call("/pairings", "POST", token, JSONObject().put("claimCode", claimCode))
+    override suspend fun unpair(token: String, pairingId: String) = call("/pairings/$pairingId", "DELETE", token)
     override suspend fun request(token: String, pairingId: String, body: String) =
         call("/pairings/$pairingId/request", "POST", token, JSONObject().put("body", body))
 }

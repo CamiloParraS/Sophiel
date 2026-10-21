@@ -66,7 +66,11 @@ object ChildSocket {
 
     fun start(app: SophielApp) {
         watch(app)
-        scope.launch { RemoteState.paired.collectLatest { if (it) hold(app, link(app)) } } // the container only once paired
+        scope.launch {
+            RemoteState.paired.collectLatest { // the container only once paired or saying goodbye
+                if (it) hold(app, link(app)) else if (RemoteState.child.unpairToken != null) farewell(link(app))
+            }
+        }
     }
 
     private fun link(app: SophielApp) =
@@ -96,7 +100,7 @@ object ChildSocket {
     }
 
     private fun kick(why: String, force: Boolean) {
-        if (!RemoteState.paired.value) return
+        if (!RemoteState.paired.value && RemoteState.child.unpairToken == null) return
         Log.d(TAG, "remote: check ($why)")
         kicks.trySend(force)
     }
@@ -116,7 +120,7 @@ object ChildSocket {
                 var forced = false
                 coroutineScope {
                     val sock = launch {
-                        open(hello).collect { (ws, text) ->
+                        open(listOf(hello)).collect { (ws, text) ->
                             backoff = 2_000L
                             link.onFrame(text)?.let { ws.send(it) }
                         }
@@ -136,15 +140,31 @@ object ChildSocket {
         }
     }
 
-    /** One socket: `hello` on open, then each text frame with its socket; completes when the socket closes. */
-    private fun open(hello: String) = callbackFlow {
+    /**
+     * After Desvincular here: a socket that sends `hello` + `unpair` until the relay closes it (it deleted the pairing)
+     * or rejects the token. Offline, it retries on network change, screen on and backoff, like [hold].
+     */
+    private suspend fun farewell(link: ChildLink) {
+        var backoff = 2_000L
+        while (true) {
+            val frames = link.farewell() ?: return
+            var heard = false
+            open(frames) { heard = true }.collect { (_, text) -> link.onFrame(text) }
+            if (heard) { Log.i(TAG, "remote: relay heard unpair"); link.farewellDone(); return }
+            withTimeoutOrNull(backoff) { kicks.receive() }
+            backoff = (backoff * 2).coerceAtMost(CHECK_MS)
+        }
+    }
+
+    /** One socket: [frames] on open, then each text frame with its socket; completes when the socket closes. */
+    private fun open(frames: List<String>, onServerClose: () -> Unit = {}) = callbackFlow {
         val ws = client.newWebSocket(Request.Builder().url(ChildFrame.wsUrl(BuildConfig.RELAY_URL)).build(), object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
                 Log.i(TAG, "remote: socket open")
-                webSocket.send(hello)
+                frames.forEach(webSocket::send)
             }
             override fun onMessage(webSocket: WebSocket, text: String) { trySend(webSocket to text) }
-            override fun onClosing(webSocket: WebSocket, code: Int, reason: String) { webSocket.close(1000, null) }
+            override fun onClosing(webSocket: WebSocket, code: Int, reason: String) { onServerClose(); webSocket.close(1000, null) }
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) { channel.close() }
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) { channel.close() }
         })
