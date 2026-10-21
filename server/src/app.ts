@@ -77,7 +77,7 @@ export function createApp({ dbPath, requestTimeoutMs = 10_000, now = Date.now }:
   }
 
   const ipOf = (server: { requestIP(r: Request): { address: string } | null } | null, req: Request) =>
-    server?.requestIP(req)?.address ?? "unknown";
+    req.headers.get("fly-client-ip") ?? server?.requestIP(req)?.address ?? "unknown";
 
   const app = new Elysia({ serve: { maxRequestBodySize: MAX_BODY * 2 } })
     .post("/signup", async ({ request, server }) => {
@@ -168,7 +168,7 @@ export function createApp({ dbPath, requestTimeoutMs = 10_000, now = Date.now }:
       if (!own) return reply(410, "Este teléfono se desvinculó");
       const sock = socks.get(params.id);
       if (!sock) return reply(503, "Sin conexión");
-      const body = (JSON.parse(raw || "{}") as { body?: unknown }).body; // envelope only; the body itself stays opaque
+      const body = (await Promise.resolve().then(() => JSON.parse(raw)).catch(() => null) as { body?: unknown } | null)?.body; // envelope only; the body itself stays opaque
       if (typeof body !== "string") return reply(400, "Datos no válidos");
       const rid = token();
       const result = await new Promise<{ body?: string; status?: number }>((done) => {
@@ -188,7 +188,8 @@ export function createApp({ dbPath, requestTimeoutMs = 10_000, now = Date.now }:
         if (st?.pairingId && socks.get(st.pairingId)?.id === st.sock.id) dropSocket(st.pairingId);
       },
       message(ws, raw) {
-        const m = (typeof raw === "string" ? JSON.parse(raw) : raw) as { t?: string; deviceToken?: string; rid?: string; body?: string };
+        const m = (typeof raw === "string" ? (() => { try { return JSON.parse(raw); } catch { return null; } })() : raw) as { t?: string; deviceToken?: string; rid?: string; body?: string } | null;
+        if (!m || typeof m !== "object") return;
         const st = byId.get(ws.id) ?? { sock: ws as Sock };
         st.sock = ws as Sock;
         byId.set(ws.id, st);
@@ -202,6 +203,7 @@ export function createApp({ dbPath, requestTimeoutMs = 10_000, now = Date.now }:
             ? (db.query("SELECT id FROM pairings WHERE device_token_hash = ?").get(sha256(m.deviceToken)) as { id: string } | null)
             : null;
           if (!row) { ws.send(JSON.stringify({ t: "unpaired" })); ws.close(); return; }
+          if (st.claim) { claims.delete(st.claim); st.claim = undefined; }
           if (st.pairingId && st.pairingId !== row.id) socks.delete(st.pairingId);
           const old = socks.get(row.id);
           if (old && old.id !== st.sock.id) old.close();
