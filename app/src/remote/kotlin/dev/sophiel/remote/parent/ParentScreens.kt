@@ -4,7 +4,10 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import android.icu.text.RelativeDateTimeFormatter
+import android.icu.util.ULocale
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -46,6 +49,10 @@ import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
 import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
 import dev.sophiel.R
+import dev.sophiel.remote.RemoteState
+import dev.sophiel.remote.Role.Hijo
+import dev.sophiel.ui.appLocale
+import dev.sophiel.ui.relativeTime
 import dev.sophiel.ui.BtnStyle
 import dev.sophiel.ui.ConfirmDialog
 import dev.sophiel.ui.BottomSheet
@@ -132,23 +139,17 @@ private fun AuthScreen() {
                     stringResource(failed?.text() ?: if (signup) R.string.par_signup_text else R.string.par_login_text),
                     Modifier.padding(top = 8.dp), style = MaterialTheme.typography.bodyMedium, color = Palette.Text1, textAlign = TextAlign.Center,
                 )
-                if (failed == null && !signup) Row(Modifier.padding(top = 14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                if (failed == null) Row(Modifier.padding(top = 14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) { // D83: on login and on sign-up
                     SIcon(R.drawable.ic_shield_ok, Palette.Mint, 16.dp)
                     Text(stringResource(R.string.par_privacy), style = MaterialTheme.typography.bodySmall, color = Palette.Text1)
                 }
             }
             Field(email, { email = it; error = null }, stringResource(R.string.par_email), KeyboardType.Email, VisualTransformation.None)
             Field(password, { password = it; error = null }, stringResource(R.string.par_password), KeyboardType.Password, PasswordVisualTransformation())
-            if (signup) Row(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Palette.tint(Palette.Orange, .15f)).padding(14.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                SIcon(R.drawable.ic_warn, Palette.OrangeFg, 20.dp)
-                Column {
-                    Text(stringResource(R.string.par_norecovery_title), style = MaterialTheme.typography.titleSmall, color = Palette.OrangeFg)
-                    Text(stringResource(R.string.par_norecovery_text), style = MaterialTheme.typography.bodyMedium, color = Palette.Fg)
-                }
-            }
+            if (signup) Note(
+                R.drawable.ic_warn, Palette.OrangeFg, stringResource(R.string.par_norecovery_title), stringResource(R.string.par_norecovery_text),
+                fill = Palette.tint(Palette.Orange, .15f),
+            )
             SButton(
                 stringResource(if (signup) R.string.par_signup_do else R.string.par_login_do), ::submit, Modifier.fillMaxWidth(),
                 style = BtnStyle.Go, busy = busy, enabled = email.isNotBlank() && password.isNotEmpty(),
@@ -157,7 +158,7 @@ private fun AuthScreen() {
         }
         // Back to the Child role: only here, only while logged out (D81).
         if (!signup) Box(Modifier.fillMaxWidth().padding(bottom = 10.dp), contentAlignment = Alignment.Center) {
-            Link(stringResource(R.string.par_back_to_child)) { dev.sophiel.remote.RemoteState.chooseRole(dev.sophiel.remote.Role.Hijo) }
+            Link(stringResource(R.string.par_back_to_child)) { RemoteState.chooseRole(Hijo) }
         }
     }
 }
@@ -219,8 +220,7 @@ private fun ParentHome() {
                 val cards by home.cards.collectAsState()
                 // All asked on open, and again when a phone is added or removed (D81).
                 LaunchedEffect(children.map { it.id }) { home.open() }
-                var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
-                LaunchedEffect(Unit) { while (true) { delay(1_000); now = System.currentTimeMillis() } }
+                val now = rememberNow()
                 children.forEach { c -> ChildCard(c.name, cards[c.id] ?: Card.Loading, now, c.id, home) { open = c.id } }
             }
         }
@@ -252,7 +252,7 @@ private fun ParentHome() {
 
 /** "+": the disclosure line, Google's scanner, POST /pairings, then the name (D80, D81). A bad scan names the fix on the Child phone. */
 @Composable
-private fun androidx.compose.foundation.layout.BoxScope.AddSheet(visible: Boolean, onDone: () -> Unit) {
+private fun BoxScope.AddSheet(visible: Boolean, onDone: () -> Unit) {
     val ctx = LocalContext.current
     val session = ParentGraph.session
     val scope = rememberCoroutineScope()
@@ -284,16 +284,7 @@ private fun androidx.compose.foundation.layout.BoxScope.AddSheet(visible: Boolea
         if (id == null) {
             Text(stringResource(R.string.par_scan_text), style = MaterialTheme.typography.bodyMedium, color = Palette.Fg)
             error?.let {
-                Row(
-                    Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Palette.tint(Palette.RedFg, .12f)).padding(14.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    SIcon(R.drawable.ic_warn, Palette.RedFg, 20.dp)
-                    Column {
-                        if (it == R.string.par_scan_bad_text) Text(stringResource(R.string.par_scan_bad_title), style = MaterialTheme.typography.titleSmall, color = Palette.RedFg)
-                        Text(stringResource(it), style = MaterialTheme.typography.bodyMedium, color = Palette.Fg)
-                    }
-                }
+                Note(R.drawable.ic_warn, Palette.RedFg, if (it == R.string.par_scan_bad_text) stringResource(R.string.par_scan_bad_title) else null, stringResource(it))
             }
             SButton(stringResource(R.string.par_scan_do), ::scan, Modifier.fillMaxWidth(), style = BtnStyle.Go, busy = busy)
             Text(stringResource(R.string.par_scan_disclosure), style = MaterialTheme.typography.bodySmall, color = Palette.Dim)
@@ -311,11 +302,32 @@ private fun androidx.compose.foundation.layout.BoxScope.AddSheet(visible: Boolea
 /** "hace 12 s" under a minute, then the app's usual relative time. */
 @Composable
 internal fun ago(at: Long, now: Long): String {
-    val locale = dev.sophiel.ui.appLocale()
+    val locale = appLocale()
     val s = ((now - at) / 1000).coerceAtLeast(0)
-    if (s >= 60) return dev.sophiel.ui.relativeTime(at, now, locale)
-    val f = android.icu.text.RelativeDateTimeFormatter.getInstance(android.icu.util.ULocale.forLocale(locale))
-    return f.format(s.toDouble(), android.icu.text.RelativeDateTimeFormatter.Direction.LAST, android.icu.text.RelativeDateTimeFormatter.RelativeUnit.SECONDS)
+    if (s >= 60) return relativeTime(at, now, locale)
+    val f = RelativeDateTimeFormatter.getInstance(ULocale.forLocale(locale))
+    return f.format(s.toDouble(), RelativeDateTimeFormatter.Direction.LAST, RelativeDateTimeFormatter.RelativeUnit.SECONDS)
+}
+
+/** The wall clock, ticking every second, for "hace 12 s". */
+@Composable
+internal fun rememberNow(): Long {
+    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(Unit) { while (true) { delay(1_000); now = System.currentTimeMillis() } }
+    return now
+}
+
+/** A tinted note: icon, optional title in [tone], one line of text. Announced when it appears. */
+@Composable
+internal fun Note(icon: Int, tone: Color, title: String?, text: String, modifier: Modifier = Modifier, fill: Color = Palette.tint(tone, .12f)) = Row(
+    modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(fill).padding(14.dp).semantics { liveRegion = LiveRegionMode.Polite },
+    horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically,
+) {
+    SIcon(icon, tone, 20.dp)
+    Column {
+        if (title != null) Text(title, style = MaterialTheme.typography.titleSmall, color = tone)
+        Text(text, style = MaterialTheme.typography.bodyMedium, color = Palette.Fg)
+    }
 }
 
 /** One Child phone's state card (D81), in the Status card's dark look (D75); its banner sits under it. */
@@ -365,7 +377,6 @@ private fun ChildCard(name: String, card: Card, now: Long, id: String, home: Hom
                         if (card.protecting) Pill(stringResource(R.string.par_stop), busy = card.busy) { scope.launch { home.stop(id) } }
                         else Pill(stringResource(R.string.par_start), busy = card.busy, enabled = card.canStart || card.busy, go = true) { scope.launch { home.start(id) } }
                 }
-                if (card != Card.Gone) UnpairButton(name, id, home) // ticket 21; moves to the per-phone screen if that lands
             }
         }
         live?.banner?.let { Banner(it) }
@@ -382,25 +393,16 @@ private fun Pill(text: String, busy: Boolean = false, enabled: Boolean = true, g
 @Composable
 private fun Banner(o: Outcome) {
     val good = o == Outcome.STARTED || o == Outcome.ALREADY_ON || o == Outcome.STOPPED
-    val tone = if (good) Palette.GreenFg else Palette.RedFg
-    Row(
-        Modifier.fillMaxWidth().padding(top = 6.dp).clip(RoundedCornerShape(16.dp)).background(Palette.tint(tone, .12f)).padding(14.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically,
-    ) {
-        SIcon(if (good) R.drawable.ic_shield_ok else R.drawable.ic_warn, tone, 20.dp)
-        Text(
-            stringResource(
-                when (o) {
-                    Outcome.STARTED -> R.string.par_out_started
-                    Outcome.ALREADY_ON -> R.string.par_out_already
-                    Outcome.STOPPED -> R.string.par_out_stopped
-                    Outcome.ACCESSIBILITY_OFF -> R.string.par_out_acc_off
-                    Outcome.SWITCH_OFF -> R.string.par_out_switch_off
-                    Outcome.FAILED -> R.string.par_out_failed
-                },
-            ),
-            Modifier.semantics { liveRegion = LiveRegionMode.Polite },
-            style = MaterialTheme.typography.bodyMedium, color = Palette.Fg,
-        )
+    val text = when (o) {
+        Outcome.STARTED -> R.string.par_out_started
+        Outcome.ALREADY_ON -> R.string.par_out_already
+        Outcome.STOPPED -> R.string.par_out_stopped
+        Outcome.ACCESSIBILITY_OFF -> R.string.par_out_acc_off
+        Outcome.SWITCH_OFF -> R.string.par_out_switch_off
+        Outcome.FAILED -> R.string.par_out_failed
     }
+    Note(
+        if (good) R.drawable.ic_shield_ok else R.drawable.ic_warn, if (good) Palette.GreenFg else Palette.RedFg, null, stringResource(text),
+        Modifier.padding(top = 6.dp),
+    )
 }

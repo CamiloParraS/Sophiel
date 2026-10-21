@@ -3,7 +3,7 @@
     <string name="par_account">Cuenta</string>
     <string name="par_login_title">Teléfono del Padre</string>
     <string name="par_login_text">Entra para ver y controlar los teléfonos de tus hijos.</string>
-    <string name="par_privacy">Solo guarda tu correo y qué teléfonos vinculaste.</string>
+    <string name="par_privacy">El servidor solo guarda tu correo y qué teléfonos vinculaste, y no puede leer los mensajes entre ellos.</string>
     <string name="par_signup_bar">Crear cuenta</string>
     <string name="par_signup_title">Una cuenta, todos tus hijos</string>
     <string name="par_signup_text">Con ella vinculas cada teléfono del Hijo. La contraseña lleva 8 caracteres o más.</string>
@@ -33,7 +33,7 @@
     <string name="par_add">Añadir teléfono</string>
     <string name="par_scan_title">Escanear código</string>
     <string name="par_scan_text">En el teléfono del Hijo abre Ajustes, toca Teléfono del Padre y escanea el código que aparece.</string>
-    <string name="par_scan_disclosure">Lo abre el lector de Google. Sophiel no usa la cámara.</string>
+    <string name="par_scan_disclosure">Lo abre el lector de Google, que envía datos de uso anónimos a Google. Sophiel no usa la cámara.</string>
     <string name="par_scan_do">Escanear código</string>
     <string name="par_scan_bad_title">Este código ya no sirve</string>
     <string name="par_scan_bad_text">En el teléfono del Hijo toca “Mostrar código otra vez” y escanéalo de nuevo.</string>

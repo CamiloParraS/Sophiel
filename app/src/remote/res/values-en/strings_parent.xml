@@ -3,7 +3,7 @@
     <string name="par_account">Account</string>
     <string name="par_login_title">Parent phone</string>
     <string name="par_login_text">Sign in to see and control your children\'s phones.</string>
-    <string name="par_privacy">It only keeps your email and which phones you linked.</string>
+    <string name="par_privacy">The server only keeps your email and which phones you linked, and cannot read the messages between them.</string>
     <string name="par_signup_bar">Create account</string>
     <string name="par_signup_title">One account, all your children</string>
     <string name="par_signup_text">You use it to link each Child phone. The password takes 8 characters or more.</string>
@@ -33,7 +33,7 @@
     <string name="par_add">Add phone</string>
     <string name="par_scan_title">Scan code</string>
     <string name="par_scan_text">On the Child phone open Settings, tap Parent phone and scan the code it shows.</string>
-    <string name="par_scan_disclosure">Google\'s scanner opens it. Sophiel does not use the camera.</string>
+    <string name="par_scan_disclosure">Google\'s scanner opens it and sends anonymous usage data to Google. Sophiel does not use the camera.</string>
     <string name="par_scan_do">Scan code</string>
     <string name="par_scan_bad_title">This code no longer works</string>
     <string name="par_scan_bad_text">On the Child phone tap “Show code again” and scan it again.</string>

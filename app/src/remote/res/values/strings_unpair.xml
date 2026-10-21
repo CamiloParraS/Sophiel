@@ -4,7 +4,6 @@
     <string name="pair_unpair">Desvincular</string>
     <string name="pair_unpair_title">¿Desvincular este teléfono?</string>
     <string name="pair_unpair_text">El teléfono del Padre ya no podrá ver el historial de este teléfono ni darle órdenes. Para volver a vincularlo hará falta un código nuevo.</string>
-    <string name="par_unpair">Desvincular</string>
     <string name="par_unpair_title">¿Desvincular %1$s?</string>
     <string name="par_unpair_text">Este teléfono dejará de recibir órdenes y su clave se borrará de aquí. Para volver a vincularlo, muestra un código nuevo en el teléfono del Hijo.</string>
 </resources>

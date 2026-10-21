@@ -6,8 +6,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -25,7 +26,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -37,9 +37,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.LiveRegionMode
-import androidx.compose.ui.semantics.liveRegion
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.sophiel.R
@@ -55,7 +52,6 @@ import dev.sophiel.ui.LogContent
 import dev.sophiel.ui.LogHero
 import dev.sophiel.ui.LogModel
 import dev.sophiel.ui.SButton
-import dev.sophiel.ui.SIcon
 import dev.sophiel.ui.SegmentedControl
 import dev.sophiel.ui.StatusPage
 import dev.sophiel.ui.Tone
@@ -66,7 +62,6 @@ import dev.sophiel.ui.pageWidth
 import dev.sophiel.ui.ruleOptions
 import dev.sophiel.ui.theme.Palette
 import java.time.ZoneId
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
@@ -82,17 +77,14 @@ fun BoxScope.PhoneScreen(child: Child, onBack: () -> Unit) {
     BackHandler(onBack = onBack)
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var picking by rememberSaveable { mutableStateOf<String?>(null) }
-    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
-    LaunchedEffect(Unit) { while (true) { delay(1_000); now = System.currentTimeMillis() } }
+    val now = rememberNow()
     val ready = state as? PhoneState.Ready
     Column(Modifier.fillMaxSize().behindSheet(picking != null).background(Palette.Chalk)) {
         HeaderBar(
             child.name,
             subtitle = ready?.let { stringResource(if (it.protecting) R.string.par_card_on else R.string.par_card_off) + " · " + ago(it.at, now) },
             start = { SButton(null, onBack, icon = R.drawable.ic_back, label = stringResource(R.string.back)) },
-            end = {
-                // Ticket 21: "Desvincular" goes here, as an overflow on this bar.
-            },
+            end = { if (state != PhoneState.Gone) UnpairButton(child.name, child.id, ParentGraph.home) }, // the entry goes, so this screen closes
         )
         when (val s = state) {
             PhoneState.Loading -> Page { StatusPage(R.drawable.ic_phone, stringResource(R.string.par_card_loading), "", Tone.Off, spinner = true) }
@@ -125,12 +117,12 @@ fun BoxScope.PhoneScreen(child: Child, onBack: () -> Unit) {
 }
 
 @Composable
-private fun androidx.compose.foundation.layout.ColumnScope.Page(content: @Composable () -> Unit) =
+private fun ColumnScope.Page(content: @Composable () -> Unit) =
     Column(Modifier.weight(1f).navigationBarsPadding().cutoutPadding().pageWidth().padding(horizontal = 14.dp), verticalArrangement = Arrangement.Center) { content() }
 
 /** The Child's Historial, from the fetched rows: its hero and its day lists. No Borrar (the Log is the Child's) and no by-app page. */
 @Composable
-private fun androidx.compose.foundation.layout.ColumnScope.Historial(s: PhoneState.Ready) {
+private fun ColumnScope.Historial(s: PhoneState.Ready) {
     val model = remember(s.entries) { LogModel.of(s.entries, System.currentTimeMillis(), ZoneId.systemDefault()) }
     val scroll = rememberScrollState()
     var topPx by remember { mutableIntStateOf(0) } // where the scroll starts: the filter pins there
@@ -150,24 +142,26 @@ private fun androidx.compose.foundation.layout.ColumnScope.Historial(s: PhoneSta
 
 /** D58's rows and rule sheet, drawn from the reply; disabled while the Child's accessibility service is off. */
 @Composable
-private fun androidx.compose.foundation.layout.ColumnScope.Apps(s: PhoneState.Ready, onPick: (String) -> Unit) {
+private fun ColumnScope.Apps(s: PhoneState.Ready, onPick: (String) -> Unit) {
     var query by rememberSaveable { mutableStateOf("") }
     val rows = s.apps.filter { it.label.contains(query.trim(), ignoreCase = true) }.map { AppEntry(it.pkg, it.label) }
     val rules = s.apps.associate { it.pkg to it.rule.local }
     val twins = s.apps.groupingBy { it.label }.eachCount()
     Column(Modifier.weight(1f).cutoutPadding().pageWidth()) {
-        if (!s.appsEnabled) Note(R.drawable.ic_warn, Palette.OrangeFg, null, stringResource(R.string.needs_service))
+        if (!s.appsEnabled) Note(R.drawable.ic_warn, Palette.OrangeFg, null, stringResource(R.string.needs_service), noteGap)
         s.unsaved?.let { pkg ->
-            Note(R.drawable.ic_warn, Palette.RedFg, stringResource(R.string.par_unsaved_title), stringResource(R.string.par_unsaved_text, s.labels[pkg] ?: pkg))
+            Note(R.drawable.ic_warn, Palette.RedFg, stringResource(R.string.par_unsaved_title), stringResource(R.string.par_unsaved_text, s.labels[pkg] ?: pkg), noteGap)
         }
         AppSearch(query) { query = it }
         val options = ruleOptions()
         LazyColumn(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 14.dp), contentPadding = PaddingValues(top = 18.dp, bottom = 14.dp)) {
             appRows(rows, { rules[it] ?: AppRule.NORMAL }, s.appsEnabled && s.saving == null, twins, options, onPick) { LetterTile(it.label, 32.dp) }
         }
-        androidx.compose.foundation.layout.Spacer(Modifier.navigationBarsPadding())
+        Spacer(Modifier.navigationBarsPadding())
     }
 }
+
+private val noteGap = Modifier.padding(start = 14.dp, end = 14.dp, top = 10.dp)
 
 /** No icons cross the wire (D81): the label's first letter on ink. */
 @Composable
@@ -175,16 +169,3 @@ private fun LetterTile(label: String, size: Dp) =
     Box(Modifier.size(size).clip(RoundedCornerShape(8.dp)).background(Palette.Moss), contentAlignment = Alignment.Center) {
         Text(label.trim().take(1).uppercase(), style = MaterialTheme.typography.titleMedium, color = Palette.Text0)
     }
-
-@Composable
-private fun Note(icon: Int, tone: androidx.compose.ui.graphics.Color, title: String?, text: String) = Row(
-    Modifier.padding(start = 14.dp, end = 14.dp, top = 10.dp).fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Palette.tint(tone, .12f)).padding(14.dp)
-        .semantics { liveRegion = LiveRegionMode.Polite },
-    horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically,
-) {
-    SIcon(icon, tone, 20.dp)
-    Column {
-        if (title != null) Text(title, style = MaterialTheme.typography.titleSmall, color = tone)
-        Text(text, style = MaterialTheme.typography.bodyMedium, color = Palette.Fg)
-    }
-}
