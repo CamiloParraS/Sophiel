@@ -71,6 +71,7 @@ dependencies {
     "remoteImplementation"(libs.zxing.core)
     "remoteImplementation"(libs.play.services.code.scanner)
     testImplementation(libs.junit)
+    "testRemoteImplementation"(libs.json) // org.json is a stub in the JVM android.jar; the app uses the platform one
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.espresso.core)
