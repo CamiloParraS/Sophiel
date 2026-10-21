@@ -35,7 +35,15 @@ export function createApp({ dbPath, requestTimeoutMs = 10_000, now = Date.now }:
   const failures = new Map<string, { times: number[]; lockedUntil: number }>(); // per email
   const ipHits = new Map<string, number[]>();
   const wrongClaims = new Map<string, { n: number; until: number }>(); // per account
-  // ponytail: counters never pruned; fine for a small relay, sweep on an interval if memory matters
+  let swept = 0;
+  const sweep = () => { // bounds the three counters: drop what no longer limits anyone; at most once a minute, no timer to stop
+    const t = now();
+    if (t - swept < 60_000) return;
+    swept = t;
+    for (const [k, v] of ipHits) if (v.every((h) => t - h >= 60_000)) ipHits.delete(k);
+    for (const [k, v] of failures) if (t >= v.lockedUntil && v.times.every((x) => t - x >= LOCK_MS)) failures.delete(k);
+    for (const [k, v] of wrongClaims) if (t >= v.until) wrongClaims.delete(k);
+  };
   const dummyHash = Bun.password.hashSync("dummy-password", "argon2id");
 
   const accountOf = (req: Request) => {
@@ -46,6 +54,7 @@ export function createApp({ dbPath, requestTimeoutMs = 10_000, now = Date.now }:
   };
 
   const ipLimited = (ip: string) => {
+    sweep();
     const t = now();
     const hits = (ipHits.get(ip) ?? []).filter((h) => t - h < 60_000);
     hits.push(t);
@@ -59,14 +68,14 @@ export function createApp({ dbPath, requestTimeoutMs = 10_000, now = Date.now }:
     return t;
   };
 
-  const dropSocket = (pairingId: string, frame?: object) => {
+  const dropSocket = (pairingId: string, frame?: object, status = 503) => {
     const s = socks.get(pairingId);
     socks.delete(pairingId);
     if (s) {
       if (frame) s.send(JSON.stringify(frame));
       s.close();
     }
-    for (const [rid, p] of pending) if (p.pairingId === pairingId) { pending.delete(rid); p.done({ status: 503 }); }
+    for (const [rid, p] of pending) if (p.pairingId === pairingId) { pending.delete(rid); p.done({ status }); }
   };
 
   async function credentials(req: Request, ip: string) {
@@ -124,7 +133,7 @@ export function createApp({ dbPath, requestTimeoutMs = 10_000, now = Date.now }:
         db.run("DELETE FROM sessions WHERE account_id = ?", [acc]);
         db.run("DELETE FROM accounts WHERE id = ?", [acc]);
       })();
-      for (const id of ids) dropSocket(id, { t: "unpaired" });
+      for (const id of ids) dropSocket(id, { t: "unpaired" }, 410);
       return { ok: true };
     })
     .post("/pairings", async ({ request }) => {
@@ -162,7 +171,7 @@ export function createApp({ dbPath, requestTimeoutMs = 10_000, now = Date.now }:
       if (!acc) return reply(401, "Sesión no válida");
       const r = db.run("DELETE FROM pairings WHERE id = ? AND account_id = ?", [params.id, acc]);
       if (!r.changes) return reply(410, "Este teléfono se desvinculó");
-      dropSocket(params.id, { t: "unpaired" });
+      dropSocket(params.id, { t: "unpaired" }, 410);
       return { ok: true };
     })
     .post("/pairings/:id/request", async ({ request, params }) => {
@@ -182,7 +191,7 @@ export function createApp({ dbPath, requestTimeoutMs = 10_000, now = Date.now }:
         pending.set(rid, { pairingId: params.id, done: (r) => { clearTimeout(timer); done(r); } });
         sock.send(JSON.stringify({ t: "req", rid, body }));
       });
-      if (result.status) return reply(result.status, result.status === 504 ? "El teléfono no respondió" : "Sin conexión");
+      if (result.status) return reply(result.status, result.status === 504 ? "El teléfono no respondió" : result.status === 410 ? "Este teléfono se desvinculó" : "Sin conexión");
       return { body: result.body };
     })
     .ws("/child", {
@@ -225,10 +234,10 @@ export function createApp({ dbPath, requestTimeoutMs = 10_000, now = Date.now }:
           db.run("DELETE FROM pairings WHERE id = ?", [st.pairingId]);
           const id = st.pairingId;
           st.pairingId = undefined;
-          dropSocket(id);
+          dropSocket(id, undefined, 410);
         }
       },
     });
 
-  return Object.assign(app, { db });
+  return Object.assign(app, { db, counters: () => ({ ipHits: ipHits.size, failures: failures.size, wrongClaims: wrongClaims.size }) });
 }

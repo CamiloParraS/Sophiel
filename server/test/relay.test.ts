@@ -244,3 +244,28 @@ test("Mostrar código otra vez: a paired claim joins the same pairing, for the s
   expect((await post("/pairings", { claimCode: code2 }, other)).status).toBe(404);
   expect(count("pairings")).toBe(1);
 });
+
+test("deleting a pairing while a request is pending resolves it as 410; a dropped socket stays 503", async () => {
+  const tok = await signup();
+  const a = await pair(tok);
+  const p = post(`/pairings/${a.pairingId}/request`, { body: "x" }, tok);
+  await a.c.next("req");
+  expect((await post(`/pairings/${a.pairingId}`, undefined, tok, "DELETE")).status).toBe(200);
+  const r = await p;
+  expect(r.status).toBe(410);
+  expect((await r.json()).error).toBe("Este teléfono se desvinculó");
+  const b = await pair(tok);
+  const q = post(`/pairings/${b.pairingId}/request`, { body: "x" }, tok);
+  await b.c.next("req");
+  b.c.ws.close();
+  expect((await q).status).toBe(503);
+});
+
+test("abuse counters are pruned once their windows pass", async () => {
+  await post("/login", { email: "ghost@x.com", password: "wrong-pass" });
+  expect(app.counters().ipHits).toBe(1);
+  expect(app.counters().failures).toBe(1);
+  clock += 15 * 60_000 + 1;
+  await post("/login", { email: "ghost2@x.com", password: "wrong-pass" });
+  expect(app.counters()).toEqual({ ipHits: 1, failures: 1, wrongClaims: 0 });
+});
