@@ -10,7 +10,10 @@ import androidx.activity.SystemBarStyle
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -55,24 +58,27 @@ class BlockActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge(
-            statusBarStyle = SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT),
-            navigationBarStyle = SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT),
-        )
+        // D75: the block screen is flat ink (the Child is in Sophiel's world); the guard stays a light PIN page.
+        val ink = intent.getStringExtra(EXTRA_APP) != null
+        val bars = if (ink) SystemBarStyle.dark(Color.TRANSPARENT) else SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT)
+        enableEdgeToEdge(statusBarStyle = bars, navigationBarStyle = bars)
         val container = (application as SophielApp).container
         blocked = intent.getStringExtra(EXTRA_APP)
         setContent {
             SophielTheme {
                 BackHandler(onBack = ::goHome)
+                Box(Modifier.fillMaxSize()) {
+                // The Child is in Sophiel's world here: Status's tile grid, still, behind the message.
+                if (blocked != null) Canvas(Modifier.fillMaxSize().background(Palette.Moss)) { drawGrid(Page.OFF, Palette.HeroOff, 0L, -100_000L, true, emptyList()) }
                 Column(
-                    Modifier.fillMaxSize().background(Palette.Win).safeDrawingPadding().verticalScroll(rememberScrollState()).pageWidth().padding(18.dp),
+                    Modifier.fillMaxSize().then(if (blocked != null) Modifier else Modifier.background(Palette.Win)).safeDrawingPadding().verticalScroll(rememberScrollState()).pageWidth().padding(18.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterVertically),
                 ) {
                     val app = blocked
                     if (app != null) {
-                        AppIcon(app, 56.dp)
-                        Text(appLabel(packageManager, app), Modifier.asHeading(), style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center)
+                        Box(Modifier.clip(CookieShape(10)), contentAlignment = Alignment.Center) { AppIcon(app, 72.dp) } // the badge's outline, as on Status
+                        Text(appLabel(packageManager, app), Modifier.asHeading(), style = MaterialTheme.typography.headlineMedium, color = Palette.Text0, textAlign = TextAlign.Center)
                         val blocks by container.escalation.blocks.collectAsState()
                         val now by tickingNow(System::currentTimeMillis)
                         // D58: a rule beats escalation; only an escalation block has a PIN.
@@ -82,9 +88,9 @@ class BlockActivity : ComponentActivity() {
                         LaunchedEffect(ended) { if (ended) goHome() } // ended while showing
                         Text(
                             if (minutes != null) stringResource(R.string.block_escalation, minutes) else stringResource(R.string.block_rule),
-                            style = MaterialTheme.typography.bodyLarge, color = Palette.Dim, textAlign = TextAlign.Center,
+                            style = MaterialTheme.typography.bodyLarge, color = Palette.Text1, textAlign = TextAlign.Center,
                         )
-                        SButton(stringResource(R.string.block_home), ::goHome, style = BtnStyle.Suggested)
+                        SButton(stringResource(R.string.block_home), ::goHome, style = BtnStyle.Suggested, fill = Palette.OnMoss, tint = Palette.Moss)
                         if (until != null) {
                             var pinOpen by remember { mutableStateOf(false) }
                             if (pinOpen) {
@@ -113,6 +119,7 @@ class BlockActivity : ComponentActivity() {
                             onCancel = ::goHome,
                         )
                     }
+                }
                 }
             }
         }

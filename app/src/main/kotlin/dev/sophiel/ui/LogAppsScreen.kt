@@ -132,7 +132,7 @@ private fun CoverRow(c: AppCover, most: Int, name: String, locale: Locale, onCli
             }
             // The bar sits under the name, never behind text (it cut through two lines when it did); one neutral ink, as on the Log's card.
             Box(Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)).background(Palette.Btn)) {
-                Box(Modifier.fillMaxWidth((c.count.toFloat() / most).coerceAtLeast(.04f)).height(6.dp).clip(RoundedCornerShape(3.dp)).background(Palette.Dim))
+                Box(Modifier.fillMaxWidth((c.count.toFloat() / most).coerceAtLeast(.04f)).height(6.dp).clip(RoundedCornerShape(3.dp)).background(Palette.GreenFg))
             }
             Text(lastText, style = MaterialTheme.typography.bodySmall, color = Palette.Fg.copy(alpha = .7f), maxLines = 1)
         }

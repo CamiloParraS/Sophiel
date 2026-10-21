@@ -40,6 +40,14 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import dev.sophiel.AppContainer
 import dev.sophiel.R
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.text.font.FontWeight
+import dev.sophiel.ui.theme.lift
 import dev.sophiel.capture.MaskWindowService
 import dev.sophiel.core.Sensitivity
 import dev.sophiel.settings.ParentPreset
@@ -54,7 +62,7 @@ private enum class Pick { CARE, HOW }
  * Seven taps on the version label open the debug menu, in every build (D38).
  */
 @Composable
-fun BoxScope.SettingsScreen(container: AppContainer, door: Door, onBack: () -> Unit, onHistory: () -> Unit, onApps: () -> Unit, onDebug: () -> Unit) {
+fun BoxScope.SettingsScreen(container: AppContainer, door: Door, onBack: () -> Unit, onHistory: () -> Unit, onApps: () -> Unit, onDebug: () -> Unit, openReview: Boolean = false) {
     var changingPin by rememberSaveable { mutableStateOf(false) }
     if (changingPin) {
         // Already behind the door, so no current PIN is asked.
@@ -72,7 +80,7 @@ fun BoxScope.SettingsScreen(container: AppContainer, door: Door, onBack: () -> U
     val taps = remember { mutableIntStateOf(0) }
     val presets = ParentPreset.entries
     val android14 = stringResource(R.string.needs_android14)
-    var picking by rememberSaveable { mutableStateOf<Pick?>(null) }
+    var picking by rememberSaveable { mutableStateOf<Pick?>(if (openReview) Pick.HOW else null) } // Status's Revisión tile lands on its sheet
     val careNames = listOf(R.string.care_strict, R.string.care_normal, R.string.care_relaxed).map { stringResource(it) }
     val presetNames = listOf(R.string.preset_light, R.string.preset_balanced, R.string.preset_thorough, R.string.preset_precise).map { stringResource(it) }
     val careHelps = listOf(R.string.care_help_strict, R.string.care_help_normal, R.string.care_help_relaxed).map { stringResource(it) }
@@ -86,17 +94,17 @@ fun BoxScope.SettingsScreen(container: AppContainer, door: Door, onBack: () -> U
             Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).cutoutPadding().pageWidth().padding(start = 14.dp, end = 14.dp, top = 18.dp, bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(18.dp),
         ) {
-            PreferenceGroup(title = stringResource(R.string.group_protection)) {
-                item {
-                    PrefRow(
-                        stringResource(R.string.set_care), description = careHelps[careIx], icon = R.drawable.ic_sliders,
-                        onClick = { door.pass { picking = Pick.CARE } }, end = { Value(careNames[careIx]) },
+            // D75: the two choices that change how protection behaves are tiles that say their value and where it sits on its scale.
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(stringResource(R.string.group_protection), Modifier.asHeading().padding(start = 4.dp), style = MaterialTheme.typography.labelMedium, color = Palette.Dim)
+                Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ChoiceTile(
+                        stringResource(R.string.set_care), careNames[careIx], careHelps[careIx], careIx, 3,
+                        careNames.first() to careNames.last(), { door.pass { picking = Pick.CARE } }, Modifier.weight(1f).fillMaxHeight(),
                     )
-                }
-                item {
-                    PrefRow(
-                        stringResource(R.string.set_how), description = presetHelps[presetIx], icon = R.drawable.ic_layers,
-                        onClick = { door.pass { picking = Pick.HOW } }, end = { Value(presetNames[presetIx]) },
+                    ChoiceTile(
+                        stringResource(R.string.set_how), presetNames[presetIx], presetHelps[presetIx], presetIx.takeIf { it < 3 } ?: -1, 3,
+                        presetNames.first() to presetNames[2], { door.pass { picking = Pick.HOW } }, Modifier.weight(1f).fillMaxHeight(),
                     )
                 }
             }
@@ -247,3 +255,26 @@ private fun RuledApps(apps: List<String>) =
         Row(horizontalArrangement = Arrangement.spacedBy((-8).dp)) { apps.forEach { AppIcon(it, 26.dp) } }
         SIcon(R.drawable.ic_chev)
     }
+
+/** A setting as a tile: its name, its value, what that means, and [step] of [steps] on the scale (-1: off the scale), ends labelled. */
+@Composable
+private fun ChoiceTile(title: String, value: String, help: String, step: Int, steps: Int, ends: Pair<String, String>, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val shape = RoundedCornerShape(24.dp)
+    val quiet = Palette.Moss.copy(alpha = .62f)
+    Column(modifier.lift(shape).clip(shape).background(Palette.Surface).clickable(role = Role.Button, onClick = onClick).padding(start = 14.dp, end = 12.dp, top = 12.dp, bottom = 14.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(title, Modifier.weight(1f), style = MaterialTheme.typography.labelMedium, color = quiet)
+            SIcon(R.drawable.ic_chev, quiet, 16.dp)
+        }
+        Text(value, Modifier.padding(top = 14.dp), style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold), color = Palette.Moss)
+        Text(help, Modifier.padding(top = 2.dp), style = MaterialTheme.typography.bodySmall, color = quiet)
+        Spacer(Modifier.weight(1f).heightIn(min = 10.dp))
+        Row(Modifier.clearAndSetSemantics { }, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+            repeat(steps) { Box(Modifier.weight(1f).height(6.dp).clip(RoundedCornerShape(3.dp)).background(if (it == step) Palette.Moss else Palette.Moss.copy(alpha = .12f))) }
+        }
+        Row(Modifier.fillMaxWidth().padding(top = 5.dp).clearAndSetSemantics { }, horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(ends.first, style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium), color = quiet)
+            Text(ends.second, style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium), color = quiet)
+        }
+    }
+}

@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.MaterialTheme
@@ -78,6 +79,7 @@ fun BoxScope.AppsScreen(container: AppContainer, door: Door, onBack: () -> Unit)
     }
     val pinned = remember { container.appRules.state.value } // the rules on opening
     val rows = loaded?.let { (apps, excluded) -> appList(apps, pinned, excluded, query) }.orEmpty()
+    val twins = remember(loaded) { loaded?.first?.groupingBy { it.label }?.eachCount().orEmpty() }
     val options = listOf(stringResource(R.string.app_rule_normal), stringResource(R.string.app_rule_blocked), stringResource(R.string.app_rule_trusted))
     val helps = listOf(stringResource(R.string.app_rule_help_normal), stringResource(R.string.app_rule_help_blocked), stringResource(R.string.apps_trust_warning))
     val shape = RoundedCornerShape(12.dp)
@@ -104,6 +106,18 @@ fun BoxScope.AppsScreen(container: AppContainer, door: Door, onBack: () -> Unit)
                 )
             }
         }
+        // The list takes a few seconds to read from the system: rows' shapes first, so the page is never empty.
+        if (loaded == null) Column(
+            Modifier.padding(start = 14.dp, end = 14.dp, top = 18.dp).fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Palette.Card),
+        ) {
+            repeat(7) { i ->
+                if (i > 0) Spacer(Modifier.height(1.dp).fillMaxWidth().background(Palette.Border))
+                Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = 14.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(32.dp).clip(RoundedCornerShape(8.dp)).background(Palette.Btn))
+                    Box(Modifier.weight(1f).height(14.dp).clip(CircleShape).background(Palette.Btn))
+                }
+            }
+        }
         LazyColumn(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 14.dp), contentPadding = PaddingValues(top = 18.dp, bottom = 14.dp)) {
             itemsIndexed(rows, key = { _, app -> app.pkg }) { i, app ->
                 // One card for the list: the first row rounds its top, the last its bottom.
@@ -119,7 +133,11 @@ fun BoxScope.AppsScreen(container: AppContainer, door: Door, onBack: () -> Unit)
                     ) {
                         AppIcon(app.pkg, 32.dp)
                         // Without the service the switch above says why once; the rows only dim.
-                        Text(app.label, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        Column(Modifier.weight(1f)) {
+                            Text(app.label, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            // Two apps can share a name (two calculators): the package tells them apart.
+                            if (twins.getOrDefault(app.label, 0) > 1) Text(app.pkg, style = MaterialTheme.typography.bodySmall, color = Palette.Dim, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
                         Text(
                             options[AppRule.entries.indexOf(rule)], style = MaterialTheme.typography.titleMedium,
                             color = when (rule) { AppRule.BLOCKED -> Palette.OrangeFg; AppRule.TRUSTED -> Palette.GreenFg; else -> Palette.Dim },

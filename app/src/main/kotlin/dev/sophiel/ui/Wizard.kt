@@ -79,6 +79,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationManagerCompat
 import dev.sophiel.AppContainer
 import dev.sophiel.R
+import androidx.compose.ui.draw.shadow
 import dev.sophiel.capture.MaskWindowService
 import dev.sophiel.settings.ParentPreset
 import dev.sophiel.ui.theme.Ease
@@ -234,7 +235,7 @@ fun SetupWizard(container: AppContainer, resumes: Int, fix: (Need) -> Unit, star
 private fun Welcome(onStart: () -> Unit) {
     Column(Modifier.fillMaxSize().background(Palette.Chalk)) {
         // The hero takes what the button area leaves.
-        BoxWithConstraints(Modifier.weight(1f)) {
+        BoxWithConstraints(Modifier.weight(1f).statusBarsPadding().padding(8.dp)) {
             GridHero(Page.PROTECTED, stringResource(R.string.wiz_welcome_title), stringResource(R.string.wiz_welcome_text), fit = maxHeight)
         }
         Column(
@@ -272,7 +273,7 @@ private fun advanceWhenGranted(granted: Boolean, forward: Boolean, next: () -> U
 @Composable
 private fun Done(start: () -> Unit, finish: () -> Unit, rows: @Composable ColumnScope.() -> Unit) {
     Column(Modifier.fillMaxSize().background(Palette.Chalk)) {
-        BoxWithConstraints(Modifier.weight(1f)) {
+        BoxWithConstraints(Modifier.weight(1f).statusBarsPadding().padding(8.dp)) {
             GridHero(Page.READY, stringResource(R.string.wiz_start_title), stringResource(R.string.wiz_start_text), fit = maxHeight)
         }
         Column(
@@ -287,21 +288,22 @@ private fun Done(start: () -> Unit, finish: () -> Unit, rows: @Composable Column
     }
 }
 
-/** D74: a Moss band like every parent header (back chip, a mint progress bar), so the steps stay in the app's world. */
+/** D75: the parent header's look (a white back disc on the page) with the step's progress in ink. */
 @Composable
 private fun WizardTop(step: Int, back: () -> Unit) {
-    LightStatusIcons()
     Row(
-        Modifier.fillMaxWidth().background(Moss).statusBarsPadding().heightIn(min = 64.dp).padding(start = 6.dp, end = 22.dp, top = 4.dp, bottom = 4.dp),
+        Modifier.fillMaxWidth().background(Palette.Chalk).statusBarsPadding().heightIn(min = 64.dp).padding(start = 8.dp, end = 22.dp, top = 4.dp, bottom = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        SButton(null, back, style = BtnStyle.OnDark, icon = R.drawable.ic_back, label = stringResource(R.string.back))
+        Box(Modifier.size(44.dp).shadow(1.dp, CircleShape).clip(CircleShape).background(Palette.Surface), contentAlignment = Alignment.Center) {
+            SButton(null, back, icon = R.drawable.ic_back, label = stringResource(R.string.back))
+        }
         val label = stringResource(R.string.wiz_step, step, STEPS)
         val fill by animateFloatAsState(step / STEPS.toFloat(), motion(tween(320, easing = Ease)), label = "progress")
         Box(
-            Modifier.weight(1f).padding(start = 12.dp).height(4.dp).clip(CircleShape).background(Palette.DarkFill)
+            Modifier.weight(1f).padding(start = 12.dp).height(4.dp).clip(CircleShape).background(Palette.Moss.copy(alpha = .12f))
                 .semantics { contentDescription = label }
-                .drawBehind { drawRect(Palette.Mint, size = Size(size.width * fill, size.height)) },
+                .drawBehind { drawRect(Palette.Moss, size = Size(size.width * fill, size.height)) },
         )
     }
 }

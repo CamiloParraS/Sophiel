@@ -61,6 +61,13 @@
     <string name="status_protected">Protected</string>
     <string name="status_mode_share">Protection on · screen share</string>
     <string name="status_mode_a11y">Protection on · accessibility</string>
+    <string name="status_today_count">%1$d today</string>
+    <string name="status_mode_share_short">Screen sharing</string>
+    <string name="status_mode_a11y_short">Accessibility capture</string>
+    <plurals name="status_apps_blocked">
+        <item quantity="one">blocked</item>
+        <item quantity="other">blocked</item>
+    </plurals>
     <plurals name="status_missing">
         <item quantity="one">%d thing missing</item>
         <item quantity="other">%d things missing</item>

@@ -58,7 +58,7 @@ import dev.sophiel.ui.theme.motion
 @Composable
 fun RoundSwitch(checked: Boolean, onChange: ((Boolean) -> Unit)?, modifier: Modifier = Modifier) {
     val track by animateColorAsState(
-        if (checked) Palette.GreenFg else Palette.Fg.copy(alpha = .15f),
+        if (checked) Palette.Moss else Palette.Fg.copy(alpha = .15f),
         motion(tween(200)),
         label = "track",
     )
@@ -104,7 +104,7 @@ fun SButton(
         style == BtnStyle.Go || style == BtnStyle.Stop -> when {
             busy -> Palette.MossBusy to Palette.OnMoss
             !enabled -> moss.copy(alpha = .08f) to Palette.MossOff
-            style == BtnStyle.Stop -> moss.copy(alpha = .10f) to moss
+            style == BtnStyle.Stop -> Palette.Surface to moss
             else -> moss to Palette.OnMoss
         }
         style == BtnStyle.Suggested -> primary to MaterialTheme.colorScheme.onPrimary
@@ -118,7 +118,8 @@ fun SButton(
     if (fill != Color.Unspecified) bg = fill
     val main = style == BtnStyle.Go || style == BtnStyle.Stop
     val shape = when {
-        main || (iconOnly && bg != Color.Transparent) -> RoundedCornerShape(12.dp)
+        main -> RoundedCornerShape(22.dp) // D75: Status's one action is a 22 dp slab
+        iconOnly && bg != Color.Transparent -> RoundedCornerShape(12.dp)
         iconOnly -> RoundedCornerShape(10.dp)
         style == BtnStyle.Fix -> RoundedCornerShape(8.dp)
         else -> RoundedCornerShape(12.dp) // D74: one shape for every text button, the main ones' (pills read as another app)
@@ -129,6 +130,7 @@ fun SButton(
     val scale by animateFloatAsState(if (pressed && enabled && !busy) .97f else 1f, motion(tween(if (main) 100 else 120, easing = Ease)), label = "press")
     val height = when {
         iconOnly -> if (bg == Color.Transparent) 48.dp else 40.dp
+        main -> 60.dp
         big -> 56.dp
         small -> 32.dp
         else -> 40.dp
@@ -141,7 +143,7 @@ fun SButton(
             .then(if (iconOnly) Modifier.size(height).semantics { contentDescription = label.orEmpty() } else Modifier.heightIn(min = height))
             .clip(shape)
             .background(bg.copy(alpha = bg.alpha * (if (!enabled && !main) .45f else if (busy && !main) .8f else 1f)))
-            .let { if (style == BtnStyle.Stop && enabled && !busy) it.border(1.dp, moss.copy(alpha = .2f), shape) else it }
+            .let { if (style == BtnStyle.Stop && enabled && !busy) it.border(2.dp, moss, shape) else it }
             .let { if (style == BtnStyle.Fix && enabled && !busy) it.border(1.dp, Palette.OrangeFg.copy(alpha = .55f), shape) else it } // outlined, so it reads as a button on the pale tint
             .focusRing(source, shape)
             .padding(horizontal = if (iconOnly || main) 0.dp else if (style == BtnStyle.Fix) 14.dp else if (small) 14.dp else if (large) 24.dp else 20.dp),

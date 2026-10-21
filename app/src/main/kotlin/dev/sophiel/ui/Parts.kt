@@ -35,6 +35,9 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.draw.shadow
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -86,46 +89,52 @@ fun Modifier.focusRing(source: InteractionSource, shape: Shape): Modifier {
 /** True under [HeaderBar]: header buttons wear the glass-on-dark look Status and Log use. */
 internal val LocalOnDark = androidx.compose.runtime.compositionLocalOf { false }
 
-private val onDarkBars = java.util.concurrent.atomic.AtomicInteger()
+/** The dark headers composed right now. The status-bar icons follow this list ([StatusIconsHost]), so none can be left stuck light. */
+private val darkBars = androidx.compose.runtime.mutableStateListOf<Any>()
 
-/** Light status-bar icons while any dark header is composed (a counter: wizard steps cross-fade, so two can overlap). */
+/** Light status-bar icons while this is composed (a list: wizard steps cross-fade, so two can overlap). */
 @Composable
 internal fun LightStatusIcons() {
+    DisposableEffect(Unit) {
+        val token = Any()
+        darkBars.add(token)
+        onDispose { darkBars.remove(token) }
+    }
+}
+
+/** The one place the status-bar icon colour is set: dark on the page, light while a dark header shows. Once, at the root. */
+@Composable
+internal fun StatusIconsHost() {
     val view = LocalView.current
-    DisposableEffect(view) {
-        val bars = WindowCompat.getInsetsController((view.context as Activity).window, view)
-        onDarkBars.incrementAndGet()
-        bars.isAppearanceLightStatusBars = false
-        onDispose { if (onDarkBars.decrementAndGet() == 0) bars.isAppearanceLightStatusBars = true }
+    val light = darkBars.isEmpty()
+    androidx.compose.runtime.SideEffect {
+        WindowCompat.getInsetsController((view.context as Activity).window, view).isAppearanceLightStatusBars = light
     }
 }
 
 /**
- * The header of every screen but the two heroes (Status, Historial): plain Moss (D71; a strip of the tile grid read as a cut), back chip and title at the left,
- * optional subtitle, end slot (the unlocked chip on parent screens).
+ * The header of every screen but the two heroes (D75): on the page, a white 44 dp back disc and a bold title at the left,
+ * optional subtitle, end slot (the unlocked chip on parent screens). No band: the ink belongs to the state card.
  */
 @Composable
 fun HeaderBar(
     title: String,
     modifier: Modifier = Modifier,
     subtitle: String? = null,
-    start: @Composable () -> Unit = {},
+    start: (@Composable () -> Unit)? = null,
     end: @Composable () -> Unit = {},
 ) {
-    LightStatusIcons()
-    Box(modifier.fillMaxWidth().clipToBounds().background(Moss)) {
-        androidx.compose.runtime.CompositionLocalProvider(LocalOnDark provides true) {
-            Row(
-                Modifier.fillMaxWidth().statusBarsPadding().cutoutPadding().heightIn(min = 64.dp).padding(start = 6.dp, end = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                start()
-                Column(Modifier.weight(1f).padding(start = 10.dp, end = 8.dp)) {
-                    Text(title, Modifier.asHeading(), style = MaterialTheme.typography.titleMedium, color = Text0)
-                    if (subtitle != null) Text(subtitle, style = MaterialTheme.typography.bodySmall, color = Text1)
-                }
-                end()
+    Box(modifier.fillMaxWidth().background(Palette.Chalk)) {
+        Row(
+            Modifier.fillMaxWidth().statusBarsPadding().cutoutPadding().heightIn(min = 64.dp).padding(start = 8.dp, end = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (start != null) Box(Modifier.size(44.dp).shadow(1.dp, CircleShape).clip(CircleShape).background(Palette.Surface), contentAlignment = Alignment.Center) { start() }
+            Column(Modifier.weight(1f).padding(start = if (start != null) 12.dp else 8.dp, end = 8.dp)) {
+                Text(title, Modifier.asHeading(), style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, fontSize = 22.sp, letterSpacing = (-.5).sp), color = Palette.Moss)
+                if (subtitle != null) Text(subtitle, style = MaterialTheme.typography.bodySmall, color = Palette.Dim)
             }
+            end()
         }
     }
 }
@@ -191,7 +200,7 @@ fun PrefRow(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (icon != null) SIcon(icon, iconTint)
+        if (icon != null) Box(Modifier.size(36.dp).clip(RoundedCornerShape(12.dp)).background(Palette.Btn), contentAlignment = Alignment.Center) { SIcon(icon, iconTint) } // D75: the icon sits in a soft tile
         Column(Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.titleMedium)
             if (description != null) Text(description, style = MaterialTheme.typography.bodyMedium, color = Palette.Dim)

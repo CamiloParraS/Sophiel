@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -104,7 +105,7 @@ fun DoorHost(container: AppContainer, content: @Composable BoxScope.(Door) -> Un
  * (Status) or at the end of a parent screen's header. A tap locks. The time left is spoken, not printed: the ring is enough to see.
  */
 @Composable
-fun UnlockedChip(door: Door) {
+fun UnlockedChip(door: Door, onDark: Boolean = false) {
     val label = stringResource(R.string.unlocked_banner, dev.sophiel.pin.formatCountdown(door.remainingMs))
     val ease = tween<Float>(160, easing = Ease)
     AnimatedVisibility(
@@ -121,18 +122,18 @@ fun UnlockedChip(door: Door) {
         ) {
             Canvas(Modifier.size(36.dp)) {
                 val w = 2.5.dp.toPx() // thick enough to read as a timer, not an outline
-                drawCircle(Palette.DarkFill, size.minDimension / 2)
-                drawArc(Palette.Mint, -90f, -360f * left, false, Offset(w / 2, w / 2), Size(size.width - w, size.height - w), style = Stroke(w, cap = StrokeCap.Round))
+                drawCircle(if (onDark) Palette.DarkFill else Palette.Moss.copy(alpha = .08f), size.minDimension / 2)
+                drawArc(if (onDark) Palette.Mint else Palette.GreenFg, -90f, -360f * left, false, Offset(w / 2, w / 2), Size(size.width - w, size.height - w), style = Stroke(w, cap = StrokeCap.Round))
             }
-            SIcon(R.drawable.ic_unlock, Palette.Mint, 16.dp)
+            SIcon(R.drawable.ic_unlock, if (onDark) Palette.Mint else Palette.GreenFg, 16.dp)
         }
     }
 }
 
 /** Gear for Ajustes: a small lock on it while the door is shut. */
 @Composable
-fun GearButton(door: Door, onOpen: () -> Unit, onDark: Boolean = false) {
-    Box {
+fun GearButton(door: Door, onOpen: () -> Unit, onDark: Boolean = false, disc: Boolean = false) {
+    Box(if (disc) Modifier.size(44.dp).shadow(1.dp, CircleShape).clip(CircleShape).background(Palette.Surface) else Modifier, contentAlignment = Alignment.Center) {
         SButton(null, { door.pass(onOpen) }, style = if (onDark) BtnStyle.OnDark else BtnStyle.Default, icon = R.drawable.ic_gear, label = stringResource(R.string.settings_title))
         if (!door.unlocked) SIcon(R.drawable.ic_lock, if (onDark) Palette.DarkLock else Palette.Dim, 11.dp, Modifier.align(Alignment.BottomEnd).padding(end = 9.dp, bottom = 9.dp))
     }

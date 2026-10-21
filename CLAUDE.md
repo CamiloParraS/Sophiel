@@ -13,7 +13,7 @@ Read this file, then only the slices the pointers below name. SPEC (~15k tokens)
 MILESTONE:  M8 Solution fit (freeze lifted for M8 only, D53). Then UI polish, then M9 Remote (specified in SPEC §5, D76-D85; map `.scratch/m9-remote/map.md`), then M7.
 DONE:       M5 (D36), M6 (D52), M8 deliverables 1-4: capture modes, tamper guard, episode app, escalation + rules (V6 passed A and B).
 NEXT:       M8 deliverable 5: Log dashboard + text report + M8 sign-off (tickets 29-31, D59).
-IN FLIGHT:  branch feat/ui-mockup-v2, UI polish (latest D74: wizard in the app world, Todo listo bookend, one button shape, date language fix; D73: lit hero, Historial dedupe; D72: language switch; D71: critique pass, counting hero wall, one week row, Historial day summaries, ring unlock chip; Status seen on Device B, Historial and unlocked screens not yet seen). Uncommitted.
+IN FLIGHT:  branch feat/ui-mockup-v2, design A ported and committed (D75: Geist, Esmeralda, state card + bento, light headers). Status and PIN seen on Device A; Ajustes, Apps, Historial, wizard, block screen not yet seen.
 BLOCKED ON: Nothing.
 ```
 

@@ -1772,6 +1772,26 @@ From the third `/impeccable critique` (Protected state and the wizard); the huma
 - **Language bug (from D72):** day letters and "hace N minutos" read the Activity's locale (`appLocale()`, `relativeTime()`
   through ICU), not `Locale.getDefault()` or `DateUtils`, which could still be the phone's language after a cold start.
 
+## D75 — Design A ported: Geist, Esmeralda, the state card and a bento (2026-10-21, human request, UI polish)
+
+The human approved "A · Bento expresivo" (`.scratch/sophiel-a-final.html`, `-screens.html`) and chose Esmeralda and the cookie badge.
+Reopens D45 (Plex), D64/D70 (paper and Moss hero) and D74's button shape; D73's mint glow is dropped.
+
+- **Font:** Geist (OFL, bundled in `res/font`, licence in `assets/licenses`); Plex removed. Display titles are Bold 48 sp, -.04 em.
+- **Colour:** Esmeralda `#00804A` (`Palette.GreenFg`, white on it 5.0:1) wherever green means protected; `#3FD08F` (`Mint`/`Green`) for green on dark.
+  Ink is `#08201A` (`Moss`) and does every primary job (buttons, switches, ticks). Page is `#F1F2F1`.
+- **Status:** no state chip in any state. A 28 dp state card (tile wall, cookie badge when armed/protected, rounded square when not, headline,
+  subline) with the capture mode (D54) as one quiet line under the promise on Protegido only. Below it a bento: Historial (the 7-day count, green
+  only while protected, white otherwise; "N hoy"; day bars), Apps (count of Bloqueada apps; `APPS_BADGE_COOKIE` in `StatusScreen.kt` flips it to a
+  tile), Revisión (preset on a 3-step scale; Detallado lights no step). The nav bar stays gone: gear, tiles, one full-width action.
+  The old "Ver en Historial" row, week row and top-apps glance are gone; unlocked, "Para revisar" stays as one row.
+- **Buttons:** Status's Start/Stop are 60 dp, 22 dp radius; Stop is outlined in ink. Other text buttons keep D74's 12 dp.
+- **Other screens:** parent headers are on the page (white 44 dp back disc, bold title, no Moss band); icons sit in soft tiles; Ajustes opens
+  with two tiles (Cuánto tapa, Revisión) that show their scale; the wizard's top is the same header with an ink progress bar and its
+  welcome/"Todo listo" heroes are the state card; the Parent-block screen is flat ink.
+- **Not ported yet:** Historial's dark hero, the PIN sheet's tile slots, the wizard pictures' step-specific art and the Ajustes sheets' check
+  style still follow D70-D74 (recoloured by the new palette).
+
 ## D76 — C1 reopened for M9 Remote (2026-10-20, human scope change, `/wayfinder` charting of `.scratch/m9-remote/`)
 
 A professor requires a password-protected remote Parent function. This reopens C1, hard rule 1 and §1.3's "remote parent

@@ -61,6 +61,13 @@
     <string name="status_protected">Protegido</string>
     <string name="status_mode_share">Protección activa · compartir pantalla</string>
     <string name="status_mode_a11y">Protección activa · accesibilidad</string>
+    <string name="status_today_count">%1$d hoy</string>
+    <string name="status_mode_share_short">Compartir pantalla</string>
+    <string name="status_mode_a11y_short">Captura por accesibilidad</string>
+    <plurals name="status_apps_blocked">
+        <item quantity="one">bloqueada</item>
+        <item quantity="other">bloqueadas</item>
+    </plurals>
     <plurals name="status_missing">
         <item quantity="one">Falta %d cosa</item>
         <item quantity="other">Faltan %d cosas</item>
@@ -88,11 +95,11 @@
     <string name="gap_accessibility_text">Sin ella, Sophiel no sigue protegiendo. Actívala y toca Iniciar.</string>
     <string name="gap_app_closed_text">Activa la accesibilidad y toca Iniciar.</string>
     <string name="status_see_log">Ver en Historial</string>
-    <string name="proof_today">cubiertas hoy</string>
+    <string name="proof_today">tapados hoy</string>
     <string name="proof_last">Última: %1$s</string>
     <string name="proof_none">Nada que cubrir todavía</string>
     <string name="proof_see">Ver historial</string>
-    <string name="proof_week">%1$d cubiertas esta semana</string>
+    <string name="proof_week">%1$d tapados esta semana</string>
     <string name="status_to_restart">Para volver a iniciar</string>
     <string name="status_review">Revisión</string>
     <string name="preset_light">Ahorro</string>
@@ -134,7 +141,7 @@
     <!-- Historial -->
     <string name="log_title">Historial</string>
     <string name="log_today">Hoy</string>
-    <string name="log_hero_text">cubiertas en 7 días</string>
+    <string name="log_hero_text">tapados en 7 días</string>
     <string name="log_week_title">Últimos 7 días</string>
     <string name="log_by_app">Por app</string>
     <string name="log_app_recents">Inicio y recientes</string>
@@ -338,7 +345,7 @@
     <string name="minutes_short">%d min</string>
     <string name="apps_escalate">Bloquear apps que muestran contenido explícito repetidamente</string>
     <string name="glance_title">De un vistazo</string>
-    <string name="glance_today">Cubiertas hoy</string>
-    <string name="glance_week">Cubiertas en 7 días</string>
+    <string name="glance_today">Tapados hoy</string>
+    <string name="glance_week">Tapados en 7 días</string>
     <string name="group_apps_activity">Apps y actividad</string>
 </resources>

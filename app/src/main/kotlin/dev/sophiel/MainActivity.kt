@@ -81,6 +81,7 @@ import dev.sophiel.ui.LogModel
 import dev.sophiel.ui.SetupWizard
 import dev.sophiel.ui.Need
 import dev.sophiel.ui.StatusActions
+import dev.sophiel.settings.AppRule
 import dev.sophiel.ui.StatusInput
 import dev.sophiel.ui.StatusModel
 import dev.sophiel.ui.StatusScreen
@@ -149,6 +150,7 @@ class MainActivity : ComponentActivity() {
         )
         setContent {
             SophielTheme {
+                dev.sophiel.ui.StatusIconsHost()
                 val container = (application as SophielApp).container
                 // D42: the wizard runs while no PIN exists. Saved, so it survives rotation once step 1 has made the PIN;
                 // a wizard swiped away after that opens on Status next time.
@@ -167,11 +169,12 @@ class MainActivity : ComponentActivity() {
         // Behind the door: rotation keeps them, a relock closes them all (D38).
         var logOpen by rememberSaveable { mutableStateOf(false) }
         var settingsOpen by rememberSaveable { mutableStateOf(false) }
+        var reviewFirst by rememberSaveable { mutableStateOf(false) } // Settings opened from Status's Revisión tile: its sheet shows at once
         var appsOpen by rememberSaveable { mutableStateOf(false) }
         var debugOpen by rememberSaveable { mutableStateOf(false) }
         var debugPage by rememberSaveable { mutableStateOf<DebugPage?>(null) }
         LaunchedEffect(door.unlocked) {
-            if (!door.unlocked) { logOpen = false; appsOpen = false; settingsOpen = false; debugOpen = false; debugPage = null }
+            if (!door.unlocked) { logOpen = false; appsOpen = false; settingsOpen = false; reviewFirst = false; debugOpen = false; debugPage = null }
         }
         val reduced = reducedMotion()
         val ctx = androidx.compose.ui.platform.LocalContext.current
@@ -183,7 +186,7 @@ class MainActivity : ComponentActivity() {
                 debugOpen -> debugOpen = false
                 logOpen -> logOpen = false
                 appsOpen -> appsOpen = false
-                else -> settingsOpen = false
+                else -> { settingsOpen = false; reviewFirst = false }
             }
         }
         val actions = remember {
@@ -193,6 +196,8 @@ class MainActivity : ComponentActivity() {
                 fix = ::fix,
                 openSettings = { settingsOpen = true },
                 seeLog = { door.pass { logOpen = true } },
+                openApps = { door.pass { appsOpen = true } },
+                openReview = { door.pass { reviewFirst = true; settingsOpen = true } },
             )
         }
         // Depth is how far from Status a screen sits: going deeper slides in from the end, going back slides out to it.
@@ -233,7 +238,7 @@ class MainActivity : ComponentActivity() {
                 d == 3 -> DebugMenu(container, door, onBack = { debugOpen = false }, open = { debugPage = it }, rerunWizard = rerunWizard)
                 d == 2 && log -> LogScreen(container.log, door, onBack = { logOpen = false })
                 d == 2 -> AppsScreen(container, door, onBack = { appsOpen = false })
-                d == 1 -> SettingsScreen(container, door, onBack = { settingsOpen = false }, onHistory = { logOpen = true }, onApps = { appsOpen = true }, onDebug = { debugOpen = true })
+                d == 1 -> SettingsScreen(container, door, onBack = { settingsOpen = false; reviewFirst = false }, openReview = reviewFirst, onHistory = { logOpen = true }, onApps = { appsOpen = true }, onDebug = { debugOpen = true })
                 else -> statusScreen(controller, container, resumes.intValue, door, actions)
             } }
         }
@@ -344,5 +349,6 @@ private fun statusScreen(controller: ProjectionController, container: AppContain
     )
     val blocks by container.escalation.blocks.collectAsState()
     val week = remember(state.phase, mode.protecting, resumes) { LogModel.of(container.log.entries(), System.currentTimeMillis(), java.time.ZoneId.systemDefault()) }
-    StatusScreen(model, door, actions, modifier, blocks, week)
+    val rules by container.appRules.state.collectAsState()
+    StatusScreen(model, door, actions, modifier, blocks, week, blockedApps = rules.count { it.value == AppRule.BLOCKED })
 }

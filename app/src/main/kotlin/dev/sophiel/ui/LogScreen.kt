@@ -204,7 +204,7 @@ fun LogScreen(log: EventLog, door: Door, onBack: () -> Unit) {
     var pick by rememberSaveable { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
     // Light icons on the dark hero; back to dark ones when leaving.
-    LightStatusIcons() // counted, so a screen leaving after this one came can't turn them dark again
+    if (!byApp) LightStatusIcons() // the by-app page has the light header
     val scroll = rememberScrollState()
     val density = LocalDensity.current
     var heroPx by remember { mutableIntStateOf(0) }
@@ -252,7 +252,7 @@ fun LogScreen(log: EventLog, door: Door, onBack: () -> Unit) {
         ) {
             SButton(null, onBack, style = BtnStyle.OnDark, icon = R.drawable.ic_back, label = stringResource(R.string.back))
             Text(stringResource(R.string.log_title), Modifier.asHeading().weight(1f).padding(start = 10.dp), style = MaterialTheme.typography.titleMedium, color = Text0)
-            UnlockedChip(door)
+            UnlockedChip(door, onDark = true)
         }
     }
     if (confirm) ConfirmDialog(
@@ -340,7 +340,7 @@ private fun ColumnScope.Content(model: LogModel, labels: Map<String, String>, sc
                 val p = m.measure(c.copy(minWidth = c.maxWidth + 2 * e, maxWidth = c.maxWidth + 2 * e))
                 layout(c.maxWidth, p.height) { p.place(-e, 0) }
             }
-            .background(Palette.Chalk).padding(horizontal = 16.dp, vertical = 6.dp),
+            .background(Palette.Chalk).padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 14.dp), // the band is taller than the pill: a row never shows half-cut under it
     )
     // A busy week has hundreds of rows, all composed at once in this scroll: show a page, add a page per tap.
     var shown by rememberSaveable(filter) { mutableIntStateOf(PAGE) }
@@ -443,7 +443,7 @@ private fun AppBars(apps: List<Pair<String, Int>>, label: (String) -> String) {
         apps.forEach { (app, n) ->
             Box(Modifier.fillMaxWidth().height(32.dp)) {
                 // One ink for every bar (D59 did the same for the day bars); never narrower than the icon and a short name, so the label stays on its fill.
-                Box(Modifier.fillMaxWidth((n.toFloat() / most).coerceAtLeast(.4f)).fillMaxHeight().clip(RoundedCornerShape(6.dp)).background(Palette.Btn))
+                Box(Modifier.fillMaxWidth((n.toFloat() / most).coerceAtLeast(.4f)).fillMaxHeight().clip(RoundedCornerShape(6.dp)).background(Palette.GreenFg.copy(alpha = .16f)))
                 Row(
                     Modifier.matchParentSize().padding(horizontal = 8.dp),
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
