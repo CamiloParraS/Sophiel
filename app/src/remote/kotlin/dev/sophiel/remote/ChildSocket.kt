@@ -50,7 +50,7 @@ private class AndroidChildPhone(private val app: SophielApp) : ChildPhone {
 
 /**
  * D78, D83: while the process lives and a pairing exists, hold the Child socket: `hello` on open, answer each `req`.
- * Reconnect on network change and screen on (forced), and on a 5-min `setAndAllowWhileIdle` alarm (if closed).
+ * Reconnect on network change and screen on (forced), and on a 5-min `setAndAllowWhileIdle` alarm (forced: a silently dead socket is found by the next check).
  */
 object ChildSocket {
     private const val TAG = "Sophiel"
@@ -93,7 +93,7 @@ object ChildSocket {
         ContextCompat.registerReceiver(app, object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) {
                 if (RemoteState.paired.value) arm(context)
-                kick("alarm", force = false)
+                kick("alarm", force = true) // a silently dead socket only shows up by reconnecting (limitation 28)
             }
         }, IntentFilter(ALARM), ContextCompat.RECEIVER_NOT_EXPORTED)
     }
