@@ -54,6 +54,17 @@ class HomeCards(private val api: Api, private val session: ParentSession, privat
         _cards.update { it - id }
     }
 
+    /**
+     * Desvincular (D79): the relay deletes the pairing and tells the Child phone. Offline or already gone, the entry still
+     * goes (the Child phone's next hello is rejected); only a dead session keeps it, for after login.
+     */
+    suspend fun unpair(id: String) {
+        val token = session.token.value ?: return
+        val r = api.unpair(token, id)
+        if (r is Reply.Fail && r.why == Failure.SESSION) return session.expireOn(r.why)
+        remove(id)
+    }
+
     private suspend fun act(id: String, type: String) {
         val live = _cards.value[id] as? Card.Live ?: return
         if (live.busy) return

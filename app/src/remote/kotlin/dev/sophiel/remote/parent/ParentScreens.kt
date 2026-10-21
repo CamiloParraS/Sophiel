@@ -344,7 +344,7 @@ private fun ChildCard(name: String, card: Card, now: Long, id: String, home: Hom
                     color = if (live?.accessibilityOff == true) Palette.AmberInk else Palette.Text1,
                 )
             }
-            Row(Modifier.padding(top = 12.dp)) {
+            Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 when (card) {
                     Card.Loading -> {}
                     Card.Offline -> Pill(stringResource(R.string.par_card_retry)) { scope.launch { home.refresh(id) } }
@@ -353,6 +353,7 @@ private fun ChildCard(name: String, card: Card, now: Long, id: String, home: Hom
                         if (card.protecting) Pill(stringResource(R.string.par_stop), busy = card.busy) { scope.launch { home.stop(id) } }
                         else Pill(stringResource(R.string.par_start), busy = card.busy, enabled = card.canStart || card.busy, go = true) { scope.launch { home.start(id) } }
                 }
+                if (card != Card.Gone) UnpairButton(name, id, home) // ticket 21; moves to the per-phone screen if that lands
             }
         }
         live?.banner?.let { Banner(it) }

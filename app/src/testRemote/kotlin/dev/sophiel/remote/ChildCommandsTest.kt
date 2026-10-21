@@ -167,4 +167,31 @@ class ChildCommandsTest {
         assertNull(runBlocking { link().onFrame("not json") })
         assertTrue(store.paired)
     }
+
+    @Test fun `Desvincular here deletes key and token, logs este telefono, and leaves a farewell for the relay`() {
+        val key = paired()
+        assertTrue(unpairHere(store, log))
+        assertFalse(store.paired)
+        assertFalse(store.key().contentEquals(key))
+        assertEquals(Entry(now, "UNPAIRED", listOf("CHILD")), log.entries().single())
+        assertNull(link().hello()) // the held socket stops
+        val (hello, unpair) = link().farewell()!!.map(::JSONObject)
+        assertEquals("tok", hello.getString("deviceToken"))
+        assertEquals("unpair", unpair.getString("t"))
+        assertFalse(unpairHere(store, log)) // twice: nothing more
+        assertEquals(1, log.entries().size)
+    }
+
+    @Test fun `the farewell lasts until the relay closes the socket or rejects the token`() {
+        paired()
+        unpairHere(store, log)
+        link().farewellDone()
+        assertNull(link().farewell())
+        paired()
+        unpairHere(store, log)
+        assertNull(runBlocking { link().onFrame("""{"t":"unpaired"}""") })
+        assertNull(link().farewell())
+        assertEquals(0, unpairedCalls)
+        assertEquals(2, log.entries().size) // no second line for the rejected farewell
+    }
 }

@@ -52,6 +52,7 @@ import com.google.zxing.qrcode.QRCodeWriter
 import dev.sophiel.BuildConfig
 import dev.sophiel.R
 import dev.sophiel.ui.BtnStyle
+import dev.sophiel.ui.ConfirmDialog
 import dev.sophiel.ui.Door
 import dev.sophiel.ui.HeaderBar
 import dev.sophiel.ui.PrefRow
@@ -111,6 +112,7 @@ private fun PairingScreen(onClose: () -> Unit) {
     val paired by RemoteState.paired.collectAsState()
     var again by rememberSaveable { mutableStateOf(false) } // "Mostrar código otra vez" while already paired
     val claiming = (exempt || skipped) && (!paired || again)
+    var confirmUnpair by rememberSaveable { mutableStateOf(false) }
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         Column(Modifier.fillMaxSize().background(Palette.Chalk)) {
             HeaderBar(
@@ -135,10 +137,17 @@ private fun PairingScreen(onClose: () -> Unit) {
                             Text(stringResource(R.string.pair_status), style = MaterialTheme.typography.titleMedium, color = Palette.GreenFg)
                         }
                         SButton(stringResource(R.string.pair_again), { again = true }, Modifier.fillMaxWidth())
+                        SButton(stringResource(R.string.pair_unpair), { confirmUnpair = true }, Modifier.fillMaxWidth(), BtnStyle.Destructive)
                     }
                 }
             }
         }
+        if (confirmUnpair) ConfirmDialog(
+            title = stringResource(R.string.pair_unpair_title), text = stringResource(R.string.pair_unpair_text),
+            confirmLabel = stringResource(R.string.pair_unpair), cancelLabel = stringResource(R.string.pin_cancel),
+            onConfirm = { confirmUnpair = false; RemoteState.unpairFromHere(); onClose() },
+            onDismiss = { confirmUnpair = false },
+        )
     }
 }
 

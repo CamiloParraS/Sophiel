@@ -133,6 +133,30 @@ test("unpair from the Child side", async () => {
   expect((await post(`/pairings/${pairingId}/request`, { body: "x" }, tok)).status).toBe(410);
 });
 
+test("unpaired by the Parent while the Child was offline: its next hello is rejected", async () => {
+  const tok = await signup();
+  const { c, pairingId, deviceToken } = await pair(tok);
+  c.ws.close();
+  await closed(c.ws);
+  expect((await post("/pairings/" + pairingId, undefined, tok, "DELETE")).status).toBe(200);
+  const c2 = await child();
+  c2.send({ t: "hello", deviceToken });
+  await c2.next("unpaired");
+  await closed(c2.ws);
+});
+
+test("the Child unpairs on a fresh socket after being offline (hello, then unpair)", async () => {
+  const tok = await signup();
+  const { c, pairingId, deviceToken } = await pair(tok);
+  c.ws.close();
+  await closed(c.ws);
+  const c2 = await child();
+  c2.send({ t: "hello", deviceToken });
+  c2.send({ t: "unpair" });
+  await closed(c2.ws);
+  expect((await post(`/pairings/${pairingId}/request`, { body: "x" }, tok)).status).toBe(410);
+});
+
 test("a deleted account's device token gets unpaired on hello", async () => {
   const tok = await signup();
   const { c, deviceToken } = await pair(tok);

@@ -31,6 +31,11 @@ private class FakeRelay(private val key: ByteArray) : Api {
     override suspend fun logout(token: String) = Reply.Ok
     override suspend fun deleteAccount(token: String) = Reply.Ok
     override suspend fun pair(token: String, claimCode: String) = Reply.Ok
+    var unpairFail: Failure? = null
+    override suspend fun unpair(token: String, pairingId: String): Reply {
+        seen += "unpair $pairingId"
+        return unpairFail?.let { Reply.Fail(it) } ?: Reply.Ok
+    }
     override suspend fun request(token: String, pairingId: String, body: String): Reply {
         fail?.let { return Reply.Fail(it) }
         val req: Request = Protocol.decodeRequest(Envelope.open(key, pairingId, Protocol.fromWire(body)!!)!!)!!
@@ -138,5 +143,29 @@ class HomeCardsTest {
         relay.fail = Failure.OTHER
         home.start("p1")
         assertEquals(Card.Live(false, false, 1_000L, banner = Outcome.FAILED), card())
+    }
+
+    @Test fun unpairDeletesThePairingThenDropsTheEntryAndKey() = runBlocking {
+        home.open()
+        home.unpair("p1")
+        assertEquals(listOf("log", "unpair p1"), relay.seen)
+        assertNull(card())
+        assertTrue(Children(kv).list.value.isEmpty())
+    }
+
+    @Test fun unpairOfflineOrGoneStillDropsLocally() = runBlocking {
+        for (f in listOf(Failure.OFFLINE, Failure.GONE)) {
+            session.children.add(Child("p1", "Sofi", key))
+            relay.unpairFail = f
+            home.unpair("p1")
+            assertTrue(Children(kv).list.value.isEmpty())
+        }
+    }
+
+    @Test fun unpairWithADeadSessionKeepsTheEntryForAfterLogin() = runBlocking {
+        relay.unpairFail = Failure.SESSION
+        home.unpair("p1")
+        assertNull(session.token.value)
+        assertEquals(listOf("p1"), Children(kv).list.value.map { it.id })
     }
 }

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="pair_unpair">Unpair</string>
+    <string name="pair_unpair_title">Unpair this phone?</string>
+    <string name="pair_unpair_text">The Parent\'s phone will no longer see this phone\'s history or send it commands. Pairing again needs a new code.</string>
+    <string name="par_unpair">Unpair</string>
+    <string name="par_unpair_title">Unpair %1$s?</string>
+    <string name="par_unpair_text">This phone will stop receiving commands and its key is deleted here. To pair it again, show a new code on the Child\'s phone.</string>
+</resources>
