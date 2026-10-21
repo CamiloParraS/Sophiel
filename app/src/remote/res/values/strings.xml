@@ -20,4 +20,8 @@
     <string name="pair_again">Mostrar código otra vez</string>
     <string name="pair_battery_need">Sin restricción de batería</string>
     <string name="pair_battery_need_text">Para que el teléfono del Padre lo alcance con la pantalla apagada.</string>
+    <plurals name="par_account_linked">
+        <item quantity="one">1 teléfono vinculado</item>
+        <item quantity="other">%d teléfonos vinculados</item>
+    </plurals>
 </resources>

@@ -2,6 +2,7 @@ package dev.sophiel.remote.parent
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import android.icu.text.RelativeDateTimeFormatter
@@ -9,6 +10,7 @@ import android.icu.util.ULocale
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -37,6 +39,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardType
@@ -44,6 +47,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalContext
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
@@ -57,6 +61,8 @@ import dev.sophiel.ui.BtnStyle
 import dev.sophiel.ui.ConfirmDialog
 import dev.sophiel.ui.BottomSheet
 import dev.sophiel.ui.HeaderBar
+import dev.sophiel.ui.InkCard
+import dev.sophiel.ui.InkTone
 import dev.sophiel.ui.PrefRow
 import dev.sophiel.ui.PreferenceGroup
 import dev.sophiel.ui.SButton
@@ -123,27 +129,19 @@ private fun AuthScreen() {
             verticalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterVertically),
         ) {
             val failed = error
-            // The state card: ink, a badge, a headline and one line; it turns to the error when a call fails.
-            Column(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(Palette.Moss).padding(horizontal = 22.dp, vertical = 22.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Box(Modifier.size(64.dp).clip(RoundedCornerShape(22.dp)).background(if (failed != null) Palette.TileRed else Palette.TileOn), contentAlignment = Alignment.Center) {
-                    SIcon(if (failed != null) R.drawable.ic_warn else R.drawable.ic_key, if (failed != null) Palette.RedInk else Palette.Mint, 26.dp)
-                }
-                Text(
-                    stringResource(if (failed != null) R.string.par_err_title else if (signup) R.string.par_signup_title else R.string.par_login_title),
-                    Modifier.padding(top = 14.dp).asHeading(), style = MaterialTheme.typography.headlineSmall, color = Palette.Text0, textAlign = TextAlign.Center,
-                )
-                Text(
-                    stringResource(failed?.text() ?: if (signup) R.string.par_signup_text else R.string.par_login_text),
-                    Modifier.padding(top = 8.dp), style = MaterialTheme.typography.bodyMedium, color = Palette.Text1, textAlign = TextAlign.Center,
-                )
-                if (failed == null) Row(Modifier.padding(top = 14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) { // D83: on login and on sign-up
-                    SIcon(R.drawable.ic_shield_ok, Palette.Mint, 16.dp)
-                    Text(stringResource(R.string.par_privacy), style = MaterialTheme.typography.bodySmall, color = Palette.Text1)
-                }
-            }
+            // The state card (D75): the tile wall, a badge, a headline and one line; it turns red when a call fails.
+            InkCard(
+                stringResource(if (failed != null) R.string.par_err_title else if (signup) R.string.par_signup_title else R.string.par_login_title),
+                text = stringResource(failed?.text() ?: if (signup) R.string.par_signup_text else R.string.par_login_text),
+                tone = if (failed != null) InkTone.Red else InkTone.Ok, icon = if (failed != null) R.drawable.ic_warn else R.drawable.ic_key,
+                square = failed != null, centered = true, titleSize = if (signup) 34.sp else 38.sp,
+                footer = if (failed != null) null else ({ // D83: on login and on sign-up
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        SIcon(R.drawable.ic_shield_ok, Palette.Mint, 16.dp)
+                        Text(stringResource(R.string.par_privacy), Modifier.weight(1f, fill = false), style = MaterialTheme.typography.bodySmall, color = Palette.Text1, textAlign = TextAlign.Center)
+                    }
+                }),
+            )
             Field(email, { email = it; error = null }, stringResource(R.string.par_email), KeyboardType.Email, VisualTransformation.None)
             Field(password, { password = it; error = null }, stringResource(R.string.par_password), KeyboardType.Password, PasswordVisualTransformation())
             if (signup) Note(
@@ -167,12 +165,12 @@ private fun AuthScreen() {
 private fun Link(text: String, onClick: () -> Unit) =
     Text(
         text, Modifier.fillMaxWidth().clickable(role = Role.Button, onClick = onClick).heightIn(min = 48.dp).padding(top = 13.dp),
-        style = MaterialTheme.typography.labelLarge, color = Palette.GreenFg, textAlign = TextAlign.Center,
+        style = MaterialTheme.typography.labelLarge.copy(textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline), color = Palette.Moss, textAlign = TextAlign.Center,
     )
 
 @Composable
 private fun Field(value: String, onChange: (String) -> Unit, hint: String, type: KeyboardType, transform: VisualTransformation) {
-    Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Palette.Card)) {
+    Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(Palette.Card).then(if (value.isNotEmpty()) Modifier.border(2.dp, Palette.Moss, RoundedCornerShape(18.dp)) else Modifier)) {
         BasicTextField(
             value, onChange, Modifier.fillMaxWidth().heightIn(min = 52.dp).padding(horizontal = 16.dp, vertical = 15.dp),
             singleLine = true, textStyle = MaterialTheme.typography.bodyLarge.copy(color = Palette.Fg), cursorBrush = SolidColor(Palette.Fg),
@@ -210,7 +208,7 @@ private fun ParentHome() {
             })
             if (children.isEmpty()) Column(Modifier.weight(1f).navigationBarsPadding().cutoutPadding().pageWidth().padding(horizontal = 14.dp), verticalArrangement = Arrangement.Center) {
                 // It says where the Child phone's QR is.
-                StatusPage(R.drawable.ic_phone, stringResource(R.string.par_empty_title), stringResource(R.string.par_empty_text), Tone.Off)
+                InkCard(stringResource(R.string.par_empty_title), text = stringResource(R.string.par_empty_text), icon = R.drawable.ic_phone, lit = 3)
                 SButton(stringResource(R.string.par_scan_do), { adding = true }, Modifier.fillMaxWidth().padding(top = 10.dp), style = BtnStyle.Go)
             } else Column(
                 Modifier.weight(1f).verticalScroll(rememberScrollState()).navigationBarsPadding().cutoutPadding().pageWidth().padding(14.dp),
@@ -226,6 +224,10 @@ private fun ParentHome() {
         }
         AddSheet(adding) { adding = false }
         BottomSheet(account, stringResource(R.string.par_account), { account = false }) {
+            InkCard(
+                stringResource(R.string.role_parent), text = pluralStringResource(R.plurals.par_account_linked, children.size, children.size),
+                icon = R.drawable.ic_key, titleSize = 28.sp,
+            )
             PreferenceGroup {
                 item { PrefRow(stringResource(R.string.par_logout), icon = R.drawable.ic_unlock, onClick = { account = false; scope.launch { session.logout() } }) }
                 item {
@@ -340,53 +342,61 @@ private fun ChildCard(name: String, card: Card, now: Long, id: String, home: Hom
         live.protecting -> Palette.Moss
         else -> Palette.HeroAmber
     }
+    val title = when (card) {
+        Card.Loading -> null
+        Card.Offline -> stringResource(R.string.par_card_offline)
+        Card.Gone -> stringResource(R.string.par_card_gone)
+        is Card.Live -> stringResource(if (card.protecting) R.string.par_card_on else R.string.par_card_off)
+    }
+    val line = when (card) {
+        Card.Loading -> null
+        Card.Offline -> stringResource(R.string.par_card_offline_text)
+        Card.Gone -> stringResource(R.string.par_card_gone_text)
+        is Card.Live -> (if (card.accessibilityOff) stringResource(R.string.par_card_acc_off) + " · " else "") + ago(card.at, now)
+    }
     Column {
         // The card opens the phone's Historial and Apps (D81); Start / Stop / Reintentar stay their own targets.
-        Column(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(bg)
-                .clickable(onClickLabel = stringResource(R.string.par_phone_open, name), role = Role.Button, onClick = onOpen).padding(18.dp),
-        ) {
+        val open = Modifier.clickable(onClickLabel = stringResource(R.string.par_phone_open, name), role = Role.Button, onClick = onOpen)
+        val head: @Composable () -> Unit = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(name, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, color = Palette.Text1)
-                SIcon(R.drawable.ic_chev, Palette.Text1, 16.dp)
+                Text(name, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, color = if (live != null) Palette.Text1 else Palette.Dim)
+                SIcon(R.drawable.ic_chev, if (live != null) Palette.Text1 else Palette.Dim, 16.dp)
             }
-            val (title, line) = when (card) {
-                Card.Loading -> null to null
-                Card.Offline -> stringResource(R.string.par_card_offline) to stringResource(R.string.par_card_offline_text)
-                Card.Gone -> stringResource(R.string.par_card_gone) to stringResource(R.string.par_card_gone_text)
-                is Card.Live -> stringResource(if (card.protecting) R.string.par_card_on else R.string.par_card_off) to
-                    (if (card.accessibilityOff) stringResource(R.string.par_card_acc_off) + " · " else "") + ago(card.at, now)
-            }
-            if (title == null) {
-                // Skeleton while the log request is out.
-                Box(Modifier.padding(top = 10.dp).fillMaxWidth(.6f).height(26.dp).clip(RoundedCornerShape(8.dp)).background(Palette.DarkFill))
-                Box(Modifier.padding(top = 8.dp).fillMaxWidth(.8f).height(14.dp).clip(RoundedCornerShape(6.dp)).background(Palette.DarkFill))
-            } else {
-                Text(title, Modifier.padding(top = 4.dp).asHeading(), style = MaterialTheme.typography.headlineSmall, color = Palette.Text0)
-                Text(
-                    line.orEmpty(), Modifier.padding(top = 4.dp), style = MaterialTheme.typography.bodyMedium,
-                    color = if (live?.accessibilityOff == true) Palette.AmberInk else Palette.Text1,
-                )
-            }
-            Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        }
+        val actions: @Composable ColumnScope.() -> Unit = {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 when (card) {
                     Card.Loading -> {}
-                    Card.Offline -> Pill(stringResource(R.string.par_card_retry)) { scope.launch { home.refresh(id) } }
-                    Card.Gone -> Pill(stringResource(R.string.par_card_remove)) { home.remove(id) }
+                    Card.Offline -> Pill(stringResource(R.string.par_card_retry), onDark = false) { scope.launch { home.refresh(id) } }
+                    Card.Gone -> Pill(stringResource(R.string.par_card_remove), onDark = false) { home.remove(id) }
                     is Card.Live ->
                         if (card.protecting) Pill(stringResource(R.string.par_stop), busy = card.busy) { scope.launch { home.stop(id) } }
                         else Pill(stringResource(R.string.par_start), busy = card.busy, enabled = card.canStart || card.busy, go = true) { scope.launch { home.start(id) } }
                 }
             }
         }
+        if (live != null) InkCard(
+            title.orEmpty(), open, text = line, tone = if (live.protecting) InkTone.Ok else InkTone.Amber, titleSize = 36.sp, header = head, footer = actions,
+        ) else Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(Palette.Surface).then(open).padding(20.dp)) {
+            head()
+            if (title == null) {
+                // Skeleton while the log request is out.
+                Box(Modifier.padding(top = 10.dp).fillMaxWidth(.6f).height(26.dp).clip(RoundedCornerShape(8.dp)).background(Palette.Btn))
+                Box(Modifier.padding(top = 8.dp).fillMaxWidth(.8f).height(14.dp).clip(RoundedCornerShape(6.dp)).background(Palette.Btn))
+            } else {
+                Text(title, Modifier.padding(top = 6.dp).asHeading(), style = MaterialTheme.typography.displaySmall.copy(fontSize = 36.sp, lineHeight = 39.sp), color = Palette.Moss)
+                Text(line.orEmpty(), Modifier.padding(top = 4.dp), style = MaterialTheme.typography.bodyMedium, color = Palette.Dim)
+            }
+            Column(Modifier.padding(top = 12.dp), content = actions)
+        }
         live?.banner?.let { Banner(it) }
     }
 }
 
 @Composable
-private fun Pill(text: String, busy: Boolean = false, enabled: Boolean = true, go: Boolean = false, onClick: () -> Unit) =
+private fun Pill(text: String, busy: Boolean = false, enabled: Boolean = true, go: Boolean = false, onDark: Boolean = true, onClick: () -> Unit) =
     SButton(
-        text, onClick, style = BtnStyle.OnDark, busy = busy, enabled = enabled,
+        text, onClick, style = if (onDark) BtnStyle.OnDark else BtnStyle.Default, busy = busy, enabled = enabled,
         fill = if (go && enabled && !busy) Palette.Mint else Color.Unspecified, tint = if (go && enabled && !busy) Palette.Moss else Color.Unspecified,
     )
 

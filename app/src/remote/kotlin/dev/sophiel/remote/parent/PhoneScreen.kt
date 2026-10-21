@@ -127,7 +127,7 @@ private fun ColumnScope.Historial(s: PhoneState.Ready) {
     val scroll = rememberScrollState()
     var topPx by remember { mutableIntStateOf(0) } // where the scroll starts: the filter pins there
     Column(Modifier.weight(1f).fillMaxWidth().onGloballyPositioned { topPx = it.positionInRoot().y.toInt() }.verticalScroll(scroll)) {
-        LogHero(model.week, model.days, Modifier, underBar = false)
+        LogHero(model.week, model.days, Modifier.padding(top = 4.dp))
         Column(
             Modifier.fillMaxWidth().navigationBarsPadding().cutoutPadding().pageWidth().padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),

@@ -380,7 +380,7 @@ private fun Bento(model: StatusModel, week: LogModel?, blockedApps: Int, actions
                         Modifier.size(44.dp).clip(if (APPS_BADGE_COOKIE) CookieShape(8) else RoundedCornerShape(14.dp)).background(Palette.Moss),
                         contentAlignment = Alignment.Center,
                     ) { Text(blockedApps.toString(), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, fontFeatureSettings = "tnum"), color = Color.White) }
-                    Text(pluralStringResource(R.plurals.status_apps_blocked, blockedApps), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = Palette.Moss)
+                    Text(pluralStringResource(R.plurals.status_apps_blocked, blockedApps), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, fontSize = 15.sp), color = Palette.Moss, maxLines = 1, softWrap = false)
                 }
             }
             BentoTile(stringResource(R.string.status_review), actions.openReview, Modifier.weight(1f).fillMaxWidth()) {

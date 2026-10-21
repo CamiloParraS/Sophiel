@@ -20,4 +20,8 @@
     <string name="pair_again">Show code again</string>
     <string name="pair_battery_need">No battery restriction</string>
     <string name="pair_battery_need_text">For the Parent\'s phone to reach this one with the screen off.</string>
+    <plurals name="par_account_linked">
+        <item quantity="one">1 linked phone</item>
+        <item quantity="other">%d linked phones</item>
+    </plurals>
 </resources>

@@ -76,7 +76,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
@@ -206,57 +208,43 @@ fun LogScreen(log: EventLog, door: Door, onBack: () -> Unit) {
     var byApp by rememberSaveable { mutableStateOf(false) }
     var pick by rememberSaveable { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
-    // Light icons on the dark hero; back to dark ones when leaving.
-    if (!byApp) LightStatusIcons() // the by-app page has the light header
     val scroll = rememberScrollState()
-    val density = LocalDensity.current
-    var heroPx by remember { mutableIntStateOf(0) }
-    var barPx by remember { mutableIntStateOf(0) }
-    val lip = with(density) { 20.dp.roundToPx() }
-    // The top bar turns solid once the sheet's edge reaches it, so the back button never floats over chalk.
-    val solid by remember { derivedStateOf { heroPx > 0 && heroPx - lip - scroll.value <= barPx } }
-    val barFill by animateColorAsState(if (solid) Moss else Color.Transparent, motion(tween(160)), label = "bar")
     if (byApp && model != null) {
         LogAppsScreen(model, labels, pick, { pick = it }, door, onBack = { byApp = false })
         return
     }
+    var topPx by remember { mutableIntStateOf(0) } // where the scroll starts: the filter pins there
     Box(Modifier.fillMaxSize().background(Palette.Chalk)) {
-        Column(Modifier.fillMaxSize().verticalScroll(scroll)) {
-            val m = model
-            LogHero(m?.week, m?.days.orEmpty(), Modifier.onSizeChanged { heroPx = it.height })
-            // The sheet rides 20 dp over the hero, as on Status; layout, not offset, so it leaves no gap at the bottom.
-            Column(
-                Modifier.fillMaxWidth().layout { mm, c ->
-                    val p = mm.measure(c)
-                    layout(p.width, p.height - lip) { p.place(0, -lip) }
-                }.clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)).background(Palette.Chalk)
-                    // Tall enough to cover the rest of the hero's tiles before the list has landed (else they peek out below a short sheet).
-                    .heightIn(min = (LocalConfiguration.current.screenHeightDp.dp - with(density) { heroPx.toDp() } + 64.dp).coerceAtLeast(0.dp))
-                    .navigationBarsPadding().cutoutPadding().pageWidth().padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp),
-            ) {
-                CompositionLocalProvider(LocalRowMin provides 48.dp) {
-                    when {
-                        m == null -> LogSkeleton()
-                        m.empty -> AnimatedVisibility(true, enter = fadeIn(motion(tween(180, easing = Ease)))) {
-                            StatusPage(R.drawable.ic_list, stringResource(R.string.log_empty), stringResource(R.string.log_empty_text), Tone.Off, Modifier.padding(vertical = 24.dp))
-                        }
-                        !settled -> LogSkeleton()
-                        else -> AnimatedVisibility(true, enter = fadeIn(motion(tween(180, easing = Ease)))) {
-                            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) { LogContent(m, labels, scroll, barPx, onClear = { confirm = true }, onByApp = { byApp = true }) }
+        Column(Modifier.fillMaxSize()) {
+            // D75: the header is on the page (white back disc, bold title); the dark hero is a card under it.
+            HeaderBar(
+                stringResource(R.string.log_title), start = { SButton(null, onBack, icon = R.drawable.ic_back, label = stringResource(R.string.back)) },
+                end = {
+                    if (model != null && !model.empty) SButton(stringResource(R.string.report_open), { report = true })
+                    UnlockedChip(door)
+                },
+            )
+            Column(Modifier.weight(1f).fillMaxWidth().onGloballyPositioned { topPx = it.positionInRoot().y.toInt() }.verticalScroll(scroll)) {
+                val m = model
+                LogHero(m?.week, m?.days.orEmpty(), Modifier.cutoutPadding().pageWidth())
+                Column(
+                    Modifier.fillMaxWidth().navigationBarsPadding().cutoutPadding().pageWidth().padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                ) {
+                    CompositionLocalProvider(LocalRowMin provides 48.dp) {
+                        when {
+                            m == null -> LogSkeleton()
+                            m.empty -> AnimatedVisibility(true, enter = fadeIn(motion(tween(180, easing = Ease)))) {
+                                StatusPage(R.drawable.ic_list, stringResource(R.string.log_empty), stringResource(R.string.log_empty_text), Tone.Off, Modifier.padding(vertical = 24.dp))
+                            }
+                            !settled -> LogSkeleton()
+                            else -> AnimatedVisibility(true, enter = fadeIn(motion(tween(180, easing = Ease)))) {
+                                Column(verticalArrangement = Arrangement.spacedBy(14.dp)) { LogContent(m, labels, scroll, topPx, onClear = { confirm = true }, onByApp = { byApp = true }) }
+                            }
                         }
                     }
                 }
             }
-        }
-        Row(
-            Modifier.fillMaxWidth().background(barFill).onSizeChanged { barPx = it.height }.statusBarsPadding().cutoutPadding().padding(start = 6.dp, end = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            SButton(null, onBack, style = BtnStyle.OnDark, icon = R.drawable.ic_back, label = stringResource(R.string.back))
-            Text(stringResource(R.string.log_title), Modifier.asHeading().weight(1f).padding(start = 10.dp), style = MaterialTheme.typography.titleMedium, color = Text0)
-            if (model != null && !model.empty) SButton(stringResource(R.string.report_open), { report = true }, style = BtnStyle.OnDark)
-            UnlockedChip(door, onDark = true)
         }
         if (model != null) ReportSheet(report, model, labels) { report = false }
     }
@@ -310,14 +298,18 @@ private fun LogSkeleton() {
 
 /** The week at a glance: the count as the one headline, a bar per day under it, on Status's tile grid. */
 @Composable
-internal fun LogHero(week: LogCounts?, days: List<LogDay>, modifier: Modifier, underBar: Boolean = true) {
-    Box(modifier.fillMaxWidth().background(Moss)) {
-        Canvas(Modifier.matchParentSize()) { drawGrid(Page.OFF, Palette.HeroOff, 0L, -100_000L, true, emptyList()) }
+internal fun LogHero(week: LogCounts?, days: List<LogDay>, modifier: Modifier) {
+    val covered = (days.lastOrNull()?.masked ?: 0).coerceIn(0, 3)
+    Box(modifier.fillMaxWidth().padding(horizontal = 8.dp).clip(RoundedCornerShape(28.dp)).background(Moss)) {
+        Canvas(Modifier.matchParentSize()) {
+            drawGrid(Page.READY, Palette.TileOn, 0L, -100_000L, true, emptyList(), covered = covered)
+            drawRect(Brush.verticalGradient(.3f to Color.Transparent, .9f to Moss.copy(alpha = .9f)))
+        }
         // Count left, the week's bars right; the verdict under both, full width (beside the bars it wrapped to three lines).
-        Column(Modifier.fillMaxWidth().then(if (underBar) Modifier.statusBarsPadding() else Modifier).cutoutPadding().padding(start = 22.dp, end = 22.dp, top = if (underBar) 76.dp else 22.dp, bottom = if (underBar) 60.dp else 22.dp)) {
+        Column(Modifier.fillMaxWidth().padding(start = 22.dp, end = 22.dp, top = 56.dp, bottom = 22.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.Bottom) {
                 Column(Modifier.weight(1f)) {
-                    Text(week?.masked?.toString().orEmpty(), style = MaterialTheme.typography.displayLarge, color = Text0)
+                    Text(week?.masked?.toString().orEmpty(), style = MaterialTheme.typography.displayLarge.copy(letterSpacing = (-2).sp), color = Text0)
                     Text(stringResource(R.string.log_hero_text), style = MaterialTheme.typography.bodyMedium, color = Text1)
                 }
                 if (days.isNotEmpty()) DayBars(days, Modifier.width(168.dp))
