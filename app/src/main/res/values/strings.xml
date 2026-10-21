@@ -135,6 +135,8 @@
     <string name="fix_allow">Permitir</string>
     <string name="fix_enable">Activar</string>
     <string name="group_required">Para funcionar</string>
+    <string name="log_paired">Vinculado</string>
+    <string name="log_paired_text">Con el teléfono del Padre</string>
     <string name="group_recommended">Recomendado</string>
     <string name="note_overlay">Permite mostrar la máscara para poder iniciar</string>
 

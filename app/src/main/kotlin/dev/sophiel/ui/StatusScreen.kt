@@ -191,6 +191,7 @@ fun StatusScreen(
                             }
                         }
                     }
+                    dev.sophiel.remote.Remote.StatusRecommended() // D82: nothing in offline
                     when (model.page) {
                         Page.PROTECTED, Page.READY -> {
                             FallbackNote(model)

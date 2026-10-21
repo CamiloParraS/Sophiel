@@ -143,7 +143,7 @@ private fun AuthScreen() {
         }
         // Back to the Child role: only here, only while logged out (D81).
         if (!signup) Box(Modifier.fillMaxWidth().padding(bottom = 10.dp), contentAlignment = Alignment.Center) {
-            Link(stringResource(R.string.par_back_to_child)) { ParentGraph.roles.set(ParentRole.CHILD) }
+            Link(stringResource(R.string.par_back_to_child)) { dev.sophiel.remote.RemoteState.chooseRole(dev.sophiel.remote.Role.Hijo) }
         }
     }
 }

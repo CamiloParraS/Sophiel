@@ -133,6 +133,9 @@ class EventLog(
     /** D54: the share ended with the screen on and capture went on by display shots. */
     @Synchronized fun shareStopped() = add(wall(), "SHARE_STOPPED")
 
+    /** D82 (Remote build): this phone was paired with a Parent phone. */
+    @Synchronized fun paired() = add(wall(), "PAIRED")
+
     /** D56: the guard closed a page. Merged as [merge] says. */
     @Synchronized fun tamper(target: String) = merge("TAMPER", target)
 
