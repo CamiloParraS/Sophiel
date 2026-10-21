@@ -9,6 +9,7 @@ class SophielApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        dev.sophiel.remote.Remote.attach(this) // D83: a no-op in offline
         // Ticket 09: our screens hide the masks. Multi-window changes while resumed arrive through
         // MainActivity.onMultiWindowModeChanged; a resize need not relaunch the activity.
         registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {

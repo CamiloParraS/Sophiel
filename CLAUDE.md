@@ -66,7 +66,7 @@ Absolute; breaking one is a defect even if the code works.
 | 3   | **No captured frame is ever persisted.** Frames stay in memory. Only scalars (hashes, scores, timings) may be written to disk. |
 | 4   | **No image data is ever committed to git.** `eval/images/` is gitignored. Commit labels and metrics, never pixels.             |
 | 5   | **Kotlin only in the app.** No Java sources. Coroutines + Flow for async; no RxJava. The relay in `server/` is TypeScript on Bun (D84). |
-| 6   | **Every milestone ends buildable.** `./gradlew :app:installDebug` (from M9: both flavors assemble and `:app:installRemoteDebug`) must produce a launchable app before you stop working. |
+| 6   | **Every milestone ends buildable.** `./gradlew :app:assembleOfflineDebug :app:assembleRemoteDebug` and `:app:installRemoteDebug` must produce a launchable app before you stop working. |
 | 7   | **`:safecore` stays UI-free.** It must not reference `MediaProjection`, `WindowManager`, or any Compose symbol.                |
 | 8   | **No features outside `SPEC.md` §1.2.** If it isn't in scope, it isn't in scope. §1.3 lists what to refuse.                    |
 
@@ -101,13 +101,13 @@ Milestones are strictly sequential: M(n+1) starts after every verification item 
 
 ## Device roles (D1)
 
-- **Device A (budget)**: primary development device and default `installDebug` target. Performance problems surface here first.
+- **Device A (budget)**: primary development device and default `installRemoteDebug` target. Performance problems surface here first.
 - **Device B (flagship)**: demo and headline numbers.
 
 ## Commands
 
-`./gradlew :app:installDebug` (Device A). `./gradlew :safecore:test` (JVM). `adb logcat -s Sophiel:D`. Everything else: SPEC §8.
-Verify the no-INTERNET claim (must print nothing): `aapt dump permissions app/build/outputs/apk/debug/app-debug.apk | grep -i internet` (from M9: the `offline` APK, plus the flavor diff in SPEC §8).
+`./gradlew :app:installRemoteDebug` (Device A; both flavors must assemble: `:app:assembleOfflineDebug :app:assembleRemoteDebug`). JVM: `./gradlew :app:testOfflineDebugUnitTest :app:testRemoteDebugUnitTest`. `./gradlew :safecore:test` (JVM). `adb logcat -s Sophiel:D`. Everything else: SPEC §8.
+Verify the no-INTERNET claim (must print nothing): `aapt dump permissions app/build/outputs/apk/offline/debug/app-offline-debug.apk | grep -i internet` (plus the flavor diff in SPEC §8).
 
 ## Commit convention
 

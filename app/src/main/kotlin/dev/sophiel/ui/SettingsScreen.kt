@@ -171,6 +171,7 @@ fun BoxScope.SettingsScreen(container: AppContainer, door: Door, onBack: () -> U
                     }
                 }
             }
+            dev.sophiel.remote.Remote.SettingsRow(door) // D83: nothing in offline
             // Not a setting, so no row: a fact, under the groups.
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
                 SIcon(R.drawable.ic_shield_ok, Palette.GreenFg, size = 16.dp)

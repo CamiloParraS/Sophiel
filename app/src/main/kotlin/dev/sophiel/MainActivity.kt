@@ -155,10 +155,12 @@ class MainActivity : ComponentActivity() {
                 // D42: the wizard runs while no PIN exists. Saved, so it survives rotation once step 1 has made the PIN;
                 // a wizard swiped away after that opens on Status next time.
                 var setup by rememberSaveable { mutableStateOf(!container.pin.exists()) }
-                if (setup) {
-                    SetupWizard(container, resumes.intValue, ::fix, start = { setup = false; controller.start() }, finish = { setup = false })
-                } else {
-                    DoorHost(container) { door -> appBody(container, door, rerunWizard = { setup = true }) }
+                dev.sophiel.remote.Remote.Gate { // D83: a no-op in offline
+                    if (setup) {
+                        SetupWizard(container, resumes.intValue, ::fix, start = { setup = false; controller.start() }, finish = { setup = false })
+                    } else {
+                        DoorHost(container) { door -> appBody(container, door, rerunWizard = { setup = true }) }
+                    }
                 }
             }
         }

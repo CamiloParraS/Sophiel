@@ -249,6 +249,7 @@ fun StatusScreen(
         ) {
             // The screen's one action: full width up to 360 dp, so Start, Starting and Stop share one slot.
             val buttonWidth = Modifier.widthIn(max = 360.dp).fillMaxWidth()
+            dev.sophiel.remote.Remote.StatusLine() // D83: nothing in offline
             when (model.page) {
                 Page.PROTECTED -> {
                     Note(R.string.door_footnote, icon = R.drawable.ic_lock)

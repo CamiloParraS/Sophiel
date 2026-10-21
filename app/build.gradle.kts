@@ -25,8 +25,19 @@ android {
         noCompress += "onnx" // spike: NudeNet models, copied to filesDir once
     }
 
+    flavorDimensions += "net"
+    productFlavors {
+        create("offline") { dimension = "net" }
+        create("remote") { dimension = "net" }
+    }
+
     buildTypes {
+        debug {
+            buildConfigField("String", "RELAY_URL", "\"http://localhost:3000\"") // reached through adb reverse tcp:3000 (D84)
+        }
         release {
+            // ponytail: placeholder host until the /wizard deploy (M9 ticket 09) names the Fly app.
+            buildConfigField("String", "RELAY_URL", "\"https://sophiel-relay.fly.dev\"")
             // Local release testing only (D32 gates, no debug overlay); real signing is M7.
             signingConfig = signingConfigs.getByName("debug")
             optimization {
@@ -40,6 +51,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
@@ -55,6 +67,9 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.onnxruntime.android) // NudeNet: the Precise preset (D35) and the D24 benchmark
+    "remoteImplementation"(libs.okhttp)
+    "remoteImplementation"(libs.zxing.core)
+    "remoteImplementation"(libs.play.services.code.scanner)
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
