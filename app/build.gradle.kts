@@ -36,8 +36,9 @@ android {
             buildConfigField("String", "RELAY_URL", "\"http://localhost:3000\"") // reached through adb reverse tcp:3000 (D84)
         }
         release {
-            // ponytail: placeholder host until the /wizard deploy (M9 ticket 09) names the Fly app.
-            buildConfigField("String", "RELAY_URL", "\"https://sophiel-relay.fly.dev\"")
+            // Fly URL from the /wizard deploy (ticket 22): set relayUrl in gradle.properties or pass -PrelayUrl=...
+            val relayUrl = providers.gradleProperty("relayUrl").get()
+            buildConfigField("String", "RELAY_URL", "\"$relayUrl\"")
             // Local release testing only (D32 gates, no debug overlay); real signing is M7.
             signingConfig = signingConfigs.getByName("debug")
             optimization {
@@ -70,6 +71,7 @@ dependencies {
     "remoteImplementation"(libs.okhttp)
     "remoteImplementation"(libs.zxing.core)
     "remoteImplementation"(libs.play.services.code.scanner)
+    "remoteImplementation"(libs.androidx.fragment)
     testImplementation(libs.junit)
     "testRemoteImplementation"(libs.json) // org.json is a stub in the JVM android.jar; the app uses the platform one
     androidTestImplementation(platform(libs.androidx.compose.bom))
