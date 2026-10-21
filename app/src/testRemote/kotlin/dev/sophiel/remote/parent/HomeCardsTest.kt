@@ -155,12 +155,17 @@ class HomeCardsTest {
         assertTrue(Children(kv).list.value.isEmpty())
     }
 
-    @Test fun unpairOfflineOrGoneStillDropsLocally() = runBlocking {
-        for (f in listOf(Failure.OFFLINE, Failure.GONE)) {
-            session.children.add(Child("p1", "Sofi", key))
+    @Test fun unpairGoneDropsLocally() = runBlocking {
+        relay.unpairFail = Failure.GONE
+        assertTrue(home.unpair("p1"))
+        assertTrue(Children(kv).list.value.isEmpty())
+    }
+
+    @Test fun unpairOfflineOrServerErrorKeepsTheEntryAndReportsIt() = runBlocking {
+        for (f in listOf(Failure.OFFLINE, Failure.OTHER)) {
             relay.unpairFail = f
-            home.unpair("p1")
-            assertTrue(Children(kv).list.value.isEmpty())
+            assertFalse(home.unpair("p1"))
+            assertEquals(listOf("p1"), Children(kv).list.value.map { it.id })
         }
     }
 

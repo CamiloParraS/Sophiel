@@ -77,14 +77,15 @@ class HomeCards(private val api: Api, private val session: ParentSession, privat
     }
 
     /**
-     * Desvincular (D79): the relay deletes the pairing and tells the Child phone. Offline or already gone, the entry still
-     * goes (the Child phone's next hello is rejected); only a dead session keeps it, for after login.
+     * Desvincular (D79): the relay deletes the pairing and tells the Child phone. Only success or 410 (already gone) drops the
+     * entry; offline or a server error keeps it and returns false, a dead session keeps it for after login.
      */
-    suspend fun unpair(id: String) {
-        val token = session.token.value ?: return
+    suspend fun unpair(id: String): Boolean {
+        val token = session.token.value ?: return false
         val r = api.unpair(token, id)
-        if (r is Reply.Fail && r.why == Failure.SESSION) return session.expireOn(r.why)
+        if (r is Reply.Fail && r.why != Failure.GONE) { session.expireOn(r.why); return false }
         remove(id)
+        return true
     }
 
     private suspend fun act(id: String, type: RequestType) {
