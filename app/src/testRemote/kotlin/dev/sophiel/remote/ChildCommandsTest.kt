@@ -52,7 +52,7 @@ class ChildCommandsTest {
         assertTrue(r.ok)
         assertEquals("r-log", r.id)
         assertEquals("${now - 1000},ON,BALANCED,NORMAL\n$now,MASKED,BALANCED,2,0.90,com.a\n", r.logCsv)
-        assertEquals(listOf(Apps("Bravo", "com.b"), Apps("Alfa", "com.a")), r.apps) // changed first, then by label; Ajustes excluded
+        assertEquals(listOf(Apps("Bravo", "com.b", Rule.Bloqueada), Apps("Alfa", "com.a")), r.apps) // changed first, then by label; Ajustes excluded
     }
 
     @Test fun `rules go through the Apps store, excluded apps are left alone`() {

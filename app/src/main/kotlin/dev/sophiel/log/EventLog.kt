@@ -7,6 +7,14 @@ import java.time.ZoneId
 /** One line of `log.csv`: `epochMillis,KIND,fields...`. Scalars only (C3): no frames; an app is its package name (D57). */
 data class Entry(val at: Long, val kind: String, val fields: List<String>) {
     fun line() = (listOf(at.toString(), kind) + fields).joinToString(",")
+
+    companion object {
+        /** A [line] back; null for anything without a timestamp. */
+        fun parse(l: String): Entry? {
+            val p = l.split(',')
+            return p.getOrNull(0)?.toLongOrNull()?.let { Entry(it, p.getOrElse(1) { "" }, p.drop(2)) }
+        }
+    }
 }
 
 /** `OFF` reasons. D54: the screen and system ones, and the inferred ones, only with the switch off. */
@@ -192,10 +200,7 @@ class EventLog(
 
     private fun load(): List<Entry> {
         if (!file.exists()) return emptyList()
-        return file.readLines().mapNotNull { l ->
-            val p = l.split(',')
-            p.getOrNull(0)?.toLongOrNull()?.let { Entry(it, p.getOrElse(1) { "" }, p.drop(2)) }
-        }
+        return file.readLines().mapNotNull(Entry::parse)
     }
 
     private companion object {

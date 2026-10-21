@@ -194,6 +194,11 @@ private fun ParentHome() {
     val scope = rememberCoroutineScope()
     val session = ParentGraph.session
     val children by session.children.list.collectAsState()
+    var open by rememberSaveable { mutableStateOf<String?>(null) }
+    children.firstOrNull { it.id == open }?.let { c ->
+        Box(Modifier.fillMaxSize()) { PhoneScreen(c) { open = null } }
+        return
+    }
     Box(Modifier.fillMaxSize().background(Palette.Chalk)) {
         Column(Modifier.fillMaxSize()) {
             HeaderBar(stringResource(R.string.par_home), end = {
@@ -216,7 +221,7 @@ private fun ParentHome() {
                 LaunchedEffect(children.map { it.id }) { home.open() }
                 var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
                 LaunchedEffect(Unit) { while (true) { delay(1_000); now = System.currentTimeMillis() } }
-                children.forEach { c -> ChildCard(c.name, cards[c.id] ?: Card.Loading, now, c.id, home) }
+                children.forEach { c -> ChildCard(c.name, cards[c.id] ?: Card.Loading, now, c.id, home) { open = c.id } }
             }
         }
         AddSheet(adding) { adding = false }
@@ -305,7 +310,7 @@ private fun androidx.compose.foundation.layout.BoxScope.AddSheet(visible: Boolea
 
 /** "hace 12 s" under a minute, then the app's usual relative time. */
 @Composable
-private fun ago(at: Long, now: Long): String {
+internal fun ago(at: Long, now: Long): String {
     val locale = dev.sophiel.ui.appLocale()
     val s = ((now - at) / 1000).coerceAtLeast(0)
     if (s >= 60) return dev.sophiel.ui.relativeTime(at, now, locale)
@@ -315,7 +320,7 @@ private fun ago(at: Long, now: Long): String {
 
 /** One Child phone's state card (D81), in the Status card's dark look (D75); its banner sits under it. */
 @Composable
-private fun ChildCard(name: String, card: Card, now: Long, id: String, home: HomeCards) {
+private fun ChildCard(name: String, card: Card, now: Long, id: String, home: HomeCards, onOpen: () -> Unit) {
     val scope = rememberCoroutineScope()
     val live = card as? Card.Live
     val bg = when {
@@ -324,8 +329,15 @@ private fun ChildCard(name: String, card: Card, now: Long, id: String, home: Hom
         else -> Palette.HeroAmber
     }
     Column {
-        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(bg).padding(18.dp)) {
-            Text(name, style = MaterialTheme.typography.titleSmall, color = Palette.Text1)
+        // The card opens the phone's Historial and Apps (D81); Start / Stop / Reintentar stay their own targets.
+        Column(
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(bg)
+                .clickable(onClickLabel = stringResource(R.string.par_phone_open, name), role = Role.Button, onClick = onOpen).padding(18.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(name, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, color = Palette.Text1)
+                SIcon(R.drawable.ic_chev, Palette.Text1, 16.dp)
+            }
             val (title, line) = when (card) {
                 Card.Loading -> null to null
                 Card.Offline -> stringResource(R.string.par_card_offline) to stringResource(R.string.par_card_offline_text)

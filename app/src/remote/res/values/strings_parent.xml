@@ -61,4 +61,7 @@
     <string name="par_out_acc_off">El servicio de accesibilidad está apagado en el teléfono del Hijo</string>
     <string name="par_out_switch_off">‘Seguir protegiendo siempre’ está apagado en el teléfono del Hijo</string>
     <string name="par_out_failed">No se pudo completar. Inténtalo de nuevo.</string>
+    <string name="par_unsaved_title">No se guardó</string>
+    <string name="par_unsaved_text">El teléfono no respondió. %1$s sigue como estaba.</string>
+    <string name="par_phone_open">Abrir %1$s</string>
 </resources>

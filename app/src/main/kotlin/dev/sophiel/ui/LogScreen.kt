@@ -243,7 +243,7 @@ fun LogScreen(log: EventLog, door: Door, onBack: () -> Unit) {
                         }
                         !settled -> LogSkeleton()
                         else -> AnimatedVisibility(true, enter = fadeIn(motion(tween(180, easing = Ease)))) {
-                            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) { Content(m, labels, scroll, barPx, onClear = { confirm = true }, onByApp = { byApp = true }) }
+                            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) { LogContent(m, labels, scroll, barPx, onClear = { confirm = true }, onByApp = { byApp = true }) }
                         }
                     }
                 }
@@ -310,11 +310,11 @@ private fun LogSkeleton() {
 
 /** The week at a glance: the count as the one headline, a bar per day under it, on Status's tile grid. */
 @Composable
-private fun LogHero(week: LogCounts?, days: List<LogDay>, modifier: Modifier) {
+internal fun LogHero(week: LogCounts?, days: List<LogDay>, modifier: Modifier, underBar: Boolean = true) {
     Box(modifier.fillMaxWidth().background(Moss)) {
         Canvas(Modifier.matchParentSize()) { drawGrid(Page.OFF, Palette.HeroOff, 0L, -100_000L, true, emptyList()) }
         // Count left, the week's bars right; the verdict under both, full width (beside the bars it wrapped to three lines).
-        Column(Modifier.fillMaxWidth().statusBarsPadding().cutoutPadding().padding(start = 22.dp, end = 22.dp, top = 76.dp, bottom = 60.dp)) {
+        Column(Modifier.fillMaxWidth().then(if (underBar) Modifier.statusBarsPadding() else Modifier).cutoutPadding().padding(start = 22.dp, end = 22.dp, top = if (underBar) 76.dp else 22.dp, bottom = if (underBar) 60.dp else 22.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.Bottom) {
                 Column(Modifier.weight(1f)) {
                     Text(week?.masked?.toString().orEmpty(), style = MaterialTheme.typography.displayLarge, color = Text0)
@@ -340,7 +340,7 @@ private fun LogHero(week: LogCounts?, days: List<LogDay>, modifier: Modifier) {
 }
 
 @Composable
-private fun ColumnScope.Content(model: LogModel, labels: Map<String, String>, scroll: ScrollState, barPx: Int, onClear: () -> Unit, onByApp: () -> Unit) {
+internal fun ColumnScope.LogContent(model: LogModel, labels: Map<String, String>, scroll: ScrollState, barPx: Int, onClear: (() -> Unit)?, onByApp: (() -> Unit)?) {
     val locale = appLocale()
     var filter by rememberSaveable { mutableStateOf(LogFilter.ALL) }
     val week = model.week
@@ -349,7 +349,7 @@ private fun ColumnScope.Content(model: LogModel, labels: Map<String, String>, sc
     // Covered is what the hero counts, so its breakdown comes first; the verdict is the hero's and each day says the rest. The last row is the way to every app.
     if (week.perApp.isNotEmpty()) PreferenceGroup(title = stringResource(R.string.log_by_app)) {
         item { AppBars(week.perApp.take(4), label) }
-        item {
+        if (onByApp != null) item {
             // A link under the data, not another headline: body weight, so the bars above stay the loudest thing in the card.
             Row(
                 Modifier.fillMaxWidth().clickable(role = Role.Button, onClick = onByApp).heightIn(min = 48.dp).padding(horizontal = 14.dp, vertical = 8.dp),
@@ -414,7 +414,7 @@ private fun ColumnScope.Content(model: LogModel, labels: Map<String, String>, sc
     if (total > shown) SButton(
         stringResource(R.string.log_more, total - shown), { shown += PAGE }, Modifier.align(Alignment.CenterHorizontally),
     )
-    SButton(stringResource(R.string.log_clear), onClear, Modifier.align(Alignment.CenterHorizontally).padding(top = 24.dp), tint = Palette.RedFg, icon = R.drawable.ic_trash) // neutral pill, red only in the ink: the red fill shouted louder than the list
+    if (onClear != null) SButton(stringResource(R.string.log_clear), onClear, Modifier.align(Alignment.CenterHorizontally).padding(top = 24.dp), tint = Palette.RedFg, icon = R.drawable.ic_trash) // neutral pill, red only in the ink: the red fill shouted louder than the list
 }
 
 /**

@@ -4,6 +4,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.background
@@ -80,22 +81,10 @@ fun BoxScope.AppsScreen(container: AppContainer, door: Door, onBack: () -> Unit)
     val pinned = remember { container.appRules.state.value } // the rules on opening
     val rows = loaded?.let { (apps, excluded) -> appList(apps, pinned, excluded, query) }.orEmpty()
     val twins = remember(loaded) { loaded?.first?.groupingBy { it.label }?.eachCount().orEmpty() }
-    val options = listOf(stringResource(R.string.app_rule_normal), stringResource(R.string.app_rule_blocked), stringResource(R.string.app_rule_trusted))
-    val helps = listOf(stringResource(R.string.app_rule_help_normal), stringResource(R.string.app_rule_help_blocked), stringResource(R.string.apps_trust_warning))
-    val shape = RoundedCornerShape(12.dp)
     Column(Modifier.fillMaxSize().behindSheet(picking != null).background(Palette.Chalk)) {
         HeaderBar(stringResource(R.string.set_apps), start = { SButton(null, onBack, icon = R.drawable.ic_back, label = stringResource(R.string.back)) }, end = { UnlockedChip(door) })
         Column(Modifier.weight(1f).cutoutPadding().pageWidth()) {
-        Box(Modifier.padding(start = 14.dp, end = 14.dp, top = 14.dp).fillMaxWidth().lift(shape).clip(shape).background(Palette.Card)) {
-            BasicTextField(
-                query, { query = it }, Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
-                singleLine = true, textStyle = MaterialTheme.typography.bodyLarge.copy(color = Palette.Fg), cursorBrush = SolidColor(Palette.Fg),
-                decorationBox = { field ->
-                    if (query.isEmpty()) Text(stringResource(R.string.apps_search), style = MaterialTheme.typography.bodyLarge, color = Palette.Dim)
-                    field()
-                },
-            )
-        }
+        AppSearch(query) { query = it }
         val settings by container.settings.state.collectAsState()
         PreferenceGroup(Modifier.padding(start = 14.dp, end = 14.dp, top = 10.dp)) {
             item {
@@ -107,54 +96,94 @@ fun BoxScope.AppsScreen(container: AppContainer, door: Door, onBack: () -> Unit)
             }
         }
         // The list takes a few seconds to read from the system: rows' shapes first, so the page is never empty.
-        if (loaded == null) Column(
-            Modifier.padding(start = 14.dp, end = 14.dp, top = 18.dp).fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Palette.Card),
-        ) {
-            repeat(7) { i ->
-                if (i > 0) Spacer(Modifier.height(1.dp).fillMaxWidth().background(Palette.Border))
-                Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = 14.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(32.dp).clip(RoundedCornerShape(8.dp)).background(Palette.Btn))
-                    Box(Modifier.weight(1f).height(14.dp).clip(CircleShape).background(Palette.Btn))
-                }
-            }
-        }
+        if (loaded == null) AppRowsSkeleton()
+        val options = ruleOptions()
         LazyColumn(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 14.dp), contentPadding = PaddingValues(top = 18.dp, bottom = 14.dp)) {
-            itemsIndexed(rows, key = { _, app -> app.pkg }) { i, app ->
-                // One card for the list: the first row rounds its top, the last its bottom.
-                val r = 12.dp
-                val rowShape = RoundedCornerShape(if (i == 0) r else 0.dp, if (i == 0) r else 0.dp, if (i == rows.lastIndex) r else 0.dp, if (i == rows.lastIndex) r else 0.dp)
-                val rule = rules[app.pkg] ?: AppRule.NORMAL
-                Column(Modifier.fillMaxWidth().clip(rowShape).background(Palette.Card)) {
-                    if (i > 0) Spacer(Modifier.height(1.dp).fillMaxWidth().background(Palette.Border))
-                    Row(
-                        Modifier.fillMaxWidth().clickable(enabled = bound, role = Role.Button) { door.pass { picking = app.pkg } }
-                            .heightIn(min = 56.dp).padding(horizontal = 14.dp, vertical = 8.dp).dimmed(bound),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        AppIcon(app.pkg, 32.dp)
-                        // Without the service the switch above says why once; the rows only dim.
-                        Column(Modifier.weight(1f)) {
-                            Text(app.label, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                            // Two apps can share a name (two calculators): the package tells them apart.
-                            if (twins.getOrDefault(app.label, 0) > 1) Text(app.pkg, style = MaterialTheme.typography.bodySmall, color = Palette.Dim, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        }
-                        Text(
-                            options[AppRule.entries.indexOf(rule)], style = MaterialTheme.typography.titleMedium,
-                            color = when (rule) { AppRule.BLOCKED -> Palette.OrangeFg; AppRule.TRUSTED -> Palette.GreenFg; else -> Palette.Dim },
-                        )
-                        SIcon(R.drawable.ic_chev)
-                    }
-                }
-            }
+            // Without the service the switch above says why once; the rows only dim.
+            appRows(rows, { rules[it] ?: AppRule.NORMAL }, bound, twins, options, { door.pass { picking = it } }) { AppIcon(it.pkg, 32.dp) }
         }
         Spacer(Modifier.navigationBarsPadding())
         }
     }
     val app = rows.firstOrNull { it.pkg == picking }
-    BottomSheet(app != null, app?.label.orEmpty(), { picking = null }) {
-        if (app != null) OptionList(
-            app.label, options, helps, AppRule.entries.indexOf(rules[app.pkg] ?: AppRule.NORMAL), emptySet(), recommended = -1,
-        ) { i -> door.pass { container.appRules.set(app.pkg, AppRule.entries[i]); picking = null } }
+    AppRuleSheet(app, rules[app?.pkg] ?: AppRule.NORMAL, { picking = null }) { r -> app?.let { a -> door.pass { container.appRules.set(a.pkg, r); picking = null } } }
+}
+
+/** The Apps list's search field. */
+@Composable
+fun AppSearch(query: String, onChange: (String) -> Unit) {
+    val shape = RoundedCornerShape(12.dp)
+    Box(Modifier.padding(start = 14.dp, end = 14.dp, top = 14.dp).fillMaxWidth().lift(shape).clip(shape).background(Palette.Card)) {
+        BasicTextField(
+            query, onChange, Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
+            singleLine = true, textStyle = MaterialTheme.typography.bodyLarge.copy(color = Palette.Fg), cursorBrush = SolidColor(Palette.Fg),
+            decorationBox = { field ->
+                if (query.isEmpty()) Text(stringResource(R.string.apps_search), style = MaterialTheme.typography.bodyLarge, color = Palette.Dim)
+                field()
+            },
+        )
+    }
+}
+
+/** The rows' shapes while the list loads. */
+@Composable
+fun AppRowsSkeleton() = Column(
+    Modifier.padding(start = 14.dp, end = 14.dp, top = 18.dp).fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Palette.Card),
+) {
+    repeat(7) { i ->
+        if (i > 0) Spacer(Modifier.height(1.dp).fillMaxWidth().background(Palette.Border))
+        Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = 14.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(32.dp).clip(RoundedCornerShape(8.dp)).background(Palette.Btn))
+            Box(Modifier.weight(1f).height(14.dp).clip(CircleShape).background(Palette.Btn))
+        }
+    }
+}
+
+/** Normal, Bloqueada, De confianza: in [AppRule] order. */
+@Composable
+fun ruleOptions() = listOf(stringResource(R.string.app_rule_normal), stringResource(R.string.app_rule_blocked), stringResource(R.string.app_rule_trusted))
+
+/**
+ * D58's rows as one card: [tile] (the icon here, a letter on the Parent phone), the label, the package when two apps share a name,
+ * the rule. A tap asks [onPick] for that package; [enabled] false dims them and takes no taps.
+ */
+fun LazyListScope.appRows(
+    rows: List<AppEntry>, rule: (String) -> AppRule, enabled: Boolean, twins: Map<String, Int>, options: List<String>,
+    onPick: (String) -> Unit, tile: @Composable (AppEntry) -> Unit,
+) = itemsIndexed(rows, key = { _, app -> app.pkg }) { i, app ->
+    // One card for the list: the first row rounds its top, the last its bottom.
+    val r = 12.dp
+    val rowShape = RoundedCornerShape(if (i == 0) r else 0.dp, if (i == 0) r else 0.dp, if (i == rows.lastIndex) r else 0.dp, if (i == rows.lastIndex) r else 0.dp)
+    val ruled = rule(app.pkg)
+    Column(Modifier.fillMaxWidth().clip(rowShape).background(Palette.Card)) {
+        if (i > 0) Spacer(Modifier.height(1.dp).fillMaxWidth().background(Palette.Border))
+        Row(
+            Modifier.fillMaxWidth().clickable(enabled = enabled, role = Role.Button) { onPick(app.pkg) }
+                .heightIn(min = 56.dp).padding(horizontal = 14.dp, vertical = 8.dp).dimmed(enabled),
+            horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically,
+        ) {
+            tile(app)
+            Column(Modifier.weight(1f)) {
+                Text(app.label, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                // Two apps can share a name (two calculators): the package tells them apart.
+                if (twins.getOrDefault(app.label, 0) > 1) Text(app.pkg, style = MaterialTheme.typography.bodySmall, color = Palette.Dim, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            Text(
+                options[AppRule.entries.indexOf(ruled)], style = MaterialTheme.typography.titleMedium,
+                color = when (ruled) { AppRule.BLOCKED -> Palette.OrangeFg; AppRule.TRUSTED -> Palette.GreenFg; else -> Palette.Dim },
+            )
+            SIcon(R.drawable.ic_chev)
+        }
+    }
+}
+
+/** The rule sheet for [app] (open while it is not null): the three rules with their help lines, [rule] ticked. */
+@Composable
+fun BoxScope.AppRuleSheet(app: AppEntry?, rule: AppRule, onDismiss: () -> Unit, onChoose: (AppRule) -> Unit) {
+    val options = ruleOptions()
+    val helps = listOf(stringResource(R.string.app_rule_help_normal), stringResource(R.string.app_rule_help_blocked), stringResource(R.string.apps_trust_warning))
+    BottomSheet(app != null, app?.label.orEmpty(), onDismiss) {
+        if (app != null) OptionList(app.label, options, helps, AppRule.entries.indexOf(rule), emptySet(), recommended = -1) { i -> onChoose(AppRule.entries[i]) }
     }
 }
 

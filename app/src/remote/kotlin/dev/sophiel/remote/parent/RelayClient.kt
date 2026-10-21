@@ -50,6 +50,7 @@ class RelayClient(private val http: OkHttpClient = OkHttpClient(), private val b
 object ParentGraph {
     lateinit var session: ParentSession; private set
     lateinit var home: HomeCards; private set
+    lateinit var api: Api; private set
 
     fun init(ctx: Context) {
         if (::session.isInitialized) return
@@ -58,7 +59,7 @@ object ParentGraph {
             override fun get(key: String) = prefs.getString(key, null)
             override fun put(key: String, value: String?) = prefs.edit().apply { if (value == null) remove(key) else putString(key, value) }.apply()
         }
-        val api = RelayClient()
+        api = RelayClient()
         session = ParentSession(api, TokenStore(kv), Children(kv))
         home = HomeCards(api, session)
     }

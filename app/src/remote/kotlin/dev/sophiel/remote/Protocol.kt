@@ -1,5 +1,6 @@
 package dev.sophiel.remote
 
+import dev.sophiel.settings.AppRule
 import java.io.ByteArrayOutputStream
 import java.util.Base64
 import java.util.zip.GZIPInputStream
@@ -9,12 +10,23 @@ import org.json.JSONException
 import org.json.JSONObject
 
 /** A per-app rule as it travels (D79): the Spanish labels of D58. */
-enum class Rule(val wire: String) { Normal("Normal"), Bloqueada("Bloqueada"), DeConfianza("De confianza") }
+enum class Rule(val wire: String, val local: AppRule) {
+    Normal("Normal", AppRule.NORMAL),
+    Bloqueada("Bloqueada", AppRule.BLOCKED),
+    DeConfianza("De confianza", AppRule.TRUSTED),
+    ;
+
+    companion object {
+        fun of(r: AppRule) = entries.first { it.local == r }
+        fun ofWire(s: String) = entries.first { it.wire == s }
+    }
+}
 
 /** `type` is one of log, rules, start, stop. `rules` (package -> rule) only for `rules`. */
 data class Request(val id: String, val ts: Long, val type: String, val rules: Map<String, Rule> = emptyMap())
 
-data class Apps(val label: String, val pkg: String)
+/** One row of the Child's Apps screen: label, package, its rule (D58). No icons on the wire (D81). */
+data class Apps(val label: String, val pkg: String, val rule: Rule = Rule.Normal)
 
 /** A Start reply's `reason` (D82); the Parent phone words it. A rejected Start has ok = false. */
 object Reason {
@@ -23,7 +35,7 @@ object Reason {
     const val SWITCH_OFF = "SWITCH_OFF" // "'Seguir protegiendo siempre' está apagado en el teléfono del Hijo"
 }
 
-/** `logCsv` and `apps` are set only on a `log` reply; such a reply is gzipped before encryption. */
+/** `logCsv` only on a `log` reply, `apps` on `log` and `rules` replies; a `log` reply is gzipped before encryption. */
 data class Reply(
     val id: String,
     val ts: Long,
@@ -51,7 +63,7 @@ object Protocol {
         val type = o.getString("type")
         if (type !in TYPES) return@parse null
         val rules = o.optJSONObject("rules")?.let { j ->
-            j.keys().asSequence().associateWith { k -> Rule.entries.first { it.wire == j.getString(k) } }
+            j.keys().asSequence().associateWith { k -> Rule.ofWire(j.getString(k)) }
         } ?: emptyMap()
         Request(o.getString("id"), o.getLong("ts"), type, rules)
     }
@@ -61,7 +73,7 @@ object Protocol {
             .put("captureMode", r.captureMode).put("accessibilityOff", r.accessibilityOff)
         r.reason?.let { o.put("reason", it) }
         r.logCsv?.let { o.put("logCsv", it) }
-        r.apps?.let { a -> o.put("apps", JSONArray().also { j -> a.forEach { j.put(JSONObject().put("label", it.label).put("pkg", it.pkg)) } }) }
+        r.apps?.let { a -> o.put("apps", JSONArray().also { j -> a.forEach { j.put(JSONObject().put("label", it.label).put("pkg", it.pkg).put("rule", it.rule.wire)) } }) }
         val plain = o.toString().toByteArray()
         return if (r.logCsv == null) plain else ByteArrayOutputStream().also { b -> GZIPOutputStream(b).use { it.write(plain) } }.toByteArray()
     }
@@ -73,7 +85,9 @@ object Protocol {
             o.getString("id"), o.getLong("ts"), o.getBoolean("ok"), o.optString("reason").ifEmpty { null },
             o.getBoolean("protecting"), o.getString("captureMode"), o.getBoolean("accessibilityOff"),
             if (o.has("logCsv")) o.getString("logCsv") else null,
-            o.optJSONArray("apps")?.let { a -> List(a.length()) { Apps(a.getJSONObject(it).getString("label"), a.getJSONObject(it).getString("pkg")) } },
+            o.optJSONArray("apps")?.let { a ->
+                List(a.length()) { i -> a.getJSONObject(i).run { Apps(getString("label"), getString("pkg"), optString("rule").ifEmpty { null }?.let(Rule::ofWire) ?: Rule.Normal) } }
+            },
         )
     }
 

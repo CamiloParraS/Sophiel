@@ -40,7 +40,7 @@ class ProtocolTest {
         val csv = (1..2000).joinToString("\n") { "1700000$it,MASK,com.example.app,0.91" }
         val r = Reply(
             "id4", 9L, ok = true, protecting = true, captureMode = "ACCESSIBILITY", accessibilityOff = false,
-            logCsv = csv, apps = listOf(Apps("Chat", "com.chat"), Apps("Mapas \"Ñ\"", "com.maps")),
+            logCsv = csv, apps = listOf(Apps("Chat", "com.chat", Rule.DeConfianza),Apps("Mapas \"Ñ\"", "com.maps")),
         )
         val bytes = Protocol.encode(r)
         assertEquals(0x1f.toByte(), bytes[0])

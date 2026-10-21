@@ -4,12 +4,33 @@ import dev.sophiel.remote.Envelope
 import dev.sophiel.remote.Protocol
 import dev.sophiel.remote.Reason
 import dev.sophiel.remote.Request
+import dev.sophiel.remote.Rule
 import java.util.UUID
+import dev.sophiel.remote.Reply as ChildReply
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+
+sealed interface Answer {
+    data class Got(val reply: ChildReply) : Answer
+    data class No(val why: Failure) : Answer
+}
+
+/** One request to Child phone [id] through the relay, sealed and opened with its key: the reply, or why not. A dead session logs out. */
+suspend fun ParentSession.ask(api: Api, id: String, type: String, rules: Map<String, Rule> = emptyMap(), clock: () -> Long): Answer {
+    val child = children.list.value.firstOrNull { it.id == id } ?: return Answer.No(Failure.GONE)
+    val token = token.value ?: return Answer.No(Failure.SESSION)
+    val req = Request(UUID.randomUUID().toString(), clock(), type, rules)
+    val body = Protocol.toWire(Envelope.seal(child.key, child.id, Protocol.encode(req)))
+    return when (val r = api.request(token, child.id, body)) {
+        is Reply.Body -> Protocol.fromWire(r.body)?.let { Envelope.open(child.key, child.id, it) }?.let(Protocol::decodeReply)
+            ?.takeIf { it.id == req.id }?.let(Answer::Got) ?: Answer.No(Failure.OTHER)
+        is Reply.Fail -> Answer.No(r.why).also { expireOn(r.why) }
+        else -> Answer.No(Failure.OTHER)
+    }
+}
 
 /** The banner under a card after Start or Stop (D81, D82's wording). */
 enum class Outcome { STARTED, ALREADY_ON, STOPPED, ACCESSIBILITY_OFF, SWITCH_OFF, FAILED }
@@ -62,24 +83,14 @@ class HomeCards(private val api: Api, private val session: ParentSession, privat
     }
 
     private suspend fun ask(id: String, type: String) {
-        val child = session.children.list.value.firstOrNull { it.id == id } ?: return
         val before = _cards.value[id] as? Card.Live
-        fun failed(): Card = before?.copy(busy = false, banner = Outcome.FAILED) ?: Card.Offline
-        val token = session.token.value ?: return
-        val req = Request(UUID.randomUUID().toString(), clock(), type)
-        val body = Protocol.toWire(Envelope.seal(child.key, child.id, Protocol.encode(req)))
-        val card = when (val r = api.request(token, child.id, body)) {
-            is Reply.Body -> {
-                val reply = Protocol.fromWire(r.body)?.let { Envelope.open(child.key, child.id, it) }?.let(Protocol::decodeReply)
-                if (reply == null || reply.id != req.id) failed()
-                else Card.Live(reply.protecting, reply.accessibilityOff, clock(), banner = outcome(type, reply.ok, reply.reason))
-            }
-            is Reply.Fail -> when (r.why) {
+        val card = when (val a = session.ask(api, id, type, clock = clock)) {
+            is Answer.Got -> Card.Live(a.reply.protecting, a.reply.accessibilityOff, clock(), banner = outcome(type, a.reply.ok, a.reply.reason))
+            is Answer.No -> when (a.why) {
                 Failure.OFFLINE -> Card.Offline
                 Failure.GONE -> Card.Gone
-                else -> failed().also { session.expireOn(r.why) }
+                else -> before?.copy(busy = false, banner = Outcome.FAILED) ?: Card.Offline
             }
-            else -> failed()
         }
         put(id, card)
     }

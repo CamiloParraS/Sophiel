@@ -31,11 +31,12 @@ class ChildCommands(private val phone: ChildPhone, private val clock: () -> Long
         when (req.type) {
             "log" -> {
                 logCsv = phone.log().joinToString("") { it.line() + "\n" }
-                apps = appList(phone.apps(), phone.rules(), phone.excluded(), "").map { Apps(it.label, it.pkg) }
+                apps = apps()
             }
             "rules" -> {
                 val excluded = phone.excluded()
-                req.rules.filterKeys { it !in excluded }.forEach { (pkg, r) -> phone.setRule(pkg, r.local()) }
+                req.rules.filterKeys { it !in excluded }.forEach { (pkg, r) -> phone.setRule(pkg, r.local) }
+                apps = apps() // the Parent redraws from this, not from what it asked
             }
             "stop" -> phone.stop()
             "start" -> {
@@ -52,10 +53,9 @@ class ChildCommands(private val phone: ChildPhone, private val clock: () -> Long
         return Reply(req.id, clock(), ok, reason, s.protecting, s.mode.name, !s.serviceBound, logCsv, apps)
     }
 
-    private fun Rule.local() = when (this) {
-        Rule.Normal -> AppRule.NORMAL
-        Rule.Bloqueada -> AppRule.BLOCKED
-        Rule.DeConfianza -> AppRule.TRUSTED
+    private suspend fun apps(): List<Apps> {
+        val rules = phone.rules()
+        return appList(phone.apps(), rules, phone.excluded(), "").map { Apps(it.label, it.pkg, Rule.of(rules[it.pkg] ?: AppRule.NORMAL)) }
     }
 }
 

@@ -61,4 +61,7 @@
     <string name="par_out_acc_off">The accessibility service is off on the Child phone</string>
     <string name="par_out_switch_off">‘Keep protecting always’ is off on the Child phone</string>
     <string name="par_out_failed">That did not work. Try again.</string>
+    <string name="par_unsaved_title">Not saved</string>
+    <string name="par_unsaved_text">The phone did not answer. %1$s is as it was.</string>
+    <string name="par_phone_open">Open %1$s</string>
 </resources>
