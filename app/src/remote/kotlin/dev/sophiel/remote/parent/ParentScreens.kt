@@ -1,6 +1,14 @@
 package dev.sophiel.remote.parent
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import dev.sophiel.ui.theme.Ease
+import dev.sophiel.ui.theme.motion
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -389,7 +397,12 @@ private fun ChildCard(name: String, card: Card, now: Long, id: String, home: Hom
             }
             Column(Modifier.padding(top = 12.dp), content = actions)
         }
-        live?.banner?.let { Banner(it) }
+        // The result drops in under its card and folds away when the next action starts.
+        var last by remember { mutableStateOf<Outcome?>(null) }
+        live?.banner?.let { last = it }
+        AnimatedVisibility(live?.banner != null, enter = expandVertically(motion(tween(240, easing = Ease))) + fadeIn(motion(tween(200))), exit = shrinkVertically(motion(tween(160))) + fadeOut(motion(tween(120)))) {
+            last?.let { Banner(it) }
+        }
     }
 }
 

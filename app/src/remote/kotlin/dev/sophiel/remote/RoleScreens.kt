@@ -1,5 +1,10 @@
 package dev.sophiel.remote
 
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.tween
+import dev.sophiel.ui.theme.Ease
+import dev.sophiel.ui.theme.motion
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -45,10 +50,13 @@ fun RoleChoice() {
             listOf(Role.Hijo to (R.string.role_child to R.string.role_child_text), Role.Padre to (R.string.role_parent to R.string.role_parent_text)).forEach { (r, t) ->
                 val on = pick == r
                 val pickIt = Modifier.selectable(on, role = androidx.compose.ui.semantics.Role.RadioButton, onClick = { pick = r })
-                if (on) InkCard(stringResource(t.first), pickIt, text = stringResource(t.second), icon = R.drawable.ic_check, lit = 3, titleSize = 34.sp)
-                else Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(Palette.Surface).then(pickIt).padding(20.dp)) {
-                    Text(stringResource(t.first), Modifier.asHeading(), style = MaterialTheme.typography.displaySmall.copy(fontSize = 34.sp, lineHeight = 37.sp), color = Palette.Moss)
-                    Text(stringResource(t.second), Modifier.padding(top = 6.dp), style = MaterialTheme.typography.bodyLarge, color = Palette.Dim)
+                // The pick lifts into the state card and the one it leaves settles back to a white tile; the column follows the height.
+                Crossfade(on, Modifier.animateContentSize(motion(tween(240, easing = Ease))), animationSpec = motion(tween(220)), label = "role") { chosen ->
+                    if (chosen) InkCard(stringResource(t.first), pickIt, text = stringResource(t.second), icon = R.drawable.ic_check, lit = 3, titleSize = 34.sp)
+                    else Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(Palette.Surface).then(pickIt).padding(20.dp)) {
+                        Text(stringResource(t.first), Modifier.asHeading(), style = MaterialTheme.typography.displaySmall.copy(fontSize = 34.sp, lineHeight = 37.sp), color = Palette.Moss)
+                        Text(stringResource(t.second), Modifier.padding(top = 6.dp), style = MaterialTheme.typography.bodyLarge, color = Palette.Dim)
+                    }
                 }
             }
         }

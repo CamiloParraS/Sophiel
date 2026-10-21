@@ -6,6 +6,8 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import androidx.compose.foundation.Canvas
+import kotlin.math.roundToInt
+import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.layout.IntrinsicSize
@@ -300,6 +302,11 @@ private fun LogSkeleton() {
 @Composable
 internal fun LogHero(week: LogCounts?, days: List<LogDay>, modifier: Modifier) {
     val covered = (days.lastOrNull()?.masked ?: 0).coerceIn(0, 3)
+    // The count climbs to the week's figure and the bars rise with it, once, when the figure first arrives; a refresh swaps it in silently.
+    val still = reducedMotion()
+    val rise = remember { Animatable(if (still) 1f else 0f) }
+    val ready = week != null
+    LaunchedEffect(ready, still) { if (ready && !still) rise.animateTo(1f, tween(700, easing = Ease)) else if (still) rise.snapTo(1f) }
     Box(modifier.fillMaxWidth().padding(horizontal = 8.dp).clip(RoundedCornerShape(28.dp)).background(Moss)) {
         Canvas(Modifier.matchParentSize()) {
             drawGrid(Page.READY, Palette.TileOn, 0L, -100_000L, true, emptyList(), covered = covered)
@@ -309,10 +316,10 @@ internal fun LogHero(week: LogCounts?, days: List<LogDay>, modifier: Modifier) {
         Column(Modifier.fillMaxWidth().padding(start = 22.dp, end = 22.dp, top = 56.dp, bottom = 22.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.Bottom) {
                 Column(Modifier.weight(1f)) {
-                    Text(week?.masked?.toString().orEmpty(), style = MaterialTheme.typography.displayLarge.copy(letterSpacing = (-2).sp), color = Text0)
+                    Text(week?.masked?.let { (it * rise.value).roundToInt().toString() }.orEmpty(), style = MaterialTheme.typography.displayLarge.copy(letterSpacing = (-2).sp, fontFeatureSettings = "tnum"), color = Text0)
                     Text(stringResource(R.string.log_hero_text), style = MaterialTheme.typography.bodyMedium, color = Text1)
                 }
-                if (days.isNotEmpty()) DayBars(days, Modifier.width(168.dp))
+                if (days.isNotEmpty()) DayBars(days, Modifier.width(168.dp), rise)
             }
             // The verdict rides with the count; it is the week's only summary (D73 dropped the figure cards under it).
             Column(Modifier.padding(top = 4.dp)) {
@@ -439,7 +446,7 @@ internal fun dayTitle(d: LogDay, locale: Locale) = if (d.today) stringResource(R
  * (D44) read as an unexplained pink and brown; the rows' tags carry the band.
  */
 @Composable
-private fun DayBars(days: List<LogDay>, modifier: Modifier) {
+private fun DayBars(days: List<LogDay>, modifier: Modifier, rise: Animatable<Float, *> ) {
     val most = days.maxOf { it.masked }.coerceAtLeast(1)
     Row(modifier, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         days.forEach { d ->
@@ -451,7 +458,7 @@ private fun DayBars(days: List<LogDay>, modifier: Modifier) {
                     color = if (d.today) Text0 else Text1, maxLines = 1, softWrap = false, // "43" at large text is wider than its slot: let it spill, not clip
                 )
                 Box(Modifier.padding(top = 2.dp).height(40.dp), contentAlignment = Alignment.BottomCenter) {
-                    val h = if (d.masked == 0) 2.dp else (6 + 34f * d.masked / most).dp
+                    val h = if (d.masked == 0) 2.dp else (6 + 34f * d.masked / most * rise.value).dp
                     Box(Modifier.width(12.dp).height(h).clip(RoundedCornerShape(3.dp)).background(if (d.masked == 0) Text1.copy(alpha = .3f) else ink))
                 }
                 Text(
