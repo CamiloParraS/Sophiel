@@ -1947,3 +1947,19 @@ M9 — Remote is in SPEC §5 with its deliverables in build order and V1-V9, and
 match D76-D84. M9 is new feature work by D76's scope change, so the feature freeze that returns at the end of M8 (D53) is lifted again
 for M9 only and returns at its end. The wire details SPEC fixes beyond D79 (endpoint list, frame shapes, QR text, token sizes) are
 implementation choices made while writing, not human decisions: change them freely if the build finds a reason.
+
+## D86 — M8 sign-off: V7 and V8 (2026-10-21, human confirmation + agent checks, M8 ticket 31)
+
+- **V7 Log and report:** the human confirmed the Informe works as intended (share sheet opens with the
+  text; Hoy and 7 días). The report text is `LogReport`, built from the same `LogCounts` as the dashboard,
+  JVM-tested for both periods (`LogReportTest`).
+- **V8 permissions:** `aapt dump permissions` on the debug APK: no `INTERNET`. Permissions are
+  `SYSTEM_ALERT_WINDOW`, `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_MEDIA_PROJECTION`, `POST_NOTIFICATIONS`
+  (+ the framework's dynamic-receiver one); no `uses-permission` added since M6.
+- **V8 manifest diff since M6** (343b03e): the `<queries>` block, `BlockActivity`, the service config
+  (`typeWindowStateChanged`, `flagReportViewIds`, `isAccessibilityTool`), and `android:localeConfig`
+  with `locales_config.xml` (the Idioma switch, D72: a UI-polish addition after M8's spec, not a permission).
+- **V8 tests:** `:safecore:test` 65 pass; `:app:testDebugUnitTest` 137 pass (0 failures, 0 skipped);
+  `ParityTest` 3/3 on the connected SM-A715F (instrumented, not JVM).
+- **Open:** M5 V1 and V2 on screen share were not re-run in this session. The human runs them on A and B
+  before SPEC §9 M8 is ticked and the freeze returns.
