@@ -637,6 +637,9 @@ internal fun EntryRow(row: LogRow, labels: Map<String, String>, inApp: Boolean =
             time, R.drawable.ic_stop, Palette.Dim, stringResource(R.string.log_share_stopped), stringResource(R.string.log_share_stopped_text), quiet = true,
         )
         // A blip of a gap steps back like Off/On; red is for gaps that add up to a minute or more.
+        is LogRow.Paired -> Line(
+            time, R.drawable.ic_phone, Palette.GreenFg, stringResource(R.string.log_paired), stringResource(R.string.log_paired_text), quiet = true,
+        )
         is LogRow.Unprotected -> Line(
             time, R.drawable.ic_shield_off, if (row.brief) Palette.Dim else Palette.RedFg, stringResource(R.string.log_gap),
             times(stringResource(R.string.log_gap_text, stringResource(gapText(row.reason)), LogModel.length(row.seconds)), row.count),

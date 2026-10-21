@@ -135,6 +135,8 @@
     <string name="fix_allow">Allow</string>
     <string name="fix_enable">Turn on</string>
     <string name="group_required">To work</string>
+    <string name="log_paired">Paired</string>
+    <string name="log_paired_text">With the Parent\'s phone</string>
     <string name="group_recommended">Recommended</string>
     <string name="note_overlay">Allow showing the mask to start</string>
 

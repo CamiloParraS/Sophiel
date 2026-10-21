@@ -4,16 +4,19 @@ import android.app.Application
 import androidx.compose.runtime.Composable
 import dev.sophiel.ui.Door
 
-/** The one seam from `main` into Remote (D83). Same object and signatures as `src/offline`; no behaviour yet (M9 tickets 11+). */
+/** The one seam from `main` into Remote (D83). Same object and signatures as `src/offline`. */
 object Remote {
     @Composable
-    fun Gate(app: @Composable () -> Unit) = app()
+    fun Gate(app: @Composable () -> Unit) = RoleGate(app)
 
-    fun attach(app: Application) = Unit
-
-    @Composable
-    fun SettingsRow(door: Door) = Unit
+    fun attach(app: Application) = RemoteState.init(app)
 
     @Composable
-    fun StatusLine() = Unit
+    fun SettingsRow(door: Door) = PairingRow(door)
+
+    @Composable
+    fun StatusLine() = PairedLine()
+
+    @Composable
+    fun StatusRecommended() = BatteryRecommended()
 }
