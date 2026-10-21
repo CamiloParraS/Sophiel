@@ -46,6 +46,9 @@ sealed interface LogRow {
     /** An [Off] and the [On] after it, folded by [LogDay.grouped]: off at [at] for [seconds]. */
     class Paused(override val at: Long, val seconds: Int, val reason: String) : LogRow
     class ShareStopped(override val at: Long) : LogRow
+
+    /** D82: Vinculado, this phone was paired with a Parent phone. */
+    class Paired(override val at: Long) : LogRow
     /** [count] gaps for one [reason], back to back, folded by [LogDay.grouped]; [seconds] is their sum, [since] the oldest start. */
     class Unprotected(override val at: Long, val seconds: Int, val reason: String, val count: Int = 1, val since: Long = at) : LogRow {
         /** Under a minute in total: a blip, not something to act on, so the list shows it as a quiet line. */
@@ -205,6 +208,7 @@ class LogModel(val days: List<LogDay>, val empty: Boolean) {
                 "ON" -> LogRow.On(e.at, f.getOrElse(0) { "" }, f.getOrElse(1) { "" })
                 "OFF" -> LogRow.Off(e.at, f.getOrElse(0) { "" })
                 "SHARE_STOPPED" -> LogRow.ShareStopped(e.at)
+                "PAIRED" -> LogRow.Paired(e.at)
                 "UNPROTECTED" -> LogRow.Unprotected(e.at, f.getOrNull(0)?.toIntOrNull() ?: 0, f.getOrElse(1) { "" })
                 "TAMPER" -> LogRow.Tamper(e.at, f.getOrElse(0) { "" }, f.getOrNull(1)?.toIntOrNull() ?: 1)
                 "APP_BLOCKED" -> LogRow.AppBlocked(e.at, f.getOrElse(0) { "" }, f.getOrNull(1)?.toIntOrNull() ?: 0)

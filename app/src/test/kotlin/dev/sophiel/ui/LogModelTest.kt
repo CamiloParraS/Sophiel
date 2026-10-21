@@ -239,4 +239,12 @@ class LogModelTest {
         assertEquals(2, m.week.unprotected)
         assertEquals(45, m.today.unprotectedSeconds)
     }
+
+    @Test
+    fun pairedLineIsAQuietRowAndOldKindsStillParse() {
+        val m = model(Entry(at(6, 9), "PAIRED", emptyList()), Entry(at(6, 10), "OFF", listOf("USER")), masked(at(6, 11), "0.60"))
+        val rows = m.days.last().rows
+        assertEquals(listOf(LogRow.Masked::class, LogRow.Off::class, LogRow.Paired::class), rows.map { it::class })
+        assertEquals(1, m.today.masked)
+    }
 }

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="role_title">¿Qué teléfono es este?</string>
+    <string name="role_child">Teléfono del Hijo</string>
+    <string name="role_child_text">Sophiel protege este teléfono.</string>
+    <string name="role_parent">Teléfono del Padre</string>
+    <string name="role_parent_text">Ver y controlar el teléfono de tu hijo.</string>
+    <string name="role_continue">Continuar</string>
+
+    <string name="pair_row">Teléfono del Padre</string>
+    <string name="pair_title">Teléfono del Padre</string>
+    <string name="pair_status">Vinculado con el teléfono del Padre</string>
+    <string name="pair_battery_title">Primero, la batería</string>
+    <string name="pair_battery_text">Para que el teléfono del Padre lo alcance con la pantalla apagada, Sophiel necesita que Android no limite su batería.</string>
+    <string name="pair_battery_allow">Permitir</string>
+    <string name="pair_battery_skip">Ahora no</string>
+    <string name="pair_privacy">El servidor solo guarda cuentas, sesiones y vinculaciones. Pasa los mensajes sin poder leerlos (cifrados con una clave que nunca sale de los dos teléfonos) y nunca guarda el historial, las apps ni las órdenes. Ninguna imagen ni contenido de pantalla sale de este teléfono. El lector de QR (Google) envía datos de uso anónimos a Google.</string>
+    <string name="pair_connected">Conectado</string>
+    <string name="pair_disconnected">Sin conexión</string>
+    <string name="pair_again">Mostrar código otra vez</string>
+    <string name="pair_battery_need">Sin restricción de batería</string>
+    <string name="pair_battery_need_text">Para que el teléfono del Padre lo alcance con la pantalla apagada.</string>
+</resources>

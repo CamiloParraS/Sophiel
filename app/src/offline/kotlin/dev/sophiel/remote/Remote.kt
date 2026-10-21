@@ -20,4 +20,8 @@ object Remote {
     /** The Status line "Vinculado con el teléfono del Padre". */
     @Composable
     fun StatusLine() = Unit
+
+    /** The Recomendado item "Sin restricción de batería" (paired and not exempt). */
+    @Composable
+    fun StatusRecommended() = Unit
 }

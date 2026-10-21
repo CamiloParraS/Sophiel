@@ -233,4 +233,11 @@ class EventLogTest {
         )
         assertEquals(listOf("ACCESSIBILITY", "1"), l.entries().single { it.kind == "TAMPER" }.fields)
     }
+
+    @Test fun `pairing writes a PAIRED line and leaves the others alone`() {
+        val l = log()
+        l.paired()
+        assertEquals(listOf("PAIRED"), l.entries().map { it.kind })
+        assertEquals("${now},PAIRED", l.entries().single().line())
+    }
 }
