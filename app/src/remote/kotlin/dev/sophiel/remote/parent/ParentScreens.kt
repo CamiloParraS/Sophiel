@@ -41,6 +41,10 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
+import com.google.mlkit.vision.barcode.common.Barcode
+import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
+import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
 import dev.sophiel.R
 import dev.sophiel.ui.BtnStyle
 import dev.sophiel.ui.ConfirmDialog
@@ -71,6 +75,7 @@ private fun Failure.text() = when (this) {
     Failure.EMAIL_TAKEN -> R.string.par_err_taken
     Failure.INVALID -> R.string.par_err_invalid
     Failure.OFFLINE -> R.string.par_err_offline
+    Failure.BAD_CODE -> R.string.par_scan_bad_text
     Failure.SESSION, Failure.OTHER -> R.string.par_err_other
 }
 
@@ -176,18 +181,28 @@ private fun ParentHome() {
     var confirmDelete by rememberSaveable { mutableStateOf(false) }
     var deleting by remember { mutableStateOf(false) }
     var failure by remember { mutableStateOf<Failure?>(null) }
+    var adding by rememberSaveable { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val session = ParentGraph.session
+    val children by session.children.list.collectAsState()
     Box(Modifier.fillMaxSize().background(Palette.Chalk)) {
         Column(Modifier.fillMaxSize()) {
             HeaderBar(stringResource(R.string.par_home), end = {
-                SButton(null, { account = true }, icon = R.drawable.ic_gear, label = stringResource(R.string.par_account))
+                Row {
+                    SButton(null, { adding = true }, icon = R.drawable.ic_plus, label = stringResource(R.string.par_add))
+                    SButton(null, { account = true }, icon = R.drawable.ic_gear, label = stringResource(R.string.par_account))
+                }
             })
-            Column(Modifier.weight(1f).navigationBarsPadding().cutoutPadding().pageWidth().padding(horizontal = 14.dp), verticalArrangement = Arrangement.Center) {
-                // Empty until pairing (tickets 17, 19): it says where the Child phone's QR is.
+            if (children.isEmpty()) Column(Modifier.weight(1f).navigationBarsPadding().cutoutPadding().pageWidth().padding(horizontal = 14.dp), verticalArrangement = Arrangement.Center) {
+                // It says where the Child phone's QR is.
                 StatusPage(R.drawable.ic_phone, stringResource(R.string.par_empty_title), stringResource(R.string.par_empty_text), Tone.Off)
+                SButton(stringResource(R.string.par_scan_do), { adding = true }, Modifier.fillMaxWidth().padding(top = 10.dp), style = BtnStyle.Go)
+            } else Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).navigationBarsPadding().cutoutPadding().pageWidth().padding(14.dp)) {
+                // Names only; ticket 19 turns each row into its state card.
+                PreferenceGroup { children.forEach { c -> item { PrefRow(c.name, icon = R.drawable.ic_phone) } } }
             }
         }
+        AddSheet(adding) { adding = false }
         BottomSheet(account, stringResource(R.string.par_account), { account = false }) {
             PreferenceGroup {
                 item { PrefRow(stringResource(R.string.par_logout), icon = R.drawable.ic_unlock, onClick = { account = false; scope.launch { session.logout() } }) }
@@ -210,5 +225,63 @@ private fun ParentHome() {
             },
             onDismiss = { confirmDelete = false },
         )
+    }
+}
+
+/** "+": the disclosure line, Google's scanner, POST /pairings, then the name (D80, D81). A bad scan names the fix on the Child phone. */
+@Composable
+private fun androidx.compose.foundation.layout.BoxScope.AddSheet(visible: Boolean, onDone: () -> Unit) {
+    val ctx = LocalContext.current
+    val session = ParentGraph.session
+    val scope = rememberCoroutineScope()
+    val defaultName = stringResource(R.string.par_name_default)
+    var busy by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<Int?>(null) }
+    var pairedId by rememberSaveable { mutableStateOf<String?>(null) }
+    var name by rememberSaveable { mutableStateOf("") }
+    fun close() { busy = false; error = null; pairedId = null; name = ""; onDone() }
+    fun scan() {
+        if (busy) return
+        busy = true; error = null
+        GmsBarcodeScanning.getClient(ctx, GmsBarcodeScannerOptions.Builder().setBarcodeFormats(Barcode.FORMAT_QR_CODE).build())
+            .startScan()
+            .addOnSuccessListener { code ->
+                scope.launch {
+                    when (val r = session.scan(code.rawValue.orEmpty(), defaultName)) {
+                        is Scan.Ok -> pairedId = r.pairingId
+                        is Scan.Fail -> error = r.why.text()
+                    }
+                    busy = false
+                }
+            }
+            .addOnCanceledListener { busy = false }
+            .addOnFailureListener { busy = false; error = R.string.par_scan_unavailable } // e.g. module not installed yet and no network
+    }
+    val id = pairedId
+    BottomSheet(visible, stringResource(if (id == null) R.string.par_scan_title else R.string.par_name_title), { close() }) {
+        if (id == null) {
+            Text(stringResource(R.string.par_scan_text), style = MaterialTheme.typography.bodyMedium, color = Palette.Fg)
+            error?.let {
+                Row(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Palette.tint(Palette.RedFg, .12f)).padding(14.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    SIcon(R.drawable.ic_warn, Palette.RedFg, 20.dp)
+                    Column {
+                        if (it == R.string.par_scan_bad_text) Text(stringResource(R.string.par_scan_bad_title), style = MaterialTheme.typography.titleSmall, color = Palette.RedFg)
+                        Text(stringResource(it), style = MaterialTheme.typography.bodyMedium, color = Palette.Fg)
+                    }
+                }
+            }
+            SButton(stringResource(R.string.par_scan_do), ::scan, Modifier.fillMaxWidth(), style = BtnStyle.Go, busy = busy)
+            Text(stringResource(R.string.par_scan_disclosure), style = MaterialTheme.typography.bodySmall, color = Palette.Dim)
+        } else {
+            Text(stringResource(R.string.par_name_text), style = MaterialTheme.typography.bodyMedium, color = Palette.Fg)
+            Field(name, { name = it }, stringResource(R.string.par_name_hint), KeyboardType.Text, VisualTransformation.None)
+            SButton(
+                stringResource(R.string.par_name_do), { session.children.rename(id, name); close() }, Modifier.fillMaxWidth(),
+                style = BtnStyle.Go, enabled = name.isNotBlank(),
+            )
+        }
     }
 }

@@ -18,12 +18,13 @@ private class FakeApi(var reply: Reply = Reply.Ok) : Api {
     override suspend fun login(email: String, password: String) = reply.also { calls += "login" }
     override suspend fun logout(token: String) = reply.also { calls += "logout:$token" }
     override suspend fun deleteAccount(token: String) = reply.also { calls += "delete:$token" }
+    override suspend fun pair(token: String, claimCode: String) = reply
 }
 
 class ParentSessionTest {
     private val kv = MemKv()
     private val api = FakeApi()
-    private fun session() = ParentSession(api, TokenStore(kv))
+    private fun session() = ParentSession(api, TokenStore(kv), Children(kv))
 
     @Test fun failureMapping() {
         assertEquals(Failure.WRONG_CREDENTIALS, failureOf(401, login = true))

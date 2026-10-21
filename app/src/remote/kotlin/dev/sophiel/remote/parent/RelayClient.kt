@@ -20,8 +20,14 @@ class RelayClient(private val http: OkHttpClient = OkHttpClient(), private val b
             try {
                 http.newCall(req).execute().use { r ->
                     if (!r.isSuccessful) return@use Reply.Fail(failureOf(r.code, login))
-                    val t = runCatching { JSONObject(r.body.string()).optString("token") }.getOrNull()
-                    if (t.isNullOrEmpty()) Reply.Ok else Reply.Token(t)
+                    val o = runCatching { JSONObject(r.body.string()) }.getOrNull()
+                    val t = o?.optString("token")
+                    val p = o?.optString("pairingId")
+                    when {
+                        !t.isNullOrEmpty() -> Reply.Token(t)
+                        !p.isNullOrEmpty() -> Reply.Paired(p)
+                        else -> Reply.Ok
+                    }
                 }
             } catch (e: IOException) {
                 Reply.Fail(Failure.OFFLINE)
@@ -33,6 +39,7 @@ class RelayClient(private val http: OkHttpClient = OkHttpClient(), private val b
     override suspend fun login(email: String, password: String) = call("/login", "POST", json = creds(email, password), login = true)
     override suspend fun logout(token: String) = call("/logout", "POST", token)
     override suspend fun deleteAccount(token: String) = call("/account", "DELETE", token)
+    override suspend fun pair(token: String, claimCode: String) = call("/pairings", "POST", token, JSONObject().put("claimCode", claimCode))
 }
 
 /** One session per process, built in `Remote.attach`. */
@@ -48,6 +55,6 @@ object ParentGraph {
             override fun put(key: String, value: String?) = prefs.edit().apply { if (value == null) remove(key) else putString(key, value) }.apply()
         }
         roles = RoleStore(kv)
-        session = ParentSession(RelayClient(), TokenStore(kv))
+        session = ParentSession(RelayClient(), TokenStore(kv), Children(kv))
     }
 }
