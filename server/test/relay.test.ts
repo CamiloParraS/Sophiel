@@ -218,3 +218,29 @@ test("410 for another account's pairing; 401 bad token; 413 over the cap", async
   expect((await post(`/pairings/${pairingId}/request`, { body: "x" }, "bad")).status).toBe(401);
   expect((await post(`/pairings/${pairingId}/request`, { body: "x".repeat(256 * 1024 + 1) }, a)).status).toBe(413);
 });
+
+test("Mostrar código otra vez: a paired claim joins the same pairing, for the same account only", async () => {
+  const tok = await signup();
+  const { c, pairingId, deviceToken } = await pair(tok);
+  c.send({ t: "hello", deviceToken });
+  // another Parent phone of the account (or the reinstalled one) logs in and scans the fresh code
+  const tok2 = (await (await post("/login", { email: `p${n - 1}@x.com`, password: "password1" })).json()).token;
+  const claim = await child();
+  claim.send({ t: "claim", deviceToken });
+  const { claimCode } = await claim.next("code");
+  expect((await (await post("/pairings", { claimCode }, tok2)).json()).pairingId).toBe(pairingId);
+  expect(await claim.next("paired")).toEqual({ t: "paired", pairingId }); // no new device token
+  expect(count("pairings")).toBe(1);
+  // the Child socket still answers for the same pairing
+  const p = post(`/pairings/${pairingId}/request`, { body: "QQ" }, tok2);
+  const req = await c.next("req");
+  c.send({ t: "res", rid: req.rid, body: "Ug" });
+  expect(await (await p).json()).toEqual({ body: "Ug" });
+
+  // another account cannot take it over
+  const other = await signup();
+  claim.send({ t: "claim", deviceToken });
+  const code2 = (await claim.next("code")).claimCode;
+  expect((await post("/pairings", { claimCode: code2 }, other)).status).toBe(404);
+  expect(count("pairings")).toBe(1);
+});

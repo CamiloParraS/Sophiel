@@ -87,7 +87,7 @@ private fun askBatteryExemption(ctx: Context) =
 fun PairingRow(door: Door) {
     var open by rememberSaveable { mutableStateOf(false) }
     val paired by RemoteState.paired.collectAsState()
-    androidx.compose.runtime.LaunchedEffect(door.unlocked) { if (!door.unlocked) open = false }
+    LaunchedEffect(door.unlocked) { if (!door.unlocked) open = false }
     PreferenceGroup {
         item {
             PrefRow(
@@ -136,6 +136,7 @@ private fun PairingScreen(onClose: () -> Unit) {
                             SIcon(R.drawable.ic_shield_ok, Palette.GreenFg)
                             Text(stringResource(R.string.pair_status), style = MaterialTheme.typography.titleMedium, color = Palette.GreenFg)
                         }
+                        ConnectionLine(ChildSocket.connected.collectAsState().value)
                         SButton(stringResource(R.string.pair_again), { again = true }, Modifier.fillMaxWidth())
                         SButton(stringResource(R.string.pair_unpair), { confirmUnpair = true }, Modifier.fillMaxWidth(), BtnStyle.Destructive)
                     }
@@ -155,7 +156,7 @@ private fun PairingScreen(onClose: () -> Unit) {
 @Composable
 private fun Claim(onPaired: () -> Unit) {
     val store = RemoteState.child
-    val socket = remember { ClaimSocket(ChildFrame.wsUrl(BuildConfig.RELAY_URL)) }
+    val socket = remember { ClaimSocket(ChildFrame.wsUrl(BuildConfig.RELAY_URL), store::claimFrame) }
     var code by remember { mutableStateOf<String?>(null) }
     var connected by remember { mutableStateOf(false) }
     LaunchedEffect(socket) {
@@ -165,8 +166,8 @@ private fun Claim(onPaired: () -> Unit) {
                 ClaimEvent.Closed -> { connected = false; code = null }
                 is ClaimEvent.Frame -> when (val f = e.frame) {
                     is ChildFrame.Code -> code = f.claimCode
-                    is ChildFrame.Paired -> { RemoteState.onPaired(f.pairingId, f.deviceToken); onPaired() }
-                    ChildFrame.Unpaired -> Unit
+                    is ChildFrame.Paired -> { RemoteState.onPaired(f); onPaired() }
+                    else -> Unit
                 }
             }
         }
@@ -176,12 +177,15 @@ private fun Claim(onPaired: () -> Unit) {
     Column(Modifier.widthIn(max = 320.dp).fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(16.dp)).background(Color.White).padding(16.dp)) {
         if (text != null) QrCode(text, Modifier.fillMaxSize())
     }
-    Text(
-        stringResource(if (connected) R.string.pair_connected else R.string.pair_disconnected),
-        style = MaterialTheme.typography.titleMedium, color = if (connected) Palette.GreenFg else Palette.Dim,
-    )
+    ConnectionLine(connected)
     SButton(stringResource(R.string.pair_again), { code = null; socket.newCode() }, Modifier.fillMaxWidth(), enabled = connected)
 }
+
+@Composable
+private fun ConnectionLine(connected: Boolean) = Text(
+    stringResource(if (connected) R.string.pair_connected else R.string.pair_disconnected),
+    style = MaterialTheme.typography.titleMedium, color = if (connected) Palette.GreenFg else Palette.Dim,
+)
 
 /** ZXing's matrix on a Canvas (D80): one square per dark module, on white. */
 @Composable

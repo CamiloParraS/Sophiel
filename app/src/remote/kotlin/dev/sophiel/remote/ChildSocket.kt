@@ -22,18 +22,14 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.OkHttpClient
-import okhttp3.Request
-import okhttp3.Response
-import okhttp3.WebSocket
-import okhttp3.WebSocketListener
 
 /** The Child phone's real [ChildPhone]: the controller is main-thread only (CaptureModeController). */
 private class AndroidChildPhone(private val app: SophielApp) : ChildPhone {
@@ -63,6 +59,9 @@ object ChildSocket {
     private val kicks = Channel<Boolean>(Channel.CONFLATED) // true: drop an open socket and reconnect
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val client = OkHttpClient.Builder().pingInterval(30, TimeUnit.SECONDS).build() // a half-open socket dies while awake; the server pings too
+    private val _connected = MutableStateFlow(false)
+    /** Whether the paired socket is open now: the pairing screen's "Conectado" / "Sin conexión". */
+    val connected: StateFlow<Boolean> get() = _connected
 
     fun start(app: SophielApp) {
         watch(app)
@@ -120,9 +119,13 @@ object ChildSocket {
                 var forced = false
                 coroutineScope {
                     val sock = launch {
-                        open(listOf(hello)).collect { (ws, text) ->
-                            backoff = 2_000L
-                            link.onFrame(text)?.let { ws.send(it) }
+                        try {
+                            open(listOf(hello), onOpen = { _connected.value = true }).collect { (ws, text) ->
+                                backoff = 2_000L
+                                link.onFrame(text)?.let { ws.send(it) }
+                            }
+                        } finally {
+                            _connected.value = false
                         }
                     }
                     val watcher = launch { while (!kicks.receive()) Unit; forced = true; sock.cancel() }
@@ -149,7 +152,7 @@ object ChildSocket {
         while (true) {
             val frames = link.farewell() ?: return
             var heard = false
-            open(frames) { heard = true }.collect { (_, text) -> link.onFrame(text) }
+            open(frames, onServerClose = { heard = true }).collect { (_, text) -> link.onFrame(text) }
             if (heard) { Log.i(TAG, "remote: relay heard unpair"); link.farewellDone(); return }
             withTimeoutOrNull(backoff) { kicks.receive() }
             backoff = (backoff * 2).coerceAtMost(CHECK_MS)
@@ -157,17 +160,10 @@ object ChildSocket {
     }
 
     /** One socket: [frames] on open, then each text frame with its socket; completes when the socket closes. */
-    private fun open(frames: List<String>, onServerClose: () -> Unit = {}) = callbackFlow {
-        val ws = client.newWebSocket(Request.Builder().url(ChildFrame.wsUrl(BuildConfig.RELAY_URL)).build(), object : WebSocketListener() {
-            override fun onOpen(webSocket: WebSocket, response: Response) {
-                Log.i(TAG, "remote: socket open")
-                frames.forEach(webSocket::send)
-            }
-            override fun onMessage(webSocket: WebSocket, text: String) { trySend(webSocket to text) }
-            override fun onClosing(webSocket: WebSocket, code: Int, reason: String) { onServerClose(); webSocket.close(1000, null) }
-            override fun onClosed(webSocket: WebSocket, code: Int, reason: String) { channel.close() }
-            override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) { channel.close() }
-        })
-        awaitClose { ws.cancel() }
-    }
+    private fun open(frames: List<String>, onOpen: () -> Unit = {}, onServerClose: () -> Unit = {}) =
+        client.socket(ChildFrame.wsUrl(BuildConfig.RELAY_URL), onOpen = { ws ->
+            Log.i(TAG, "remote: socket open")
+            frames.forEach(ws::send)
+            onOpen()
+        }, onServerClose)
 }

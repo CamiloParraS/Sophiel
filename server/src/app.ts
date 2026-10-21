@@ -28,7 +28,7 @@ export function createApp({ dbPath, requestTimeoutMs = 10_000, now = Date.now }:
     id TEXT PRIMARY KEY, account_id TEXT NOT NULL, device_token_hash TEXT NOT NULL, created_at INTEGER NOT NULL)`);
 
   // memory only
-  const claims = new Map<string, { sock: Sock; sockId: string; expires: number }>();
+  const claims = new Map<string, { sock: Sock; sockId: string; expires: number; pairingId?: string }>(); // pairingId: "Mostrar código otra vez"
   const socks = new Map<string, Sock>(); // pairing id -> open Child socket
   const byId = new Map<string, { sock: Sock; claim?: string; pairingId?: string }>(); // ws.id -> state
   const pending = new Map<string, Pending>();
@@ -134,7 +134,9 @@ export function createApp({ dbPath, requestTimeoutMs = 10_000, now = Date.now }:
       if (w && w.n >= MAX_WRONG_CLAIMS && now() < w.until) return reply(404, "Código no válido");
       const b = (await request.json().catch(() => null)) as { claimCode?: unknown } | null;
       const claim = typeof b?.claimCode === "string" ? claims.get(b.claimCode) : undefined;
-      if (!claim || now() > claim.expires) {
+      // D79: a code from an already paired Child phone joins its pairing, and only for the account that owns it
+      const foreign = claim?.pairingId && !db.query("SELECT 1 FROM pairings WHERE id = ? AND account_id = ?").get(claim.pairingId, acc);
+      if (!claim || now() > claim.expires || foreign) {
         if (claim) claims.delete(b!.claimCode as string);
         const fresh = w && now() < w.until ? w : { n: 0, until: now() + CLAIM_TTL };
         fresh.n++;
@@ -142,6 +144,10 @@ export function createApp({ dbPath, requestTimeoutMs = 10_000, now = Date.now }:
         return reply(404, "Código no válido");
       }
       claims.delete(b!.claimCode as string);
+      if (claim.pairingId) {
+        claim.sock.send(JSON.stringify({ t: "paired", pairingId: claim.pairingId })); // same key, same token: nothing new for the Child
+        return { pairingId: claim.pairingId };
+      }
       const pairingId = randomUUID();
       const deviceToken = token();
       db.run("INSERT INTO pairings VALUES (?, ?, ?, ?)", [pairingId, acc, sha256(deviceToken), now()]);
@@ -196,7 +202,10 @@ export function createApp({ dbPath, requestTimeoutMs = 10_000, now = Date.now }:
         if (m.t === "claim") {
           if (st.claim) claims.delete(st.claim);
           st.claim = randomBytes(5).toString("hex"); // 40 bits
-          claims.set(st.claim, { sock: ws as Sock, sockId: ws.id, expires: now() + CLAIM_TTL });
+          const joins = typeof m.deviceToken === "string"
+            ? (db.query("SELECT id FROM pairings WHERE device_token_hash = ?").get(sha256(m.deviceToken)) as { id: string } | null)?.id
+            : undefined;
+          claims.set(st.claim, { sock: ws as Sock, sockId: ws.id, expires: now() + CLAIM_TTL, pairingId: joins });
           ws.send(JSON.stringify({ t: "code", claimCode: st.claim }));
         } else if (m.t === "hello") {
           const row = typeof m.deviceToken === "string"

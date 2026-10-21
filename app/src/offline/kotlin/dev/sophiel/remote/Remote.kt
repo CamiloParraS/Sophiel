@@ -1,6 +1,6 @@
 package dev.sophiel.remote
 
-import android.app.Application
+import dev.sophiel.SophielApp
 import androidx.compose.runtime.Composable
 import dev.sophiel.ui.Door
 
@@ -11,7 +11,7 @@ object Remote {
     fun Gate(app: @Composable () -> Unit) = app()
 
     /** Entry point called once from `Application.onCreate`: where `remote` wires the socket and the command handler. */
-    fun attach(app: Application) = Unit
+    fun attach(app: SophielApp) = Unit
 
     /** The Ajustes row "Teléfono del Padre". */
     @Composable

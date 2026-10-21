@@ -1,6 +1,5 @@
 package dev.sophiel.remote
 
-import android.app.Application
 import android.content.Context
 import android.os.PowerManager
 import dev.sophiel.SophielApp
@@ -17,8 +16,8 @@ object RemoteState {
     val role: StateFlow<Role?> get() = _role
     val paired: StateFlow<Boolean> get() = _paired
 
-    fun init(application: Application) {
-        app = application as SophielApp
+    fun init(application: SophielApp) {
+        app = application
         val prefs = app.getSharedPreferences("remote_child", Context.MODE_PRIVATE)
         child = ChildStore(
             read = { prefs.getString(it, null) },
@@ -30,9 +29,9 @@ object RemoteState {
 
     fun chooseRole(r: Role) { child.role = r; _role.value = r }
 
-    /** The relay said `paired`: token and id kept (the key was made before the QR), a Vinculado line in the Log. */
-    fun onPaired(pairingId: String, deviceToken: String) {
-        child.savePaired(pairingId, deviceToken)
+    /** The relay said `paired`: a new pairing keeps token and id and logs Vinculado; a Parent phone joining an existing one changes nothing. */
+    fun onPaired(f: ChildFrame.Paired) {
+        if (!child.onPaired(f)) return
         _paired.value = true
         app.container.log.paired()
     }

@@ -1,6 +1,6 @@
 package dev.sophiel.remote
 
-import android.app.Application
+import dev.sophiel.SophielApp
 import androidx.compose.runtime.Composable
 import dev.sophiel.remote.parent.ParentGraph
 import dev.sophiel.ui.Door
@@ -10,10 +10,10 @@ object Remote {
     @Composable
     fun Gate(app: @Composable () -> Unit) = RoleGate(app)
 
-    fun attach(app: Application) {
+    fun attach(app: SophielApp) {
         RemoteState.init(app)
         ParentGraph.init(app)
-        ChildSocket.start(app as dev.sophiel.SophielApp) // opens nothing until paired
+        ChildSocket.start(app) // opens nothing until paired
     }
 
     @Composable

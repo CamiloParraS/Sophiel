@@ -28,6 +28,15 @@ class ChildStore(private val read: (String) -> String?, private val write: (Map<
 
     fun savePaired(pairingId: String, deviceToken: String) = write(mapOf("pairingId" to pairingId, "deviceToken" to deviceToken))
 
+    /** The claim socket's first frame. While paired it carries the device token, so the new code joins this pairing (D79). */
+    fun claimFrame(): String = JSONObject().put("t", "claim").apply { deviceToken?.let { put("deviceToken", it) } }.toString()
+
+    /** The relay said `paired`. No token: a Parent phone joined the existing pairing, nothing to save. True if newly paired. */
+    fun onPaired(f: ChildFrame.Paired): Boolean {
+        savePaired(f.pairingId, f.deviceToken ?: return false)
+        return true
+    }
+
     fun clear() = write(mapOf("key" to null, "pairingId" to null, "deviceToken" to null))
 
     /** Desvincular here: like [clear], but the token is kept as [unpairToken] until the relay has heard `unpair`. */
@@ -37,19 +46,22 @@ class ChildStore(private val read: (String) -> String?, private val write: (Map<
     fun farewellDone() = write(mapOf("unpairToken" to null))
 }
 
-/** What the relay sends a Child socket during pairing (SPEC M9 deliverable 2). Anything else is ignored here. */
+/** What the relay sends a Child socket (SPEC M9 deliverable 2). Anything else is ignored. */
 sealed interface ChildFrame {
     data class Code(val claimCode: String) : ChildFrame
-    data class Paired(val pairingId: String, val deviceToken: String) : ChildFrame
+    /** [deviceToken] is null when a Parent phone joined the existing pairing ("Mostrar código otra vez"). */
+    data class Paired(val pairingId: String, val deviceToken: String?) : ChildFrame
     data object Unpaired : ChildFrame
+    data class Req(val rid: String, val body: String) : ChildFrame
 
     companion object {
         fun parse(text: String): ChildFrame? = try {
             val o = JSONObject(text)
             when (o.getString("t")) {
                 "code" -> Code(o.getString("claimCode"))
-                "paired" -> Paired(o.getString("pairingId"), o.getString("deviceToken"))
+                "paired" -> Paired(o.getString("pairingId"), o.optString("deviceToken").ifEmpty { null })
                 "unpaired" -> Unpaired
+                "req" -> Req(o.getString("rid"), o.getString("body"))
                 else -> null
             }
         } catch (_: JSONException) {

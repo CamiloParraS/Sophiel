@@ -6,7 +6,6 @@ import dev.sophiel.log.EventLog
 import dev.sophiel.settings.AppEntry
 import dev.sophiel.settings.AppRule
 import dev.sophiel.settings.appList
-import org.json.JSONException
 import org.json.JSONObject
 
 /** What a Remote command touches on the Child phone: the capture controller, the Apps store, the Log (D82). */
@@ -81,21 +80,18 @@ class ChildLink(
 
     private fun helloFrame(token: String) = JSONObject().put("t", "hello").put("deviceToken", token).toString()
 
-    suspend fun onFrame(text: String): String? {
-        val o = try { JSONObject(text) } catch (_: JSONException) { return null }
-        return when (o.optString("t")) {
-            "unpaired" -> {
-                store.farewellDone()
-                if (store.paired) {
-                    store.clear()
-                    log.unpaired(byParent = true)
-                    onUnpaired()
-                }
-                null
+    suspend fun onFrame(text: String): String? = when (val f = ChildFrame.parse(text)) {
+        ChildFrame.Unpaired -> {
+            store.farewellDone()
+            if (store.paired) {
+                store.clear()
+                log.unpaired(byParent = true)
+                onUnpaired()
             }
-            "req" -> answer(o.optString("rid"), o.optString("body"))
-            else -> null
+            null
         }
+        is ChildFrame.Req -> answer(f.rid, f.body)
+        else -> null
     }
 
     private suspend fun answer(rid: String, body: String): String? {
