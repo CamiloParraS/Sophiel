@@ -30,4 +30,17 @@
     <string name="par_delete_title">¿Borrar la cuenta?</string>
     <string name="par_delete_text">Se desvinculan todos los teléfonos de tus hijos y no se puede deshacer.</string>
     <string name="par_account_hint">Para usar este teléfono como teléfono del Hijo, cierra sesión.</string>
+    <string name="par_add">Añadir teléfono</string>
+    <string name="par_scan_title">Escanear código</string>
+    <string name="par_scan_text">En el teléfono del Hijo abre Ajustes, toca Teléfono del Padre y escanea el código que aparece.</string>
+    <string name="par_scan_disclosure">Lo abre el lector de Google. Sophiel no usa la cámara.</string>
+    <string name="par_scan_do">Escanear código</string>
+    <string name="par_scan_bad_title">Este código ya no sirve</string>
+    <string name="par_scan_bad_text">En el teléfono del Hijo toca “Mostrar código otra vez” y escanéalo de nuevo.</string>
+    <string name="par_scan_unavailable">No se pudo abrir el lector de códigos. Revisa tu internet y vuelve a probar.</string>
+    <string name="par_name_title">Teléfono vinculado</string>
+    <string name="par_name_text">Ponle un nombre. Solo se ve en este teléfono.</string>
+    <string name="par_name_hint">Teléfono de Sofi</string>
+    <string name="par_name_default">Teléfono del Hijo</string>
+    <string name="par_name_do">Guardar</string>
 </resources>

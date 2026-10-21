@@ -30,4 +30,17 @@
     <string name="par_delete_title">Delete the account?</string>
     <string name="par_delete_text">All your children\'s phones are unlinked and this cannot be undone.</string>
     <string name="par_account_hint">To use this phone as the Child phone, sign out.</string>
+    <string name="par_add">Add phone</string>
+    <string name="par_scan_title">Scan code</string>
+    <string name="par_scan_text">On the Child phone open Settings, tap Parent phone and scan the code it shows.</string>
+    <string name="par_scan_disclosure">Google\'s scanner opens it. Sophiel does not use the camera.</string>
+    <string name="par_scan_do">Scan code</string>
+    <string name="par_scan_bad_title">This code no longer works</string>
+    <string name="par_scan_bad_text">On the Child phone tap “Show code again” and scan it again.</string>
+    <string name="par_scan_unavailable">The code scanner could not open. Check your internet and try again.</string>
+    <string name="par_name_title">Phone paired</string>
+    <string name="par_name_text">Give it a name. It is only seen on this phone.</string>
+    <string name="par_name_hint">Sofi\'s phone</string>
+    <string name="par_name_default">Child phone</string>
+    <string name="par_name_do">Save</string>
 </resources>
