@@ -1,0 +1,33 @@
+<resources>
+    <string name="par_home">Tus hijos</string>
+    <string name="par_account">Cuenta</string>
+    <string name="par_login_title">Teléfono del Padre</string>
+    <string name="par_login_text">Entra para ver y controlar los teléfonos de tus hijos.</string>
+    <string name="par_privacy">Solo guarda tu correo y qué teléfonos vinculaste.</string>
+    <string name="par_signup_bar">Crear cuenta</string>
+    <string name="par_signup_title">Una cuenta, todos tus hijos</string>
+    <string name="par_signup_text">Con ella vinculas cada teléfono del Hijo. La contraseña lleva 8 caracteres o más.</string>
+    <string name="par_email">Correo</string>
+    <string name="par_password">Contraseña</string>
+    <string name="par_login_do">Entrar</string>
+    <string name="par_signup_do">Crear cuenta</string>
+    <string name="par_make_account">Crear una cuenta</string>
+    <string name="par_back_to_child">Este teléfono es del Hijo</string>
+    <string name="par_norecovery_title">Guárdala bien</string>
+    <string name="par_norecovery_text">Si la olvidas no se puede recuperar: tendrás que crear otra cuenta y vincular los teléfonos otra vez.</string>
+    <string name="par_err_title">No pudiste entrar</string>
+    <string name="par_err_wrong">Correo o contraseña incorrectos. Demasiados intentos bloquean la entrada unos minutos.</string>
+    <string name="par_err_locked">Demasiados intentos. Espera unos minutos y vuelve a probar.</string>
+    <string name="par_err_taken">Ese correo ya tiene una cuenta. Entra con ella.</string>
+    <string name="par_err_invalid">Revisa el correo y que la contraseña tenga 8 caracteres o más.</string>
+    <string name="par_err_offline">No hay conexión con el servidor. Revisa tu internet.</string>
+    <string name="par_err_other">Algo salió mal. Inténtalo de nuevo.</string>
+    <string name="par_empty_title">Aún no hay teléfonos</string>
+    <string name="par_empty_text">En el teléfono del Hijo abre Ajustes, toca Teléfono del Padre y ahí verás el código QR.</string>
+    <string name="par_logout">Cerrar sesión</string>
+    <string name="par_delete">Borrar cuenta</string>
+    <string name="par_delete_help">Desvincula todos los teléfonos y borra la cuenta</string>
+    <string name="par_delete_title">¿Borrar la cuenta?</string>
+    <string name="par_delete_text">Se desvinculan todos los teléfonos de tus hijos y no se puede deshacer.</string>
+    <string name="par_account_hint">Para usar este teléfono como teléfono del Hijo, cierra sesión.</string>
+</resources>

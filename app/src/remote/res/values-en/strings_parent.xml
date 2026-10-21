@@ -1,0 +1,33 @@
+<resources>
+    <string name="par_home">Your children</string>
+    <string name="par_account">Account</string>
+    <string name="par_login_title">Parent phone</string>
+    <string name="par_login_text">Sign in to see and control your children\'s phones.</string>
+    <string name="par_privacy">It only keeps your email and which phones you linked.</string>
+    <string name="par_signup_bar">Create account</string>
+    <string name="par_signup_title">One account, all your children</string>
+    <string name="par_signup_text">You use it to link each Child phone. The password takes 8 characters or more.</string>
+    <string name="par_email">Email</string>
+    <string name="par_password">Password</string>
+    <string name="par_login_do">Sign in</string>
+    <string name="par_signup_do">Create account</string>
+    <string name="par_make_account">Create an account</string>
+    <string name="par_back_to_child">This is the Child phone</string>
+    <string name="par_norecovery_title">Keep it safe</string>
+    <string name="par_norecovery_text">If you forget it, it cannot be recovered: you will have to create another account and link the phones again.</string>
+    <string name="par_err_title">You could not sign in</string>
+    <string name="par_err_wrong">Wrong email or password. Too many tries lock sign-in for a few minutes.</string>
+    <string name="par_err_locked">Too many tries. Wait a few minutes and try again.</string>
+    <string name="par_err_taken">That email already has an account. Sign in with it.</string>
+    <string name="par_err_invalid">Check the email and that the password has 8 characters or more.</string>
+    <string name="par_err_offline">No connection to the server. Check your internet.</string>
+    <string name="par_err_other">Something went wrong. Try again.</string>
+    <string name="par_empty_title">No phones yet</string>
+    <string name="par_empty_text">On the Child phone open Settings, tap Parent phone and you will see the QR code.</string>
+    <string name="par_logout">Sign out</string>
+    <string name="par_delete">Delete account</string>
+    <string name="par_delete_help">Unlinks all phones and deletes the account</string>
+    <string name="par_delete_title">Delete the account?</string>
+    <string name="par_delete_text">All your children\'s phones are unlinked and this cannot be undone.</string>
+    <string name="par_account_hint">To use this phone as the Child phone, sign out.</string>
+</resources>
