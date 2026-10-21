@@ -4,10 +4,10 @@
 
 **Blocked by:** 29
 
-**Status:** ready-for-agent
+**Status:** built 2026-10-21, awaiting the check on B
 
-- [ ] Report text built by a pure function from ticket 29's counts and string resources, JVM-tested for Hoy and 7 días
-- [ ] No FileProvider, no image card, no new permission
-- [ ] Spanish strings, English in `values-en/`
+- [x] Report text built by a pure function from ticket 29's counts and string resources, JVM-tested for Hoy and 7 días
+- [x] No FileProvider, no image card, no new permission
+- [x] Spanish strings, English in `values-en/`
 - [ ] Checked on B: the text arrives in a chat app and its counts match the Log
-- [ ] Ends buildable
+- [x] Ends buildable

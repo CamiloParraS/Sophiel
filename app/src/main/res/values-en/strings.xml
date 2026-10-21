@@ -348,4 +348,20 @@
     <string name="glance_today">Covered today</string>
     <string name="glance_week">Covered in 7 days</string>
     <string name="group_apps_activity">Apps and activity</string>
+    <string name="report_open">Report</string>
+    <string name="report_title">Sophiel report · %1$s</string>
+    <string name="report_week">7 days</string>
+    <string name="report_share">Share…</string>
+    <string name="report_date">Date: %1$s</string>
+    <string name="report_masked">Covered: %1$d</string>
+    <string name="report_unchecked">Not checked: %1$d</string>
+    <string name="report_gap">Unprotected: %1$d</string>
+    <string name="report_gap_total">(%1$s in total)</string>
+    <string name="report_attempts">Attempts to turn it off: %1$d</string>
+    <string name="report_blocked">Apps blocked: %1$d</string>
+    <string name="report_top">Most covered:</string>
+    <string name="report_app_line">• %1$s: %2$d</string>
+    <string name="report_days">By day:</string>
+    <string name="report_day_line">%1$s: %2$d</string>
+    <string name="report_footer">Figures only. Sophiel does not keep images.</string>
 </resources>

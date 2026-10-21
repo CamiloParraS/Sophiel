@@ -47,6 +47,7 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -199,6 +200,7 @@ fun LogScreen(log: EventLog, door: Door, onBack: () -> Unit) {
     var settled by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { if (!still) delay(360); settled = true }
     var confirm by remember { mutableStateOf(false) }
+    var report by rememberSaveable { mutableStateOf(false) }
     // The by-app screen rides inside the Log: Back goes app -> list -> Log (LogAppsScreen owns the first two steps).
     var byApp by rememberSaveable { mutableStateOf(false) }
     var pick by rememberSaveable { mutableStateOf<String?>(null) }
@@ -252,14 +254,47 @@ fun LogScreen(log: EventLog, door: Door, onBack: () -> Unit) {
         ) {
             SButton(null, onBack, style = BtnStyle.OnDark, icon = R.drawable.ic_back, label = stringResource(R.string.back))
             Text(stringResource(R.string.log_title), Modifier.asHeading().weight(1f).padding(start = 10.dp), style = MaterialTheme.typography.titleMedium, color = Text0)
+            if (model != null && !model.empty) SButton(stringResource(R.string.report_open), { report = true }, style = BtnStyle.OnDark)
             UnlockedChip(door, onDark = true)
         }
+        if (model != null) ReportSheet(report, model, labels) { report = false }
     }
     if (confirm) ConfirmDialog(
         stringResource(R.string.log_clear_title), stringResource(R.string.log_clear_text),
         confirmLabel = stringResource(R.string.log_clear_confirm), cancelLabel = stringResource(R.string.pin_cancel),
         onConfirm = { confirm = false; scope.launch(Dispatchers.IO) { log.clear(); version++ } }, onDismiss = { confirm = false },
     )
+}
+
+/** D59: the Informe in a sheet: Hoy / 7 días, the text as it will be sent, and the system share sheet. Sophiel sends nothing itself. */
+@Composable
+private fun BoxScope.ReportSheet(visible: Boolean, model: LogModel, labels: Map<String, String>, onDismiss: () -> Unit) {
+    val ctx = LocalContext.current
+    val locale = appLocale()
+    var period by rememberSaveable { mutableStateOf(ReportPeriod.TODAY) }
+    val title = stringResource(R.string.report_open)
+    val periods = listOf(R.string.log_today, R.string.report_week).map { stringResource(it) }
+    val strings = ReportStrings(
+        stringResource(R.string.report_title), stringResource(R.string.report_date), stringResource(R.string.report_masked), stringResource(R.string.report_unchecked),
+        stringResource(R.string.report_gap), stringResource(R.string.report_gap_total), stringResource(R.string.report_attempts), stringResource(R.string.report_blocked),
+        stringResource(R.string.report_top), stringResource(R.string.report_app_line), stringResource(R.string.report_days), stringResource(R.string.report_day_line), stringResource(R.string.report_footer),
+    )
+    val today = stringResource(R.string.log_today)
+    val text = run {
+        val short = DateFormat.getBestDateTimePattern(locale, "EEEdMMM").let { java.time.format.DateTimeFormatter.ofPattern(it, locale) }
+        LogReport.text(
+            model, period, periods[period.ordinal], java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofLocalizedDate(java.time.format.FormatStyle.MEDIUM).withLocale(locale)),
+            { if (it.today) today else it.date.format(short) }, { labels[it] ?: it }, strings,
+        )
+    }
+    BottomSheet(visible, title, onDismiss) {
+        SegmentedControl(periods, period.ordinal, { period = ReportPeriod.entries[it] }, Modifier.fillMaxWidth())
+        Text(text, Modifier.fillMaxWidth().heightIn(max = 320.dp).verticalScroll(rememberScrollState()), style = MaterialTheme.typography.bodyMedium, color = Palette.Dim)
+        SButton(stringResource(R.string.report_share), {
+            val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text)
+            ctx.startActivity(Intent.createChooser(send, null))
+        }, Modifier.fillMaxWidth(), style = BtnStyle.Suggested)
+    }
 }
 
 /** What the sheet shows while the Log is read and the slide finishes: the three shapes it will hold, still: a loading cover moves for 200 ms at most. */
