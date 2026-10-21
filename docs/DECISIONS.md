@@ -1940,6 +1940,8 @@ Chosen from `.scratch/m9-remote/prototype-parent-screens.html?variant=B`, in Des
 - **Server URL per build type:** `remoteRelease` uses `https://<app>.fly.dev`; `remoteDebug` uses `http://localhost:3000` through
   `adb reverse tcp:3000 tcp:3000` to a local `bun run`, with a debug-only network security config allowing cleartext to `localhost`
   only. The real server is verified with a release build.
+- **Deployed (2026-10-21):** app `sophiel-relay`, `https://sophiel-relay.fly.dev`, region `dfw`, volume `sophiel_data` 1 GB; `relayUrl` in
+  `gradle.properties` points at it. A bad login answers 401.
 
 ## D85 — M9 written into SPEC; the freeze is lifted for M9 only (2026-10-21, `/wayfinder` ticket 08)
 

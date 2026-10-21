@@ -6,9 +6,9 @@
 
 **Type:** HITL
 
-**Status:** open (agent part merged in 882a514; human runs scripts/deploy-relay-wizard.sh)
+**Status:** resolved (deployed 2026-10-21)
 
-- [ ] The human ran the wizard; the app URL recorded in DECISIONS
-- [ ] `https://<app>.fly.dev` answers a login
+- [x] The human ran the wizard; the app URL recorded in DECISIONS
+- [x] `https://<app>.fly.dev` answers a login
 - [ ] `fly ssh console` + `sqlite3 .schema` shows only the three tables
 - [ ] `remoteRelease` builds and pairs A and B through Fly
