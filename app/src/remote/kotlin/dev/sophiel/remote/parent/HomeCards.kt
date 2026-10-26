@@ -1,5 +1,6 @@
 package dev.sophiel.remote.parent
 
+import android.util.Log
 import dev.sophiel.remote.Envelope
 import dev.sophiel.remote.Protocol
 import dev.sophiel.remote.Reason
@@ -25,8 +26,9 @@ suspend fun ParentSession.ask(api: Api, id: String, type: RequestType, rules: Ma
     val token = token.value ?: return Answer.No(Failure.SESSION)
     val req = Request(UUID.randomUUID().toString(), clock(), type, rules)
     val body = Protocol.toWire(Envelope.seal(child.key, child.id, Protocol.encode(req)))
+    val t0 = System.nanoTime()
     return when (val r = api.request(token, child.id, body)) {
-        is Reply.Body -> Protocol.fromWire(r.body)?.let { Envelope.open(child.key, child.id, it) }?.let(Protocol::decodeReply)
+        is Reply.Body -> Protocol.fromWire(r.body)?.also { Log.d("Sophiel", "remote: $type reply ${it.size} B, ${(System.nanoTime() - t0) / 1_000_000} ms") }?.let { Envelope.open(child.key, child.id, it) }?.let(Protocol::decodeReply)
             ?.takeIf { it.id == req.id }?.let(Answer::Got) ?: Answer.No(Failure.OTHER)
         is Reply.Fail -> Answer.No(r.why).also { expireOn(r.why) }
         else -> Answer.No(Failure.OTHER)

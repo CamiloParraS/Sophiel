@@ -37,6 +37,7 @@ const open = (pairingId: string, body: Buffer) => {
 const { token } = await post("/signup", { email: `script-${randomUUID()}@test`, password: "script-password" });
 const { pairingId } = await post("/pairings", { claimCode }, token);
 console.log(`paired: ${pairingId}`);
+await Bun.sleep(3000); // the Child reconnects with its device token after the claim
 
 for (const cmd of commands.length ? commands : ["log"]) {
   const [type, rule] = cmd.split(":");
