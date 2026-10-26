@@ -69,7 +69,7 @@ The UI and the experience of it (it should feel quick and light) are the product
 - **Hybrid capture** behind one Parent switch, "Seguir protegiendo siempre" (M8, D54, D55).
 - **Tamper guard** on Sophiel's own system pages (M8, D56).
 - **Escalation and per-app rules**: blocked / trusted apps, a block screen (M8, D58).
-- Parent screens: Status, Setup wizard, PIN unlock, Settings (Strict / Normal / Relaxed, preset, show-label toggle, peek under mask, "Seguir protegiendo siempre", Apps, Change PIN), Log with a dashboard and a text **Report** (M8, D59), the block screen. Change PIN is a human scope addition (D38); so is the Idioma switch, Android 13+ (D72). All app text is Spanish first, with English; Material You colour, light theme (D43, human scope addition).
+- Parent screens: Status, Setup wizard, PIN unlock, Settings (Strict / Normal / Relaxed, preset, show-label toggle, peek under mask, "Seguir protegiendo siempre", Apps, Change PIN), Log with a dashboard and a text **Report** (M8, D59), the block screen. Change PIN is a human scope addition (D38); so is the Idioma switch, Android 13+ (D72). All app text is Spanish first, with English; Material You colour (D43, human scope addition); light and dark theme, with a Tema switch in Settings: Sistema / Claro / Oscuro (D87).
 - **Remote** (M9, D76-D84), `remote` flavor only: a role chosen on first launch (Parent phone / Child phone); Parent accounts (email + password, no recovery); **Pairing** by a QR on the Child phone behind the door; from a Parent phone, per paired Child phone that is online: fetch the 7-day Log, set apps Normal / Bloqueada / De confianza, Start (accessibility capture only), Stop. A Bun + Elysia relay in `server/` that stores accounts, sessions and pairings only.
 - A hidden debug menu in every build (Test Feed, Benchmark, mask look, debug pill, model pick, raw threshold slider).
 - A permission-free **Test Feed** for development and as the demo fallback.
@@ -586,5 +586,5 @@ python tools/reference_infer.py --fixtures safecore/src/androidTest/assets/fixtu
 - [x] **M5** Overlay — one full-screen noise-mask window, Status screen (D28, D29, D36)
 - [x] **M6** Parent app — wizard, PIN, settings, 7-day log · **FEATURE FREEZE**
 - [ ] **M8** Solution fit — capture modes, guard, episode app, escalation + rules, Log dashboard + report (D53-D60) · freeze returns
-- [ ] **M9** Remote — flavors, relay, pairing, the four capabilities (D76-D85) · freeze returns
+- [x] **M9** Remote — flavors, relay, pairing, the four capabilities (D76-D85) · freeze returns
 - [ ] **M7** Harden + ship — soak, feel numbers, limitations, demo video

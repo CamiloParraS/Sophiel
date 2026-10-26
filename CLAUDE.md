@@ -10,10 +10,10 @@ Read this file, then only the slices the pointers below name. SPEC (~15k tokens)
 > Update at the end of every work session. Keep it to this block; history goes to `docs/STATUS-LOG.md`.
 
 ```
-MILESTONE:  M8 Solution fit (freeze lifted for M8 only, D53). Then UI polish, then M9 Remote (specified in SPEC §5, D76-D85; map `.scratch/m9-remote/map.md`), then M7.
-DONE:       M5 (D36), M6 (D52), M8 deliverables 1-4: capture modes, tamper guard, episode app, escalation + rules (V6 passed A and B).
-NEXT:       M9 human steps: run scripts/deploy-relay-wizard.sh (ticket 22), device checks on tickets 15-21, then M9 sign-off (ticket 23). M8 ticket 31: M5 V1/V2 still open (D86).
-IN FLIGHT:  branch feat/m9-remote: M9 tickets 10-21 code-complete and reviewed (head 9a33a36); 22 agent part done, deploy pending. Relay must be (re)deployed for the claim-with-token fix.
+MILESTONE:  M9 Remote signed off (2026-10-26). Freeze is back. Next: M7 (UI polish already done).
+DONE:       M5 (D36), M6 (D52), M8 deliverables 1-4, M9 V1-V9 (ticket 23; V9 hands-on and V3 real-Log size are noted gaps).
+NEXT:       Merge feat/m9-remote to main, then plan M7 with the human. M8 ticket 31: M5 V1/V2 still open (D86). Re-measure the Remote Log size after A has a week of use.
+IN FLIGHT:  branch feat/m9-remote, ready to merge.
 BLOCKED ON: Nothing.
 ```
 

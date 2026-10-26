@@ -1965,3 +1965,15 @@ implementation choices made while writing, not human decisions: change them free
   `ParityTest` 3/3 on the connected SM-A715F (instrumented, not JVM).
 - **Open:** M5 V1 and V2 on screen share were not re-run in this session. The human runs them on A and B
   before SPEC §9 M8 is ticked and the freeze returns.
+
+## D87 — Dark theme for the Parent app (amends D43) (2026-10-25, human decision, UI redesign)
+
+The evaluator asked for a dark mode, so "light theme only" in D43 is dropped. Ajustes gets a **Tema**
+switch next to Idioma: Sistema (default, follows the phone) / Claro / Oscuro, stored with the other
+settings and applied at once. Each colour role gets a dark value
+rather than an inversion: warm ink ground, the state colours keep their meaning (green only ever means
+protected, amber stopped, red Sin protección). The Child-facing block and guard screens stay dark in
+both themes. Everything else in D43 stands: Spanish first, English in `values-en/`, all text through
+resources. The dark palette is drafted in `.scratch/mockup/next-v2/` and is still a proposal there;
+DESIGN.md's "light only" lines (and its "don't follow system dark mode") are rewritten when the
+redesign is ported.
