@@ -1,6 +1,13 @@
 package dev.sophiel.ui
 
-import androidx.activity.compose.BackHandler
+import androidx.activity.compose.PredictiveBackHandler
+import androidx.compose.animation.core.animate as animateTo
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import kotlin.coroutines.cancellation.CancellationException
+import dev.sophiel.ui.theme.reducedMotion
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -51,6 +58,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.dismiss
+import androidx.compose.ui.semantics.paneTitle
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.semantics
+import dev.sophiel.R
 import androidx.compose.ui.window.Dialog
 import dev.sophiel.ui.theme.Drawer
 import dev.sophiel.ui.theme.Ease
@@ -63,14 +78,25 @@ import dev.sophiel.ui.theme.motion
  * Drags down 1:1 (up is resisted); let go past a quarter of its height, or with a downward flick, and it closes.
  */
 @Composable
-fun BoxScope.BottomSheet(visible: Boolean, onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
-    BackHandler(enabled = visible, onBack = onDismiss)
+fun BoxScope.BottomSheet(visible: Boolean, title: String, onDismiss: () -> Unit, color: Color = Palette.Win, content: @Composable ColumnScope.() -> Unit) {
     var drag by remember { mutableFloatStateOf(0f) }
+    var back by remember { mutableFloatStateOf(0f) } // predictive Back progress, 0..1
+    val reduce = reducedMotion()
+    val scope = rememberCoroutineScope()
+    PredictiveBackHandler(visible) { events ->
+        try {
+            events.collect { if (!reduce) back = it.progress }
+            onDismiss() // back stays where the gesture ended; the exit slide carries on from there
+        } catch (e: CancellationException) {
+            scope.launch { animateTo(back, 0f, animationSpec = spring(dampingRatio = 1f, stiffness = Spring.StiffnessMediumLow)) { v, _ -> back = v } }
+        }
+    }
     var height by remember { mutableIntStateOf(0) }
+    val close = stringResource(R.string.sheet_close)
     val settle = motion<Float>(spring(dampingRatio = 1f, stiffness = Spring.StiffnessMediumLow))
-    LaunchedEffect(visible) { if (visible) drag = 0f }
+    LaunchedEffect(visible) { if (visible) { drag = 0f; back = 0f } }
     AnimatedVisibility(visible, enter = fadeIn(motion(tween(240))), exit = fadeOut(motion(tween(240)))) {
-        Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .4f)).clickable(remember { MutableInteractionSource() }, indication = null, onClick = onDismiss))
+        Box(Modifier.fillMaxSize().graphicsLayer { alpha = 1f - .6f * back }.background(Palette.Ink.copy(alpha = .45f)).clickable(remember { MutableInteractionSource() }, indication = null, onClickLabel = close, role = Role.Button, onClick = onDismiss).semantics { contentDescription = close })
     }
     AnimatedVisibility(
         visible,
@@ -80,7 +106,12 @@ fun BoxScope.BottomSheet(visible: Boolean, onDismiss: () -> Unit, content: @Comp
     ) {
         Column(
             Modifier
+                .semantics { paneTitle = title; dismiss { onDismiss(); true } } // TalkBack: announces the sheet, offers Dismiss
                 .offset { IntOffset(0, drag.roundToInt()) }
+                .graphicsLayer { // follows the finger a little: shrinks toward its bottom edge and sinks
+                    val k = 1f - .08f * back
+                    scaleX = k; scaleY = k; transformOrigin = TransformOrigin(.5f, 1f); translationY = back * size.height * .05f
+                }
                 .onSizeChanged { height = it.height }
                 .draggable(
                     rememberDraggableState { dy ->
@@ -95,7 +126,7 @@ fun BoxScope.BottomSheet(visible: Boolean, onDismiss: () -> Unit, content: @Comp
                 )
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp))
-                .background(Palette.Win)
+                .background(color)
                 .pointerInput(Unit) { detectTapGestures { } } // taps on the sheet must not reach the scrim
                 .navigationBarsPadding()
                 .imePadding()
@@ -108,6 +139,9 @@ fun BoxScope.BottomSheet(visible: Boolean, onDismiss: () -> Unit, content: @Comp
         }
     }
 }
+
+/** Page content under an open sheet: TalkBack skips it, so the sheet behaves as modal. */
+fun Modifier.behindSheet(open: Boolean): Modifier = if (open) clearAndSetSemantics { } else this
 
 /** Centred alert with two pill buttons. [destructive] paints the confirm button red, otherwise it is the suggested one. */
 @Composable
@@ -126,11 +160,11 @@ fun ConfirmDialog(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            Text(title, style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center)
+            Text(title, Modifier.asHeading(), style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center)
             Text(text, style = MaterialTheme.typography.bodyMedium, color = Palette.Dim, textAlign = TextAlign.Center)
             Row(Modifier.fillMaxWidth().padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                PillButton(cancelLabel, onDismiss, Modifier.weight(1f))
-                PillButton(confirmLabel, onConfirm, Modifier.weight(1f), style = if (destructive) PillStyle.Destructive else PillStyle.Suggested)
+                SButton(cancelLabel, onDismiss, Modifier.weight(1f))
+                SButton(confirmLabel, onConfirm, Modifier.weight(1f), style = if (destructive) BtnStyle.Destructive else BtnStyle.Suggested)
             }
         }
     }

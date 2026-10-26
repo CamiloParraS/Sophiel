@@ -1,5 +1,6 @@
 package dev.sophiel.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -24,6 +25,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.sophiel.AppContainer
 import dev.sophiel.R
+import dev.sophiel.ui.theme.Palette
 import dev.sophiel.capture.isDebuggable
 import dev.sophiel.core.Sensitivity
 import dev.sophiel.feed.SpikeModel
@@ -40,11 +42,10 @@ enum class DebugPage(val title: Int) {
  */
 @Composable
 fun DebugMenu(container: AppContainer, door: Door, onBack: () -> Unit, open: (DebugPage) -> Unit, rerunWizard: () -> Unit) {
-    Column(Modifier.fillMaxSize()) {
-        HeaderBar(stringResource(R.string.debug_title), start = { FlatIconButton(R.drawable.ic_back, stringResource(R.string.back), onBack) })
-        UnlockedBanner(door)
+    Column(Modifier.fillMaxSize().background(Palette.Chalk)) {
+        HeaderBar(stringResource(R.string.debug_title), start = { SButton(null, onBack, icon = R.drawable.ic_back, label = stringResource(R.string.back)) }, end = { UnlockedChip(door) })
         Column(
-            Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(start = 14.dp, end = 14.dp, top = 18.dp, bottom = 16.dp),
+            Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).cutoutPadding().pageWidth().padding(start = 14.dp, end = 14.dp, top = 18.dp, bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(18.dp),
         ) {
             PreferenceGroup {

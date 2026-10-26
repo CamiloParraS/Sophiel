@@ -7,6 +7,14 @@ import java.time.ZoneId
 /** One line of `log.csv`: `epochMillis,KIND,fields...`. Scalars only (C3): no frames; an app is its package name (D57). */
 data class Entry(val at: Long, val kind: String, val fields: List<String>) {
     fun line() = (listOf(at.toString(), kind) + fields).joinToString(",")
+
+    companion object {
+        /** A [line] back; null for anything without a timestamp. */
+        fun parse(l: String): Entry? {
+            val p = l.split(',')
+            return p.getOrNull(0)?.toLongOrNull()?.let { Entry(it, p.getOrElse(1) { "" }, p.drop(2)) }
+        }
+    }
 }
 
 /** `OFF` reasons. D54: the screen and system ones, and the inferred ones, only with the switch off. */
@@ -16,6 +24,7 @@ object OffReason {
     const val SYSTEM = "SYSTEM"
     const val RESTARTED = "RESTARTED" // inferred: the boot count changed
     const val APP_CLOSED = "APP_CLOSED" // inferred: force-stop or crash
+    const val REMOTE = "REMOTE" // D82: Stop from the Parent phone
 }
 
 /** Why a Sin protección stretch (D54) began. */
@@ -62,8 +71,9 @@ class EventLog(
     private var running = false // a heartbeat that races the session's end must not re-arm the gap check
     private var bootStart = false // the first process since the boot: nothing of ours ran before it (D61)
 
-    /** The Parent's Start (D54: not a resume after a stretch). */
-    @Synchronized fun on(preset: String, sensitivity: String) = add(wall(), "ON", preset, sensitivity)
+    /** The Parent's Start (D54: not a resume after a stretch). [remote]: from the Parent phone (D82), a third field. */
+    @Synchronized fun on(preset: String, sensitivity: String, remote: Boolean = false) =
+        if (remote) add(wall(), "ON", preset, sensitivity, REMOTE_MARK) else add(wall(), "ON", preset, sensitivity)
 
     @Synchronized fun off(reason: String) = add(wall(), "OFF", reason)
 
@@ -133,6 +143,12 @@ class EventLog(
     /** D54: the share ended with the screen on and capture went on by display shots. */
     @Synchronized fun shareStopped() = add(wall(), "SHARE_STOPPED")
 
+    /** D82 (Remote build): this phone was paired with a Parent phone. */
+    @Synchronized fun paired() = add(wall(), "PAIRED")
+
+    /** D82: the pairing ended, [byParent] or from this phone. */
+    @Synchronized fun unpaired(byParent: Boolean) = add(wall(), "UNPAIRED", if (byParent) "PARENT" else "CHILD")
+
     /** D56: the guard closed a page. Merged as [merge] says. */
     @Synchronized fun tamper(target: String) = merge("TAMPER", target)
 
@@ -184,10 +200,7 @@ class EventLog(
 
     private fun load(): List<Entry> {
         if (!file.exists()) return emptyList()
-        return file.readLines().mapNotNull { l ->
-            val p = l.split(',')
-            p.getOrNull(0)?.toLongOrNull()?.let { Entry(it, p.getOrElse(1) { "" }, p.drop(2)) }
-        }
+        return file.readLines().mapNotNull(Entry::parse)
     }
 
     private companion object {
@@ -199,6 +212,7 @@ class EventLog(
         const val GAP_AT = "gap_at"
         const val GAP_WHY = "gap_reason"
         const val SEEN_BOOT = "seen_boot" // boot count of the last process start
+        const val REMOTE_MARK = "REMOTE"
     }
 }
 

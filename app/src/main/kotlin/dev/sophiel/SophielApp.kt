@@ -3,12 +3,14 @@ package dev.sophiel
 import android.app.Activity
 import android.app.Application
 import android.os.Bundle
+import dev.sophiel.remote.Remote
 
 class SophielApp : Application() {
     val container by lazy { AppContainer(this) }
 
     override fun onCreate() {
         super.onCreate()
+        Remote.attach(this) // D83: a no-op in offline
         // Ticket 09: our screens hide the masks. Multi-window changes while resumed arrive through
         // MainActivity.onMultiWindowModeChanged; a resize need not relaunch the activity.
         registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {

@@ -8,25 +8,34 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import dev.sophiel.R
 
-/** D45: bundled IBM Plex Sans. Mockup rem -> sp at 1 rem = 16 sp, so the system font scale applies. */
-val Plex = FontFamily(
-    Font(R.font.ibm_plex_sans_regular, FontWeight.Normal),
-    Font(R.font.ibm_plex_sans_medium, FontWeight.Medium),
-    Font(R.font.ibm_plex_sans_semibold, FontWeight.SemiBold),
+/** D75: bundled Geist (OFL), replacing D45's Plex. Mockup rem -> sp at 1 rem = 16 sp, so the system font scale applies. */
+val Geist = FontFamily(
+    Font(R.font.geist_regular, FontWeight.Normal),
+    Font(R.font.geist_medium, FontWeight.Medium),
+    Font(R.font.geist_semibold, FontWeight.SemiBold),
+    Font(R.font.geist_bold, FontWeight.Bold),
 )
 
-private fun style(size: Int, line: Int, weight: FontWeight = FontWeight.Normal) =
-    TextStyle(fontFamily = Plex, fontSize = size.sp, lineHeight = line.sp, fontWeight = weight)
+/** Main and large buttons, one step above labelLarge. */
+val ButtonBig = style(16, 22, FontWeight.SemiBold)
 
-// The mockup's bold (700/800) maps to SemiBold: Plex ships 400/500/600 only.
+private fun style(size: Int, line: Int, weight: FontWeight = FontWeight.Normal) =
+    TextStyle(fontFamily = Geist, fontSize = size.sp, lineHeight = line.sp, fontWeight = weight)
+
+// The mockup's 800 maps to Bold (Geist ships 400-700 here); big figures use [Display].
 val SophielTypography = Typography(
-    headlineMedium = style(26, 30, FontWeight.SemiBold), // status page title
-    titleLarge = style(19, 24, FontWeight.SemiBold), // sheet and alert titles
-    titleMedium = style(15, 21, FontWeight.SemiBold), // header title, row title
-    bodyLarge = style(15, 21),
-    bodyMedium = style(13, 17), // row description
-    bodySmall = style(12, 16),
+    displayLarge = style(56, 56, FontWeight.Bold), // Log masked count
+    displayMedium = style(46, 46, FontWeight.Bold), // Status today count
+    displaySmall = style(40, 42, FontWeight.Bold), // hero title
+    headlineMedium = style(28, 32, FontWeight.SemiBold), // status page title
+    headlineSmall = style(24, 28), // PIN digits
+    titleLarge = style(21, 26, FontWeight.SemiBold), // sheet and alert titles
+    titleMedium = style(17, 22, FontWeight.SemiBold), // header title, row title
+    titleSmall = style(15, 21, FontWeight.SemiBold), // Fix buttons
+    bodyLarge = style(16, 23),
+    bodyMedium = style(14, 20), // row description
+    bodySmall = style(13, 18),
     labelLarge = style(15, 21, FontWeight.SemiBold), // buttons
-    labelMedium = style(13, 17, FontWeight.SemiBold), // group title
-    labelSmall = style(11, 14, FontWeight.SemiBold),
+    labelMedium = style(14, 19, FontWeight.SemiBold), // group title
+    labelSmall = style(12, 16, FontWeight.SemiBold),
 )

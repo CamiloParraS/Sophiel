@@ -2,9 +2,9 @@
 
 **Parental-control screen filter for Android.**
 Watches the screen live, on the device, and covers only the flagged areas. A parent sets it up behind a PIN.
-No network. No cloud. No `INTERNET` permission.
+Two builds (D83): **Offline**, no network and no `INTERNET` permission; **Remote** (M9), which adds a Parent phone that reaches a paired Child phone through a relay that cannot read what it passes.
 
-Rescoped from the original whole-frame design (decision D22; the old spec is tagged `spec-v1`). Planning record: `docs/wayfinder/map.md`. M8 (solution fit, D53-D60) was planned in `.scratch/m8-solution-fit/map.md`.
+Rescoped from the original whole-frame design (decision D22; the old spec is tagged `spec-v1`). Planning record: `docs/wayfinder/map.md`. M8 (solution fit, D53-D60) was planned in `.scratch/m8-solution-fit/map.md`; M9 (Remote, D76-D85) in `.scratch/m9-remote/map.md`.
 
 ---
 
@@ -16,12 +16,12 @@ This document is the source of truth. Read this section before writing any code.
 
 | ID     | Rule                                                                                                                                                                           |
 | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **C1** | The `INTERNET` permission MUST NOT appear in any manifest, including debug and test manifests. This is a verifiable product claim.                                             |
+| **C1** | The `offline` flavor MUST NOT declare `INTERNET` in any manifest (debug and test included). The `remote` flavor adds exactly `INTERNET`, `ACCESS_NETWORK_STATE` and `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`, nothing else (D76, D83). Both are verifiable product claims. |
 | **C2** | No model training, fine-tuning, or architecture modification. Use pre-trained weights only.                                                                                    |
 | **C3** | No captured frame is ever written to persistent storage. Frames live in memory and are recycled. Only derived scalars (hashes, scores, timings, log entries) may be persisted. |
 | **C4** | Milestones are strictly sequential. Do not begin milestone N+1 until milestone N's verification block passes.                                                                  |
-| **C5** | Every milestone ends in a state where `./gradlew :app:installDebug` produces a launchable app.                                                                                 |
-| **C6** | Kotlin only. No Java sources. No RxJava. Coroutines + Flow for all async work.                                                                                                 |
+| **C5** | Every milestone ends in a state where `assembleOfflineDebug` and `assembleRemoteDebug` both build and `./gradlew :app:installRemoteDebug` produces a launchable app (D83). Before M9's flavors exist: `:app:installDebug`. |
+| **C6** | Kotlin only in the app. No Java sources. No RxJava. Coroutines + Flow for all async work. The relay in `server/` is TypeScript on Bun (D84).                                   |
 | **C7** | `:safecore` stays UI-free: no `MediaProjection`, `WindowManager`, or Compose symbol.                                                                                           |
 
 ### 0.2 When to stop and ask the human
@@ -53,6 +53,7 @@ A parental-control Android app. A **Parent** sets a PIN, a preset, and a sensiti
 3. Covers only the flagged tiles with a solid **Mask**. Touches pass through masks, so the **Child** can keep using the phone around them.
 4. Keeps a local, 7-day **Log** the Parent can read behind the PIN, naming the app each mask was over, and can share a text report through another app.
 5. **Guards** its own system settings behind the PIN, and **blocks** apps the Parent marked, or that showed explicit content 3 times in 10 minutes.
+6. In the **Remote build** (M9), answers a paired **Parent phone**: sends it the Log, takes its app rules, Start and Stop, end-to-end encrypted through a relay that stores no messages.
 
 The UI and the experience of it (it should feel quick and light) are the product. The model is a given.
 
@@ -68,7 +69,8 @@ The UI and the experience of it (it should feel quick and light) are the product
 - **Hybrid capture** behind one Parent switch, "Seguir protegiendo siempre" (M8, D54, D55).
 - **Tamper guard** on Sophiel's own system pages (M8, D56).
 - **Escalation and per-app rules**: blocked / trusted apps, a block screen (M8, D58).
-- Parent screens: Status, Setup wizard, PIN unlock, Settings (Strict / Normal / Relaxed, preset, show-label toggle, peek under mask, "Seguir protegiendo siempre", Apps, Change PIN), Log with a dashboard and a text **Report** (M8, D59), the block screen. Change PIN is a human scope addition (D38). All app text is Spanish first, with English; Material You colour, light theme (D43, human scope addition).
+- Parent screens: Status, Setup wizard, PIN unlock, Settings (Strict / Normal / Relaxed, preset, show-label toggle, peek under mask, "Seguir protegiendo siempre", Apps, Change PIN), Log with a dashboard and a text **Report** (M8, D59), the block screen. Change PIN is a human scope addition (D38); so is the Idioma switch, Android 13+ (D72). All app text is Spanish first, with English; Material You colour (D43, human scope addition); light and dark theme, with a Tema switch in Settings: Sistema / Claro / Oscuro (D87).
+- **Remote** (M9, D76-D84), `remote` flavor only: a role chosen on first launch (Parent phone / Child phone); Parent accounts (email + password, no recovery); **Pairing** by a QR on the Child phone behind the door; from a Parent phone, per paired Child phone that is online: fetch the 7-day Log, set apps Normal / Bloqueada / De confianza, Start (accessibility capture only), Stop. A Bun + Elysia relay in `server/` that stores accounts, sessions and pairings only.
 - A hidden debug menu in every build (Test Feed, Benchmark, mask look, debug pill, model pick, raw threshold slider).
 - A permission-free **Test Feed** for development and as the demo fallback.
 
@@ -78,8 +80,10 @@ Do not build these. If asked mid-project, refuse and cite this section.
 
 | Feature                                                                                | Reason                                                                                |
 | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| Remote parent alerts, accounts, sync, backend                                          | Needs `INTERNET`; breaks C1.                                                          |
-| Sophiel sending anything by itself (SMS, push, email)                                  | Needs `INTERNET` or a second SIM phone to test. The report leaves only via the share sheet (D59). |
+| Remote beyond M9's four capabilities: sensitivity, preset, PIN, lifting an escalation block; a web dashboard or separate Parent APK | D76: exactly Log, app rules, Start, Stop, from the same APK.          |
+| Server-side storage of Log entries, commands or last-known state; account recovery, password change, email verification | Pure relay (D76, D79). The mailbox is an M9 stretch, planned with the human first. |
+| Any `INTERNET` use in the `offline` flavor                                             | C1.                                                                                   |
+| Sophiel sending anything by itself (SMS, push, email, alerts)                          | The report leaves only via the share sheet (D59). In `remote`, the Child phone only answers a Parent phone's request. |
 | Tamper resistance beyond the guard: Device Admin, Device Owner, work profile, boot receiver | Device Admin is future work; Device Owner needs an account-free phone (D56).      |
 | App suspension (`setPackagesSuspended`), usage-time limits, `UsageStats` fallbacks     | Needs system or Device Owner (D58).                                                   |
 | Report as an image or PDF card                                                         | Future work; text only (D59).                                                         |
@@ -104,6 +108,7 @@ Roles are fixed in `docs/DECISIONS.md` (D1). Never swap them. Every verification
 - No NNAPI (deprecated in Android 15). LiteRT CPU path; GPU delegate only if measured latency demands it.
 - No Compose inside overlay windows (lifecycle-owner plumbing is a reliable source of lost days). Overlay windows are plain `View`s drawn on a `Canvas`. Compose is for in-app screens only.
 - `androidResources { noCompress += "tflite" }`: a compressed model cannot be memory-mapped.
+- **Flavors (M9, D83):** dimension `net`, `offline` / `remote`, same `applicationId`. `remote`-only dependencies are `remoteImplementation` (OkHttp 5, ZXing `core` 3.5.4, `play-services-code-scanner` 16.1.0); Remote code and strings live in `src/remote/`. A `RELAY_URL` build-config field: `http://localhost:3000` in debug, `https://<app>.fly.dev` in release (D84).
 - Release: `isMinifyEnabled = true`, with `-keep class com.google.ai.edge.litert.** { *; }` and `-keep class org.tensorflow.lite.** { *; }` in `proguard-rules.pro`.
 
 ---
@@ -115,9 +120,10 @@ Roles are fixed in `docs/DECISIONS.md` (D1). Never swap them. Every verification
 | Module      | Type                      | Purpose                                                                   |
 | ----------- | ------------------------- | ------------------------------------------------------------------------- |
 | `:safecore` | `com.android.library`     | Detection and tile logic. Pure logic + LiteRT. Declares zero permissions. |
-| `:app`      | `com.android.application` | Capture, overlay, parent UI, PIN, log, debug tools.                       |
+| `:app`      | `com.android.application` | Capture, overlay, parent UI, PIN, log, debug tools; Remote in `src/remote`. |
+| `server/`   | Bun + Elysia 1.4.x, TypeScript (not Gradle) | The M9 relay (D84).                                     |
 
-Resist a third module.
+Resist a third Gradle module.
 
 ### 3.2 Layout
 
@@ -146,6 +152,13 @@ app/src/main/kotlin/dev/sophiel/
              Apps screen, report sheet; BlockActivity (block screen)            ← M8
   feed/      TestFeedScreen
   debug/     DebugPillOverlay, debug menu
+app/src/offline/   AndroidManifest.xml (removes INTERNET, ACCESS_NETWORK_STATE); kotlin/.../Remote.kt (empty) ← M9 (D83)
+app/src/remote/    AndroidManifest.xml (adds the three permissions); res/ (Remote strings, es + en)  ← M9
+  kotlin/dev/sophiel/remote/  Remote.kt (the one object main calls), envelope + protocol (pure, JVM-tested),
+             relay client (OkHttp socket + POST), role, Parent screens, pairing screen, command handler ← M9
+app/src/remoteDebug/  network security config: cleartext to localhost only                        ← M9 (D84)
+app/src/testRemote/   envelope, replay and protocol tests                                          ← M9
+server/      Bun + Elysia relay, bun:sqlite, bun test, Dockerfile, fly.toml                         ← M9 (D84)
 tools/       convert_model.py, reference_infer.py
 docs/        SPEC.md, DECISIONS.md, LIMITATIONS.md, wayfinder/
 ```
@@ -264,6 +277,8 @@ The highest-risk area. Implement exactly as specified; it is already built and v
 
 **No new permission.** The M8 manifest diff is the activity, the `<queries>` block and the service config. `SYSTEM_ALERT_WINDOW` stays: the app overlay is the start option without the service and the fallback when it is turned off mid-session (D32, D46).
 
+**M9 (D83).** The block above is `src/main`; it names no network permission. `src/offline/AndroidManifest.xml` holds `tools:node="remove"` for `INTERNET` and `ACCESS_NETWORK_STATE`. `src/remote/AndroidManifest.xml` adds `INTERNET`, `ACCESS_NETWORK_STATE`, `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` and the code scanner's `com.google.mlkit.vision.DEPENDENCIES` meta-data `barcode_ui`. Nothing in `remote` strips a merged permission. The merged `remote` APK must differ from `offline` by exactly those three permissions (§8).
+
 ### 4.2 Platform facts the implementation must respect
 
 | Fact                                                                                                                                                      | Consequence                                                                                                          |
@@ -333,7 +348,7 @@ Below API 35: screen-off in SCREEN_SHARE pauses frames (closed unread); screen-o
 
 ## 5. Milestones
 
-M0–M3 are **done and reused**: skeleton, model + parity gate, pipeline + Test Feed, capture (M3 V1–V7 verified on both devices). The plan below is ~4 weeks, risk-first, plus **M8**, inserted after M6 and before M7 (D53): order is M6 → M8 → UI polish (a separate effort) → M7. Each milestone ends with a verification block that must pass on **both** devices (the human runs on-device checks).
+M0–M3 are **done and reused**: skeleton, model + parity gate, pipeline + Test Feed, capture (M3 V1–V7 verified on both devices). The plan below is ~4 weeks, risk-first, plus **M8**, inserted after M6 and before M7 (D53), and **M9**, inserted after UI polish (D76): order is M6 → M8 → UI polish (a separate effort) → M9 → M7. Each milestone ends with a verification block that must pass on **both** devices (the human runs on-device checks).
 
 ### M3.5 — Gate (first days of week 1)
 
@@ -425,16 +440,58 @@ Makes Sophiel credible as parental control: it survives normal life, is hard to 
 
 **At the end of M8, the feature freeze returns** (CLAUDE.md): bug fixes for failing verification items and measurement only.
 
-### M7 — Harden and ship (after M8 and UI polish)
+### M9 — Remote (~1 week, after M8 sign-off and UI polish) — **FREEZE LIFTED FOR M9 ONLY** (D76, D85)
 
-**Deliverables.** On-device verification of M4–M8 on both devices; `docs/LIMITATIONS.md` from §7 with measured numbers, including the privacy line (D57); `README.md`; a written demo runbook and a recorded demo video (record early in the week). The runbook shows the M8 story: survive a reboot without opening Sophiel, a guarded settings page asking for the PIN, an escalation block, the report shared through a chat app. Stretch, only with slack: the softer "suggestive" tier (pixelate or blur at mid scores, needs a second Parent threshold).
+A Parent, from their own phone, logs in and, per paired Child phone that is online: fetches the Log, sets apps Normal / Bloqueada / De confianza, and Starts or Stops protection, through a relay that can read nothing and keeps no logs. Decisions: D76-D85; the tickets behind them are in `.scratch/m9-remote/issues/`. Hard rules 3 and 4 hold: no frame, thumbnail or screen content ever crosses the wire; only the scalar Log does. Build in this order; if the budget is at risk, stop and ask, never drop an item silently.
+
+**Vocabulary** (`CONTEXT.md`): Offline build, Remote build, Parent phone, Child phone, Pairing, Remote. "Child phone" below is a Remote build install in the Child role; everything it already does is unchanged.
+
+**Deliverables.**
+
+1. **Flavors (D83).** Dimension `net`: `offline` / `remote`, manifests per §4.1, dependencies per §2. `main` calls Remote only through one object `dev.sophiel.remote.Remote` (same name in both flavors; empty in `src/offline`): first-launch routing, the Ajustes row, the Status line, the command entry point. `offline` opens exactly as M8 does. Both flavors assemble; both permission checks in §8 pass before any Remote code is written.
+2. **Relay (`server/`, D79, D84).** Bun + Elysia 1.4.x, TypeScript, `bun:sqlite` on the Fly volume, `idleTimeout` 25 s, the server pings every Child socket. Schema exactly `accounts(id, email, password_hash, created_at)`, `sessions(token_hash, account_id, created_at)`, `pairings(id, account_id, device_token_hash, created_at)`. Tokens are 256-bit random, base64url; only their SHA-256 is stored. Passwords via `Bun.password` (argon2id), 8+ characters. Claim codes, sockets, pending requests and abuse counters live in memory. Logs no bodies and no ids. Interface (an implementation choice, D85):
+
+   | Call | Who | Does |
+   | --- | --- | --- |
+   | `POST /signup`, `POST /login` `{email, password}` → `{token}` | Parent | One error text for wrong email or password. Limits: 5 failed logins per email in 15 min lock it 15 min; 20 attempts per IP per minute. |
+   | `POST /logout`, `DELETE /account` (Bearer token) | Parent | Delete the session; delete account, sessions and pairings. |
+   | `POST /pairings` `{claimCode}` → `{pairingId}` | Parent | Binds the waiting Child socket to the account, mints the device token and sends it down that socket. Unknown code: 404; a code dies after 5 wrong guesses or 10 min. |
+   | `DELETE /pairings/:id` | Parent | Deletes the row; sends `{"t":"unpaired"}` down the socket if open. |
+   | `POST /pairings/:id/request` `{body}` → `{body}` | Parent | Forwards `{"t":"req","rid","body"}` down the socket and waits for the matching `{"t":"res","rid","body"}`. No socket: 503 at once ("Sin conexión"). No reply in 10 s: 504. Pairing not this account's or gone: 410 ("Este teléfono se desvinculó"). Bad token: 401 (back to login). Body over 256 KB: 413. |
+   | `GET /child` (WebSocket) | Child | First frame `{"t":"hello","deviceToken"}` (paired) or `{"t":"claim"}` (pairing screen; server answers `{"t":"code","claimCode"}` and later `{"t":"paired","pairingId","deviceToken"}`). A rejected device token gets `{"t":"unpaired"}` and a close. The Child sends `{"t":"unpair"}` to unpair itself. |
+
+   `body` is opaque base64 to the server. Dockerfile (`oven/bun`) and `fly.toml` (`auto_stop_machines = "off"`, 1 GB volume) in `server/`. `bun test` covers D84's seven checks.
+3. **Envelope and protocol (D79), pure Kotlin in `src/remote`, JVM-tested in `src/testRemote`.** `body` = nonce (12 random bytes) ‖ AES-256-GCM ciphertext, pairing id as associated data. Plaintext JSON: `{id, ts, type, …}`, request types `log`, `rules` (package → Normal / Bloqueada / De confianza), `start`, `stop`; replies `{id, ts, ok, reason?, protecting, captureMode, accessibilityOff, …}` (the Parent's state card is drawn from these) where `log` replies carry the 7-day `log.csv` rows and the Apps list (label, package and `rule` per app, no icons, D58 exclusions applied) gzipped before encryption, and `rules` replies carry the Apps list (the Parent redraws from it). The Child phone rejects a message older than 2 min or an id it has seen in the last 2 min. QR text: `sophiel:1:<claimCode>:<base64url key>`.
+4. **Child phone (D78, D82, D83).** First launch in `remote` asks the role (Hijo default); Hijo runs today's wizard. Ajustes row "Teléfono del Padre" behind the door opens the pairing screen: asks the battery exemption first if missing, then the privacy line (D83), the QR (ZXing, D80), "Mostrar código otra vez" (new claim code, same key), "Desvincular", and "Conectado" / "Sin conexión". Key and device token in app-private storage. The socket: OkHttp 5 behind a `callbackFlow`, held whenever the process lives and a pairing exists; reconnect on network change, screen on, and a 5-min `setAndAllowWhileIdle` alarm. Commands per D82: Stop = `CaptureModeController.stop()` with OFF reason `REMOTE`; Start with the three outcomes and two rejection texts; rules through the Apps store; every reply carries `accessibilityOff`. Status: "Vinculado con el teléfono del Padre" while paired; Recomendado "Sin restricción de batería" while paired and not exempt. Log: ON gains a remote marker field, OFF reason `REMOTE`, new kinds **Vinculado** and **Desvinculado** (side: Padre / este teléfono); old lines parse as before. Unpair from either side, or a rejected token on connect, deletes key and token.
+5. **Parent phone (D81).** Variant B of `.scratch/m9-remote/prototype-parent-screens.html`, in Design A's world (D75). Padre skips the wizard and opens login / sign-up (privacy line, amber "no recovery" warning). Home: one state card per Child phone, fetched on open, "hace N s", Start or Stop on the card, skeleton while loading, a spinning pill while an action runs, a banner under the card for the result; "Sin conexión" (Reintentar), "Se desvinculó" (Quitar de la lista), accessibility-off flag (Start disabled). "+" scans (Google code scanner, disclosure line), then asks a name. A card opens tabs Historial (the Child's Log rows) and Apps (D58's rows and rule sheet, letter tiles; disabled with "Necesita el servicio de accesibilidad" when the reply says so). Gear: Cuenta (Cerrar sesión, Borrar cuenta). The token and the list (pairing id, name, key) in app-private storage; a fetched Log is memory only. Back to the Child role only while logged out, from the login screen.
+6. **Deploy (D77, D84).** A `/wizard` script for the human: Fly sign-up, `flyctl`, `fly launch --no-deploy`, the volume, the first `fly deploy`. `remoteRelease` points at the deployed URL. Debug builds talk to a local `bun run` through `adb reverse tcp:3000 tcp:3000`.
+
+**Verification** (A as Child phone and B as Parent phone unless stated; V3-V7 on `remoteDebug` against local Bun; the human runs on-device checks)
+
+- `V1` — **Builds and claims.** `assembleOfflineDebug` and `assembleRemoteDebug` build; `offline`'s `aapt … | grep -i internet` prints nothing; the permission diff (§8) is exactly `INTERNET`, `ACCESS_NETWORK_STATE`, `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`. `installOfflineDebug` opens straight into the M8 app (no role choice). Every M4-M8 JVM test passes in both flavors.
+- `V2` — **Relay.** `bun test` passes D84's seven checks, including the schema check.
+- `V3` — **Envelope.** JVM tests: round trip; a flipped ciphertext bit, a wrong pairing id and a wrong key are rejected; a replayed id and a message older than 2 min are rejected. The size of a real 7-day Log fetch on A (gzipped, encrypted) is measured and recorded against the 256 KB cap.
+- `V4` — **Pairing.** Behind the door on A: exemption asked, privacy line, QR. B signs up, scans, names it; A's Status reads "Vinculado con el teléfono del Padre" and its Log shows Vinculado. Reinstall the Parent app on B: the list is empty; "Mostrar código otra vez" on A and a scan restore it, and the same key still decrypts. A wrong or expired code shows its fix.
+- `V5` — **The four capabilities.** Historial on B matches A's Log rows. Bloqueada on the app A shows blocks it at once; De confianza stops masking on the next window change; A's Apps screen shows both. Stop: A's protection ends, escalation blocks clear, Log OFF "Detenido a distancia". Start (accessibility on, switch on): protection on, "Iniciado a distancia"; again: "Ya estaba protegido". Service off: Start rejected with D82's text; with Sophiel open on A, Log, Stop and rules still answer and B's card shows the flag with Start disabled. Switch off: Start rejected with its text.
+- `V6` — **Reachable.** A with the screen off 30 min (and once after `adb shell dumpsys deviceidle force-idle`): a Stop from B succeeds. Reply time (B tap → banner) on A, median and worst of 10, reported. A in airplane mode: B shows "Sin conexión" within 1 s; after airplane mode off, A answers again within 5 min.
+- `V7` — **Unpair.** From B: A's "Vinculado" line goes and its Log says "Desvinculado (por el Padre)". From A behind the door: B's next request shows "Se desvinculó" and "Quitar de la lista" drops it and its key. Each with the other side offline: cleanup on next contact. "Borrar cuenta" on B: A cleans up on next connect.
+- `V8` — **Real server.** After the wizard's deploy, a `remoteRelease` pair on A and B does V4 and one of each capability through `<app>.fly.dev`. `fly ssh console` + `sqlite3 .schema` shows only the three tables; `fly logs` during the run shows no bodies, ids or emails.
+- `V9` — **Still true.** `ParityTest` passes; M8 V1(a) and V6 spot-checked on `remote` (Child role); an unpaired Child phone opens no socket outside its pairing screen (logcat).
+
+**Stretch, only with slack once V1-V9 pass:** a **mailbox** (encrypted commands wait for an offline Child phone; the last encrypted Log snapshot kept). Not specified: plan it with the human before building; it changes the privacy claim.
+
+**At the end of M9, the feature freeze returns.**
+
+### M7 — Harden and ship (after M8, UI polish and M9)
+
+**Deliverables.** On-device verification of M4–M9 on both devices; `docs/LIMITATIONS.md` from §7 with measured numbers, including the privacy line (D57) and the Remote privacy claim (D83); `README.md` (both flavors, the relay, the deploy); a written demo runbook and a recorded demo video (record early in the week). The runbook shows the M8 story: survive a reboot without opening Sophiel, a guarded settings page asking for the PIN, an escalation block, the report shared through a chat app; then the M9 story on `remoteRelease`: pair by QR, read the Child phone's Log from the Parent phone, block an app and Stop protection remotely. Stretch, only with slack: the softer "suggestive" tier (pixelate or blur at mid scores, needs a second Parent threshold).
 
 **Verification**
 
-- `V1` — 10-minute soak on both devices, on each capture mode: no stall or crash.
-- `V2` — `aapt dump permissions` shows no `INTERNET`; ordinary app screens (settings, chat, maps) trigger no masks (spot check).
-- `V3` — **Feel.** End-to-end latency (frame available → mask drawn) and CPU, memory and battery during the soak are measured and reported per preset and per capture mode (the accessibility event listening is included in the accessibility-on numbers). These are reported, not pass/fail.
-- `V4` — A clean clone builds with `./gradlew :app:installDebug` and no manual steps; the demo runbook is reproducible by someone else.
+- `V1` — 10-minute soak on both devices, on each capture mode: no stall or crash. On `remote`, once more as a paired Child phone with the socket open and a Log fetch from the Parent phone every minute.
+- `V2` — `offline`'s `aapt dump permissions` shows no `INTERNET`, and the flavor permission diff is exactly M9 V1's three (§8); ordinary app screens (settings, chat, maps) trigger no masks (spot check).
+- `V3` — **Feel.** End-to-end latency (frame available → mask drawn) and CPU, memory and battery during the soak are measured and reported per preset and per capture mode (the accessibility event listening is included in the accessibility-on numbers), and for a paired Child phone (the socket included). These are reported, not pass/fail.
+- `V4` — A clean clone builds both flavors with `./gradlew :app:installRemoteDebug` / `installOfflineDebug` and no manual steps beyond the NudeNet copy (§7 item 19); `cd server && bun install && bun test` passes; the demo runbook is reproducible by someone else.
 
 **Stretch targets** (reported, not gated; the original targets): p50 latency under 800 ms on Device A and under 400 ms on Device B; throughput at least 4 fps on A and 8 fps on B; a formal evaluation set and UI false-positive corpus.
 
@@ -477,17 +534,34 @@ Copy into `docs/LIMITATIONS.md` and expand with measured numbers.
 23. **Device A's slower mode exposes more.** Without peek (Android 14+), a probe on accessibility uncovers its tile 2-3x longer than on screen share (measured untimed 436 ms median on A, vs 61 ms; D54). A uses this mode after a reboot or a stopped share.
 24. **The Log names apps.** The Log names the app that was on screen when something was hidden: the app's name, never what was in it. No pixels, no text, no window titles. It stays on the phone for 7 days (D57). An episode that carries across an app switch within 3 s is counted against the first app. Without the accessibility service the app is unknown.
 25. **App blocking is best effort.** It needs the accessibility service. A blocked app already in picture-in-picture keeps playing until closed (masking still covers it); a blocked app's notifications still arrive; a fast tap can briefly show the app before Home (D58). Trusting an app (a browser, say) lets anything in it through unscanned.
-26. **The report leaves through another app.** Sophiel sends nothing; the Parent shares a text summary through the share sheet, and the receiving app (chat, email) sends it under its own policy (D59).
+26. **What leaves the phone.** In `offline`, Sophiel sends nothing; the Parent shares a text report through the share sheet, and the receiving app (chat, email) sends it under its own policy (D59). In `remote`, only the encrypted Log (and the app list, app rules and Start/Stop replies) goes to paired Parent phones, and only when one asks (D83).
+
+**Remote build (M9).** Privacy claim, verbatim in `docs/LIMITATIONS.md` and, shortened, on the Parent phone's sign-up and the Child phone's pairing screen: _In the Remote build, the server keeps only accounts (email, password hash), sessions and pairings. It passes messages along without being able to read them (end-to-end encrypted with a key that never leaves the two phones), and never stores the Log, app lists, phone names or commands. No frame or screen content ever leaves the Child phone. The Parent phone's QR scanner (Google) sends anonymous usage data to Google._
+
+27. **The Child phone must be online and alive.** A Child phone with no connection is unreachable, and the request fails at once (no mailbox). With the accessibility service off, it answers only while protection runs on screen share or Sophiel is open, and then only Log, Stop and app rules; otherwise it is unreachable. Before the first unlock after a reboot it is unreachable (D78, D83).
+28. **Up to ~5 minutes after a silent disconnect.** A socket that dies without notice (Doze, a network change the phone missed) is found by the next 5-minute check; until then requests fail as "Sin conexión" (D78).
+29. **The server sees metadata.** The relay and Fly's proxy see IP addresses, timing, message sizes and which account talks to which pairing; never contents (D79).
+30. **No account recovery.** A forgotten password means a new account and pairing again; there is no password change (D79).
+31. **Remote Start needs accessibility capture.** Screen share needs a tap on the Child phone, so a remote Start works only with the service on and "Seguir protegiendo siempre" on (D82).
+32. **The Parent phone needs Google Play services** to scan the QR, and the scanner sends anonymous usage data to Google (D80).
 
 ---
 
 ## 8. Quick reference
 
 ```bash
-./gradlew :app:installDebug                                   # build + install (default: Device A)
-aapt dump permissions app/build/outputs/apk/debug/app-debug.apk | grep -i internet   # must be empty
+./gradlew :app:installRemoteDebug                             # build + install (default: Device A; :app:installDebug before M9)
+./gradlew :app:assembleOfflineDebug :app:assembleRemoteDebug  # both flavors must build (C5)
+aapt dump permissions app/build/outputs/apk/offline/debug/app-offline-debug.apk | grep -i internet   # must be empty (C1)
+diff <(aapt dump permissions app/build/outputs/apk/offline/debug/app-offline-debug.apk | grep uses-permission | sort) \
+     <(aapt dump permissions app/build/outputs/apk/remote/debug/app-remote-debug.apk  | grep uses-permission | sort)
+                                                              # must show exactly INTERNET, ACCESS_NETWORK_STATE, REQUEST_IGNORE_BATTERY_OPTIMIZATIONS (C1)
+cd server && bun install && bun run dev                       # local relay on :3000 (M9)
+cd server && bun test                                         # relay checks (D84)
+adb reverse tcp:3000 tcp:3000                                 # remoteDebug reaches the local relay
+cd server && fly deploy                                       # by hand, after the /wizard first deploy (D84)
 ./gradlew :safecore:test                                      # JVM: gate, hash, policy, tile tracker
-./gradlew :app:testDebugUnitTest                              # JVM: state machine, throttle, log
+./gradlew :app:testDebugUnitTest                              # JVM: state machine, throttle, log (after M9: testOfflineDebugUnitTest, testRemoteDebugUnitTest)
 ./gradlew :safecore:connectedAndroidTest                      # device: ParityTest
 adb logcat -s Sophiel:D
 adb shell dumpsys media_projection
@@ -512,4 +586,5 @@ python tools/reference_infer.py --fixtures safecore/src/androidTest/assets/fixtu
 - [x] **M5** Overlay — one full-screen noise-mask window, Status screen (D28, D29, D36)
 - [x] **M6** Parent app — wizard, PIN, settings, 7-day log · **FEATURE FREEZE**
 - [ ] **M8** Solution fit — capture modes, guard, episode app, escalation + rules, Log dashboard + report (D53-D60) · freeze returns
+- [x] **M9** Remote — flavors, relay, pairing, the four capabilities (D76-D85) · freeze returns
 - [ ] **M7** Harden + ship — soak, feel numbers, limitations, demo video

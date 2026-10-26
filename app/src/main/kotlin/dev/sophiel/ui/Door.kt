@@ -6,7 +6,19 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -15,6 +27,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
@@ -31,6 +44,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
 import dev.sophiel.AppContainer
 import dev.sophiel.R
@@ -63,15 +83,16 @@ fun DoorHost(container: AppContainer, content: @Composable BoxScope.(Door) -> Un
         lockNow = unlock::lockNow,
     )
     Box(Modifier.fillMaxSize()) {
-        content(door)
-        BottomSheet(visible = pending != null, onDismiss = { pending = null }) {
+        Box(Modifier.fillMaxSize().behindSheet(pending != null)) { content(door) }
+        BottomSheet(visible = pending != null, title = stringResource(R.string.pin_title), onDismiss = { pending = null }, color = Palette.Chalk) { // Chalk: the Surface keys need a page to lift off
             PinPrompt(
                 container.pin, clock,
                 onUnlocked = {
+                    // The padlock animates first; a sheet dismissed meanwhile must not unlock.
+                    val action = pending ?: return@PinPrompt
                     unlock.extend()
-                    val action = pending
                     pending = null
-                    action?.invoke()
+                    action()
                 },
                 onCancel = { pending = null },
             )
@@ -79,36 +100,41 @@ fun DoorHost(container: AppContainer, content: @Composable BoxScope.(Door) -> Un
     }
 }
 
-/** "Ajustes desbloqueado · Se bloquea en 1:48" with Bloquear ahora; folds away at zero. */
+/**
+ * The unlocked countdown (D71): the open padlock in a ring that empties as the window runs out, on the dark header beside the gear
+ * (Status) or at the end of a parent screen's header. A tap locks. The time left is spoken, not printed: the ring is enough to see.
+ */
 @Composable
-fun UnlockedBanner(door: Door, modifier: Modifier = Modifier) {
+fun UnlockedChip(door: Door, onDark: Boolean = false) {
+    val label = stringResource(R.string.unlocked_banner, dev.sophiel.pin.formatCountdown(door.remainingMs))
+    val ease = tween<Float>(160, easing = Ease)
     AnimatedVisibility(
         door.unlocked,
-        modifier,
-        enter = expandVertically(motion(tween(200, easing = Ease))) + fadeIn(motion(tween(160))),
-        exit = shrinkVertically(motion(tween(200, easing = Ease))) + fadeOut(motion(tween(160))),
+        enter = fadeIn(motion(ease)) + scaleIn(motion(ease), initialScale = .9f),
+        exit = fadeOut(motion(tween(120, easing = Ease))) + scaleOut(motion(tween(120, easing = Ease)), targetScale = .9f),
     ) {
-        val primary = MaterialTheme.colorScheme.primary
-        Row(
-            Modifier.fillMaxWidth().background(Palette.tint(primary)).padding(horizontal = 14.dp, vertical = 8.dp),
-            horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
+        val left = (door.remainingMs / dev.sophiel.pin.Unlock.WINDOW_MS.toFloat()).coerceIn(0f, 1f)
+        Box(
+            Modifier.size(48.dp).clip(CircleShape)
+                .clickable(role = Role.Button, onClickLabel = stringResource(R.string.lock_now), onClick = door.lockNow)
+                .semantics { contentDescription = label },
+            contentAlignment = Alignment.Center,
         ) {
-            SIcon(R.drawable.ic_unlock, primary)
-            Text(
-                stringResource(R.string.unlocked_banner, dev.sophiel.pin.formatCountdown(door.remainingMs)),
-                Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, color = Palette.Fg,
-            )
-            PillButton(stringResource(R.string.lock_now), door.lockNow, small = true)
+            Canvas(Modifier.size(36.dp)) {
+                val w = 2.5.dp.toPx() // thick enough to read as a timer, not an outline
+                drawCircle(if (onDark) Palette.DarkFill else Palette.Moss.copy(alpha = .08f), size.minDimension / 2)
+                drawArc(if (onDark) Palette.Mint else Palette.GreenFg, -90f, -360f * left, false, Offset(w / 2, w / 2), Size(size.width - w, size.height - w), style = Stroke(w, cap = StrokeCap.Round))
+            }
+            SIcon(R.drawable.ic_unlock, if (onDark) Palette.Mint else Palette.GreenFg, 16.dp)
         }
     }
 }
 
 /** Gear for Ajustes: a small lock on it while the door is shut. */
 @Composable
-fun GearButton(door: Door, onOpen: () -> Unit) {
-    Box {
-        FlatIconButton(R.drawable.ic_gear, stringResource(R.string.settings_title)) { door.pass(onOpen) }
-        if (!door.unlocked) SIcon(R.drawable.ic_lock, Palette.Dim, 11.dp, Modifier.align(Alignment.BottomEnd).padding(end = 9.dp, bottom = 9.dp))
+fun GearButton(door: Door, onOpen: () -> Unit, onDark: Boolean = false, disc: Boolean = false) {
+    Box(if (disc) Modifier.size(44.dp).shadow(1.dp, CircleShape).clip(CircleShape).background(Palette.Surface) else Modifier, contentAlignment = Alignment.Center) {
+        SButton(null, { door.pass(onOpen) }, style = if (onDark) BtnStyle.OnDark else BtnStyle.Default, icon = R.drawable.ic_gear, label = stringResource(R.string.settings_title))
+        if (!door.unlocked) SIcon(R.drawable.ic_lock, if (onDark) Palette.DarkLock else Palette.Dim, 11.dp, Modifier.align(Alignment.BottomEnd).padding(end = 9.dp, bottom = 9.dp))
     }
 }

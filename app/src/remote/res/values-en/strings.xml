@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="role_title">Which phone is this?</string>
+    <string name="role_child">Child\'s phone</string>
+    <string name="role_child_text">Sophiel protects this phone.</string>
+    <string name="role_parent">Parent\'s phone</string>
+    <string name="role_parent_text">See and control your child\'s phone.</string>
+    <string name="role_continue">Continue</string>
+
+    <string name="pair_row">Parent\'s phone</string>
+    <string name="pair_title">Parent\'s phone</string>
+    <string name="pair_status">Paired with the Parent\'s phone</string>
+    <string name="pair_battery_title">First, the battery</string>
+    <string name="pair_battery_text">For the Parent\'s phone to reach this one with the screen off, Sophiel needs Android not to limit its battery.</string>
+    <string name="pair_battery_allow">Allow</string>
+    <string name="pair_battery_skip">Not now</string>
+    <string name="pair_privacy">The server keeps only accounts, sessions and pairings. It passes messages along without being able to read them (encrypted with a key that never leaves the two phones) and never stores the Log, app lists or commands. No image or screen content ever leaves this phone. The QR scanner (Google) sends anonymous usage data to Google.</string>
+    <string name="pair_connected">Connected</string>
+    <string name="pair_disconnected">No connection</string>
+    <string name="pair_again">Show code again</string>
+    <string name="pair_battery_need">No battery restriction</string>
+    <string name="pair_battery_need_text">For the Parent\'s phone to reach this one with the screen off.</string>
+    <plurals name="par_account_linked">
+        <item quantity="one">1 linked phone</item>
+        <item quantity="other">%d linked phones</item>
+    </plurals>
+</resources>

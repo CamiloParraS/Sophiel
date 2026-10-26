@@ -1601,3 +1601,379 @@ Amends D54's "boot-to-first-unlock is not a gap" for this one case.
   receiver (D54).
 - **With the service on** nothing changes: the bind at the first unlock starts the process, capture resumes,
   no stretch is found.
+
+## D62 — Log polish: one-ink day bars, folded lines (2026-10-16, human decision, UI polish)
+
+Amends D44 / D59's Log rows and bars; the D59 layout is unchanged.
+
+- **Day bars are one ink** (today brightest), not the day's highest band colour: on the dark hero the pink /
+  brown read as unexplained. The band stays on the rows' tags.
+- **Rows are a timeline:** time in its own left column; a line about an app leads with the app, its icon says
+  what happened. On, off and pause lines are one plain grey line.
+- **Folding in the list only** (counts and the report still see every entry): back-to-back masked episodes
+  in one app (10 min gap) → one line that opens; unchecked stretches in one app → one line with the time
+  summed; a stop and the turn-on after it → "En pausa 8 min".
+- **Por app rows are their bars:** app icon and name over an accent fill as wide as the app's share of the
+  top app, count at the end. Each fill takes the hue of its app's icon (grey for a grey icon).
+
+## D63 — Card tint, no card borders, plainer Log labels (2026-10-16, human decision, UI polish)
+
+- **`Palette.Card` is `#F9FBF7`, not white:** pure white glared under the dark hero (tester feedback). The
+  1 dp outlines on Status, Apps and Log cards are gone; the tone step against the chalk sheet and the 1 dp
+  row dividers do the separating.
+- **Log labels say what happened** (ES and EN): "Veces sin protección" (time under it), "Intentos de apagar
+  Sophiel", "Aperturas bloqueadas" (grey, not orange: the parent's own rules working), filter "Otros" →
+  "Protección". Row titles unchanged.
+- **Verdict line, then only non-zero figures:** "Todo en orden esta semana" (green) or "Para revisar esta semana"
+  above the tiles. Unprotected and attempts make it "look"; blocks (the parent's own rules) never do. A tile at 0 is hidden.
+- **Confidence is debug-only:** the Muy seguro / Seguro / Dudoso tag, the score and the band colours show only when
+  `isDebuggable`; a release build shows every cover in one green, with the review level and zones in the detail.
+
+## D64 — Warm paper: two surface roles (2026-10-16, human decision, UI polish)
+
+Amends D63's tint. A tester found the app "too white" (GNOME white, not Apple white); four page/surface pairs were
+compared in `.scratch/mockup-white.html` and the human picked the warm one (D).
+
+- **Two roles, not four colours:** `Palette.Chalk` is the page, `#EAE8E3`; `Palette.Surface` is the one off-white that
+  rises off it, `#F9F8F5`. `Card` and `Win` are aliases of `Surface`, so cards, tiles, the PIN sheet, dialogs, the block
+  screen, overlays and the selected pill in the segmented control are one value. `Head` follows the page.
+- **A lift, not an outline:** cards get `Modifier.lift` (1 dp warm shadow) in place of D63's removed borders; `Border`
+  (dividers) is warm too. Switch thumbs stay white.
+- **Seen on B:** Status, the PIN sheet. The rest of the screens move to the new visual style separately.
+
+## D65 — One ink, one header (2026-10-17, human decision, UI polish)
+
+Amends D44's accent and the flat grey header. An audit found Status and Log (dark tile grid, green) and the other screens
+(grey bar, wallpaper-derived accent, teal on A) looked like two apps.
+
+- **No Material You:** `primary` is `Palette.Moss` (`#12201A`, the hero's ink, as Status's buttons already were). Pill
+  buttons, the PIN confirm key and the segmented thumb follow it. The accent for "on" and "chosen" things (switch track,
+  check, wizard dots, links, Recomendado tag) is `Palette.GreenFg`, so state still reads as green.
+- **One header:** `HeaderBar` is the dark tile strip with the back chip and a left-aligned title (Log's top bar), on
+  Ajustes, Apps, the wizard, Cambiar PIN and the debug menu. The unlocked countdown is the `UnlockedChip` in its end slot;
+  the tinted `UnlockedBanner` is gone. Status and Log keep their taller heroes.
+
+## D66 — Wizard: welcome step, tile progress, a tile visual per step (2026-10-17, human decision, UI polish)
+
+Amends D42/D44's wizard frame; the step order and the permission logic are unchanged.
+
+- **Step 0, welcome:** the Status hero on the Protected page (the lock shuts, camo spreads) with one "Empezar" button and
+  "Son 7 pasos cortos". It has no progress and no back; Back from step 1 returns to it.
+- **No header bar:** a back chip and seven progress tiles (12 dp, filled green up to the current step) stay on top while the
+  steps slide under them. Step 1 (PIN) is the keypad itself, with no visual.
+- **A visual in the middle of steps 2-7** (`TileVisual`): a 5x3 tile grid on a 4.2 s loop, each doing what the step is about:
+  a layer sweeping over (overlay), see-through then opaque (accessibility), three tiles breathing (keep awake), a ping
+  (notifications), the scan over 4/8/12/15 tiles by preset (how it checks; follows the choice), the wave that covers all
+  (start). Reduced motion draws one still frame.
+- **Cómo revisa and Cuidado stay on one step (6)**, so the wizard stays at 7 steps.
+- **Last step has two exits:** "Iniciar protección" and "Ir a la app" (leaves the wizard without starting).
+- `GridHero` now clips its tiles to its own height (they drew one row past it, over whatever sat below).
+
+## D67 — Log critique: quieter list, one bar ink (2026-10-18, human decision, UI polish)
+
+- **One unchecked line per day** ("No se pudo revisar · … · N veces"), across apps; it names the app only when all agree. Replaces the per-app 10 min fold for unchecked stretches (counts still see every stretch).
+- **Por app bars take one neutral ink**, minimum 40% wide so the label stays on its fill. Amends D59/D62's per-app icon hue; `appHue` is gone.
+- **Band words are Explícito / Probable / Dudoso** (was Muy seguro / Seguro / Dudoso): debug builds only, and "Muy seguro" in red read as good news.
+- **The hero's "Para revisar" names its cause** (gap time, else attempts). Stat tiles count in ink; colour stays on the icon and detail.
+- **Borrar historial** sits 24 dp under "Mostrar más", neutral pill with red ink (Destructive fill dropped).
+
+## D68 — Log by app: a screen for every app with something covered (2026-10-18, human decision, UI polish)
+
+- **Por app card shows the top 4** and a last row, "Ver las N apps" (or "Ver detalle por app" up to 4), in body weight. The card sits under the hero, above the stat tiles; the tiles carry a down chevron because they are filters.
+- **New screen inside the Log** (`LogAppsScreen`): a summary (the week's count large, "N apps"), then every app with a covered episode, most first: icon, name, count, a thin bar under the name (share of the top app, neutral ink, never behind text), last time. A final row, "N sin app identificada", makes the list add up to the hero. Tapping an app opens its episodes only, grouped by day, leading with what happened ("12 episodios") not the app's name. Back goes app, list, Log.
+- **Counts only, no usage time.** Per-app screen time and `UsageStats` stay out (SPEC §1.3, D58); the metric is covered episodes. A ring chart was rejected: slower to compare than bars, needs a colour legend, and reopens D67's one ink.
+- **The home launcher's covers read "Inicio y recientes"**: Recents is drawn by the launcher, so covers over other apps' thumbnails file under it. Kept (they protect the Child); renamed (the launcher's own name read as an app the Child opened). Resolved at read time from the default home app.
+- **Fixes found on device:** the Log's top bar height was measured without the status bar, so the pinned filter sat about 24 dp too high and its labels clipped; the status-bar icons stayed dark on the dark hero after returning from the by-app screen.
+
+## D69 — Motion pass: welcome on cold open, loading covers under 200 ms (2026-10-18, human decision, UI polish)
+
+- **A welcome on the first Status hero of each process** (`GridHero`): the badge fades in and springs up from 80%; off Protected a ring pulses out. On Protected the padlock starts open and falls shut after about 0.4 s, with the usual ring and squash but no haptic (it is not an event). Returning to Status, or rotating, shows the hero as it is. **Amends D44** ("opening the screen shows it as it is") for a cold open only. Reduced motion: none.
+- **Loading covers move 200 ms at most:** the Log's content and empty state fade in over 180 ms, and the skeleton no longer pulses (it was an 800 ms loop). Slides, the sheet rise, hero colours, the lock ring and the Wizard progress keep their longer times, on purpose.
+- **Seams that teleported now move** (all through `motion()`, so Remove animations still snaps them): the Log filter fades the list in (160 ms); the radio tick fades and grows from .8 (`SelectTick`, 120 ms); disabled rows dim over 200 ms (`Modifier.dimmed`) when the service binds; PIN dots fill over 100 ms.
+- **Tuned:** the hero height takes `Ease` (was the stock curve); the segmented thumb is 220 ms (was 280).
+- **Left alone:** `motion()` still snaps colour and opacity fades under Remove animations (D44); a gentler fallback stays an open question.
+
+## D70 — Bolder neutrals, an unlocking padlock, a glance card, regrouped Ajustes (2026-10-20, human request, UI polish)
+
+Amends D64's surfaces and D65's ink. The human asked for a bolder look: pure white for light elements, a dark grey
+(not black) for dark ones.
+
+- **Neutrals:** `Surface` is `#FFFFFF`, the page `Chalk` a cool `#ECEDEF`. The ink is `#1C1E21` at full strength for
+  text (`Fg`), `.74` for `Dim`. `Moss` is now a dark grey, `#26282C`; the hero and header tiles are greys too, with only a
+  trace of green, red or amber per page. Light inks on the dark (`Text0`, `OnMoss`) are pure white. Cards round to 16 dp
+  with a 2 dp lift; display and title sizes went up a step.
+- **The PIN sheet's padlock:** a large upright padlock (the hero's drawing, `drawPadlock` with no tilt) heads the sheet.
+  A wrong PIN rattles it, lockout turns it red; the right PIN springs the shackle open, turns it green, and shrinks it
+  toward the top end, where the header's open-lock `UnlockedChip` takes over. Reduced motion: it snaps open, 450 ms, done.
+- **De un vistazo:** unlocked, Status's proof card becomes a glance card: today, 7 days, time unprotected, attempts to turn
+  it off, the top three apps with their launcher icons and counts, and Ver historial. Locked, the D44 proof card stays,
+  since per-app figures are behind the door like the Log.
+- **Ajustes groups:** Protección (Cuidado, Revisión) · Apps y actividad (Apps, showing the icons of apps with a rule;
+  Historial) · Máscara · Seguridad (Seguir protegiendo siempre, Cambiar PIN).
+
+**Amended 2026-10-20 (human):** the Moss family is back as D65 had it (`Moss` `#12201A`, the hero and tile greens, the
+mint-white inks on them). Pure white surfaces and the dark grey text ink stay. The glance card is under review in
+`.scratch/mockup-d71.html`.
+
+## D71 — Critique pass: a wall that counts, one week row, a Historial that tells the day (2026-10-20, human request, UI polish)
+
+From the `/impeccable critique` of 2026-10-20 (25/40); the human asked for all five fixes. Amends D44, D69, D70.
+
+- **The hero wall counts (GridHero):** on Ready and Protected, today's masking episodes are tiles wearing the mask camo, one per
+  episode, at fixed hash-ordered places off the text. Protected's ambient band is now a scan line sweeping top to bottom every
+  6 s. Ready is still (its band is gone). The badge loses the mask-noise fill; the padlock stays (launcher mark, D70's PIN sheet).
+- **Status sheet:** "Todo en orden" no longer gets a card on Ready or Protected (only failing checks do; D44's "show only what
+  is wrong"). The "Revisión · Cuánto tapa" line above Start is gone. Proof and the D70 glance card become one `WeekRow`: the
+  7-day count leads, today and the last cover under it, the day bars, and the row itself opens the Historial. Unlocked adds a
+  "Para revisar" row (only when there is a gap or a protected setting opened) and the top three apps; the four figure tiles are
+  gone. Resolves the glance-card review in `.scratch/mockup-d71.html`.
+- **Historial:** each day opens with its title and one summary sentence ("12 tapados, casi todo en Galería · 7 h sin
+  protección"). A stop and turn-on less than a minute apart leave no line. Wording: "Intento de apagar Sophiel" is "Abrió un
+  ajuste protegido" (and its counts), the setting lines name only the setting ("Accesibilidad"), "N partes" is "N zonas tapadas", "N episodios" is "N veces".
+- **Unlocked chip:** the open padlock in a ring that empties over the 2 min window; the time and "Bloquear ahora" are spoken,
+  not printed. A tap still locks.
+- **Sub-screen header:** plain Moss, no strip of the tile grid (it read as a cut). The grid is for the two heroes only.
+
+## D72 — A language switch in Ajustes (2026-10-20, human scope addition, UI polish)
+
+The human asked for a Spanish / English toggle. Ajustes gets an **Idioma** group under Seguridad: one segmented control,
+"Español | English", each name in its own language. It sets the app's own locale through `LocaleManager` (Android 13+), so
+Android keeps the choice and recreates the screen; `res/xml/locales_config.xml` also lists Sophiel in the system's per-app
+language page. Below Android 13 the group is hidden and the app follows the system language (appcompat would be needed).
+Also: Status's week row puts today and the last cover on two lines ("Hoy: 0" / "Última: hace 4 días"); joined, they wrapped
+mid-phrase in Spanish.
+
+## D73 — Second critique: a lit hero, one summary in Historial, the PIN lock in Moss (2026-10-20, human request, UI polish)
+
+From the second `/impeccable critique` (28/40, up from 25); the human picked "glow + fade + clear tiles" and every other fix.
+
+- **Hero light (GridHero):** a mint radial glow centred on the badge (.16 on Protected, .09 on Ready and Starting, none on
+  the stopped, broken and off pages) and an edge fade into the page colour, so the wall reads lit from the middle. Today's
+  covered tiles get a stronger camo and a 1 dp mint edge. The hero's floor is 360 dp (320 pushed the unlocked badge under
+  the header). Not "light as status": the glow stays mint, the page colours already carry the state.
+- **Historial:** the figure cards under "Por app" are gone; the hero's verdict ("Para revisar" and its cause) is the week's
+  one summary and now runs full width under the count and bars. Blocks are still in the rows and the day lines.
+- **PIN sheet:** the padlock disc is Moss with a light lock (mint on the right PIN, the hero's red ink on lockout), the
+  hero's badge rather than a grey disc. Amends D70's colours, not its motion.
+- **Small:** the week row's bars are 24 dp and centred on "Hoy / Última"; the countdown ring is 2.5 dp; "Revisar sin
+  destapar" reads "Sin parpadeo. Necesita Máscara completa."
+
+## D74 — The wizard joins the app's world; dates follow the app's language (2026-10-20, human request, UI polish)
+
+From the third `/impeccable critique` (Protected state and the wizard); the human took all four fixes.
+
+- **Wizard steps:** the top is a Moss band like every parent header (back chip on dark, a mint progress bar), so the light
+  status icons belong. The tile drawing (`TileVisual`) is a small window onto the hero: a Moss panel with a mint glow, the
+  hero's tiles, covered ones in lit camo with a mint edge. It is the same drawing in Ajustes's Revisión sheet.
+- **PIN creation** (wizard and Cambiar PIN) opens with the PIN sheet's mark: the light padlock, shut, on a Moss disc.
+- **"Todo listo"** is the welcome's bookend: the hero (Ready) says it, the capture notes and the buttons sit under it. No back
+  chip; the system Back still steps back.
+- **One button shape:** every text button is a 12 dp rounded rectangle, the main buttons' shape; the wizard's pills are gone.
+- **Language bug (from D72):** day letters and "hace N minutos" read the Activity's locale (`appLocale()`, `relativeTime()`
+  through ICU), not `Locale.getDefault()` or `DateUtils`, which could still be the phone's language after a cold start.
+
+## D75 — Design A ported: Geist, Esmeralda, the state card and a bento (2026-10-21, human request, UI polish)
+
+The human approved "A · Bento expresivo" (`.scratch/sophiel-a-final.html`, `-screens.html`) and chose Esmeralda and the cookie badge.
+Reopens D45 (Plex), D64/D70 (paper and Moss hero) and D74's button shape; D73's mint glow is dropped.
+
+- **Font:** Geist (OFL, bundled in `res/font`, licence in `assets/licenses`); Plex removed. Display titles are Bold 48 sp, -.04 em.
+- **Colour:** Esmeralda `#00804A` (`Palette.GreenFg`, white on it 5.0:1) wherever green means protected; `#3FD08F` (`Mint`/`Green`) for green on dark.
+  Ink is `#08201A` (`Moss`) and does every primary job (buttons, switches, ticks). Page is `#F1F2F1`.
+- **Status:** no state chip in any state. A 28 dp state card (tile wall, cookie badge when armed/protected, rounded square when not, headline,
+  subline) with the capture mode (D54) as one quiet line under the promise on Protegido only. Below it a bento: Historial (the 7-day count, green
+  only while protected, white otherwise; "N hoy"; day bars), Apps (count of Bloqueada apps; `APPS_BADGE_COOKIE` in `StatusScreen.kt` flips it to a
+  tile), Revisión (preset on a 3-step scale; Detallado lights no step). The nav bar stays gone: gear, tiles, one full-width action.
+  The old "Ver en Historial" row, week row and top-apps glance are gone; unlocked, "Para revisar" stays as one row.
+- **Buttons:** Status's Start/Stop are 60 dp, 22 dp radius; Stop is outlined in ink. Other text buttons keep D74's 12 dp.
+- **Other screens:** parent headers are on the page (white 44 dp back disc, bold title, no Moss band); icons sit in soft tiles; Ajustes opens
+  with two tiles (Cuánto tapa, Revisión) that show their scale; the wizard's top is the same header with an ink progress bar and its
+  welcome/"Todo listo" heroes are the state card; the Parent-block screen is flat ink.
+- **Not ported yet:** Historial's dark hero, the PIN sheet's tile slots, the wizard pictures' step-specific art and the Ajustes sheets' check
+  style still follow D70-D74 (recoloured by the new palette).
+
+## D76 — C1 reopened for M9 Remote (2026-10-20, human scope change, `/wayfinder` charting of `.scratch/m9-remote/`)
+
+A professor requires a password-protected remote Parent function. This reopens C1, hard rule 1 and §1.3's "remote parent
+alerts, accounts, sync, backend" on purpose, for a new milestone **M9 — Remote** after M8 sign-off and UI polish, before M7.
+
+- **Two flavors:** `offline` keeps C1 and its `aapt` check unchanged; `remote` adds `INTERNET`. Details in M9 ticket 07.
+- **One APK, two roles** chosen on first launch: Parent phone (needs a login for everything) and Child phone (never logs in; pairing replaces it, M9 ticket 04).
+- **Remote does exactly four things:** fetch the newest Log entries, set apps Normal / Bloqueada / De confianza (D58), Start, Stop.
+  Remote Start only works in accessibility capture.
+- **Pure relay:** the server (Bun + Elysia, host by research) stores Parent accounts and Pairings only; every message is end-to-end
+  encrypted and never written. An offline Child phone means the request fails. A mailbox that holds messages is a stretch goal.
+- **Pairing by QR** carrying the key, shown on the Child phone behind the door (D38); one account, many named Child phones; the Child
+  phone's Status says it is paired; either side unpairs, and unpairing deletes the key.
+
+## D77 — The relay runs on one always-on Fly.io Machine (2026-10-20, research, M9 ticket 01)
+
+Fly.io: one `shared-cpu-1x` 256 MB Machine, a 1 GB volume for the SQLite file, `auto_stop_machines = "off"`, about $2.34 a month
+(shared IPv4 and `*.fly.dev` TLS free). Fly's proxy is reported to cut a connection after ~60 s of silence, so the server's
+`idleTimeout` is 25 s and the server pings. Elysia pinned to 1.4.x (2.0 is only an rc); `.ws()` is built in, runs in an `oven/bun` image.
+
+- **Fallback:** Railway Hobby, flat $5 a month, WebSockets exempt from time limits.
+- **Rejected:** Render (free tier sleeps after 15 min, no disk), Koyeb (free scales to zero, volumes in preview), Hetzner (unavailable,
+  self-managed TLS), Oracle free tier (reclaims idle instances). Anything that sleeps drops the Child phone's socket.
+- Findings: branch `research/m9-hosting`, `.scratch/m9-remote/research/01-hosting.md`.
+
+## D78 — The Child phone's socket lives in the process the accessibility service keeps alive (2026-10-20, research, M9 ticket 02)
+
+The WebSocket is held by the app process while `MaskWindowService` is bound (protection on or off). AOSP binds accessibility services
+with flags that keep network access through Doze, App Standby and Android 15's background restriction. With the screen off Doze ignores
+the app's wakelocks unless it is battery-exempt, so Remote asks for `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` (D82 says where). Phone-side
+timers stop in deep sleep, so the **server** pings; the phone reconnects on network change, screen on, and a 5-minute
+`setAndAllowWhileIdle` alarm. Client: OkHttp 5 behind a small `callbackFlow` (hard rule 5).
+
+- **Worst case on A:** silently dead for up to one 5-minute check plus reconnect. Unreachable while the service is off (amended by D83)
+  and before the first unlock after a reboot.
+- **Rejected:** high-priority FCM (Firebase, 4 KB payload, demoted within 7 days, Google sees metadata); a foreground service for the
+  socket (breaks D54's "no FGS in accessibility mode"; `dataSync` capped at 6 h a day on 15+); WorkManager (does not run in Doze).
+- Findings: branch `research/m9-reachability`, `.scratch/m9-remote/research/02-reachability.md` (five device checks listed there).
+
+## D79 — Protocol: email accounts, QR pairing, end-to-end AES-GCM through a pure relay (2026-10-20, human decision, M9 ticket 04)
+
+- **Account:** email + password; the email is only a login name (no verification, no mail of any kind). Hash with `Bun.password`
+  (argon2id). Forgotten password = new account and re-pair. No password change.
+- **Session:** login returns a random token; the server keeps its hash; the Parent phone keeps it in app-private storage until logout
+  or account deletion.
+- **The Child phone never logs in** (rewords D76's "login optional"). Behind the door it opens a socket, gets a one-time **claim code**
+  (10 min, memory only) and shows a QR with the claim code + a fresh AES-256 **pairing key**. The logged-in Parent phone scans it and
+  sends the claim code; the server binds a pairing to the account and sends the Child phone a **device token** over the socket. The
+  server URL is fixed in the build, not in the QR. "Mostrar código otra vez" mints a fresh claim code with the same key, so another
+  Parent phone of the account joins the same pairing.
+- **Names** live only on the Parent phone, in its local list (pairing id, name, key). A reinstalled Parent phone must scan again.
+- **Envelope:** AES-256-GCM (`javax.crypto`), random 96-bit nonce per message, pairing id as associated data; inside, a message id and
+  a timestamp. The Child phone rejects anything older than 2 min or an id already seen.
+- **Transport:** Parent phone POSTs one request; the server forwards it down the Child socket and holds the POST until the reply (10 s
+  timeout), or answers "sin conexión" at once if no socket is open.
+- **Log fetch** sends the whole 7-day Log and the Apps list (each app with its `rule`; `rules` replies carry the list too), gzipped before encryption; the Parent phone holds it in memory only. Messages cap
+  at 256 KB.
+- **Unpair** from either side deletes key and token on the phones and the row on the server; the side that was offline cleans up on its
+  next contact (rejected token or unknown pairing id). Logout deletes the session; "Borrar cuenta" deletes account, sessions, pairings.
+- **Server stores, exactly:** on disk `accounts(id, email, password_hash, created_at)`, `sessions(token_hash, account_id, created_at)`,
+  `pairings(id, account_id, device_token_hash, created_at)`; in memory claim codes, open sockets, requests awaiting a reply; never
+  message bodies, Log entries, app lists, names, keys or last-seen times. It logs no bodies and no ids.
+
+## D80 — Pairing QR: ZXing core to draw, Google code scanner to read (2026-10-20, research, M9 ticket 03)
+
+- **Draw:** ZXing `core` 3.5.4, a plain JAR with no manifest; `QRCodeWriter().encode()` to a `BitMatrix` drawn on a Compose `Canvas`.
+- **Read:** `play-services-code-scanner` 16.1.0: no CAMERA permission, a few lines (`GmsBarcodeScanning.getClient().startScan()`), needs
+  Play services; the `barcode_ui` meta-data installs the module with the app.
+- **Cost, accepted (D83):** the scanner pulls `transport-backend-cct`, which merges `INTERNET` + `ACCESS_NETWORK_STATE` and sends ML Kit
+  usage metrics to Google; the terms require telling users. Both deps are `remoteImplementation`; never strip its permissions with
+  `tools:node="remove"`.
+- **Fallback, not taken:** zxing-android-embedded 4.3.0 (CAMERA, no INTERNET). ML Kit bundled + CameraX rejected (CAMERA, ~2.4 MB,
+  still INTERNET).
+- Findings: branch `research/m9-qr`, `.scratch/m9-remote/research/03-qr.md`.
+
+## D81 — The Parent phone's screens: one state card per Child phone (2026-10-21, human decision, M9 ticket 05, variant B)
+
+Chosen from `.scratch/m9-remote/prototype-parent-screens.html?variant=B`, in Design A's world (D75).
+
+- **First launch** (Remote build only) asks the role, Hijo by default. Padre skips the protection wizard and goes to login.
+- **Login / sign-up:** password 8+ characters, one amber "no recovery" warning on sign-up, one error for wrong email or password.
+  Back to the Child role only while logged out, from the login screen's last link.
+- **Home:** one small state card per Child phone, all fetched on open, each stamped "hace N s", with Start or Stop on the card. Cards
+  for "Sin conexión" (Reintentar) and "Se desvinculó" (Quitar de la lista). Loading is a skeleton card; an in-flight action spins in its
+  pill; a failure drops a banner under its card naming the reason ("Ya estaba protegido", "Protección iniciada", or the failure).
+  The empty list says where the Child phone's QR is. No last-known state is kept for an offline phone.
+- **Adding:** scan (with a line disclosing the Google scanner), then name the phone. A bad scan names the fix ("Mostrar código otra vez").
+- **Per Child phone:** tabs Historial (the Child's Log rows) and Apps (D58's rows and rule sheet). Apps arrive as labels only, drawn as
+  letter tiles; no icons on the wire.
+- **Cuenta** (gear): Cerrar sesión, Borrar cuenta.
+
+## D82 — What Remote changes on the Child phone (2026-10-20, human decision, M9 ticket 06)
+
+- **Pairing screen:** Child role, Remote build only. An Ajustes row "Teléfono del Padre" behind the door (D38): QR, "Mostrar código otra
+  vez", "Desvincular", and a connection line ("Conectado" / "Sin conexión"). The battery exemption is asked here before the QR shows,
+  only if missing; no wizard step. While paired and not exempt, Status shows a Recomendado item "Sin restricción de batería".
+- **No PIN on incoming commands:** the pairing key authorises them. The door already implies a PIN.
+- **Remote Stop** = a PIN Stop: `CaptureModeController.stop()` (clears escalation blocks, D58), OFF reason `REMOTE`
+  ("Detenido a distancia").
+- **Remote Start:** service bound and "Seguir protegiendo siempre" on → protection on, ON entry with a remote marker ("Iniciado a
+  distancia"). Already on → "Ya estaba protegido". Service unbound → "El servicio de accesibilidad está apagado en el teléfono del
+  Hijo". Switch off → "‘Seguir protegiendo siempre’ está apagado en el teléfono del Hijo". A remote command never changes any other
+  setting.
+- **Remote app rules** are a local Apps change: same store, the local screen redraws, last write wins. Bloqueada with that app in front
+  blocks at once; De confianza applies on the next window change. Exclusions kept.
+- **Log:** no kinds for commands (Start/Stop carry the marker); rule changes and Log fetches are not logged. New kinds **Vinculado** and
+  **Desvinculado** (by the Padre or by this phone).
+- **Status:** paired → "Vinculado con el teléfono del Padre"; nothing while a claim code waits; after a "desvinculado" notice the line
+  goes and the Log says "Desvinculado (por el Padre)". No notification.
+
+## D83 — Offline and Remote flavors; C1 and the privacy claim reworded (2026-10-21, human decision, M9 ticket 07)
+
+- **Split:** flavor dimension `net`: `offline` / `remote`, same `applicationId` `dev.sophiel`. The main manifest names neither network
+  permission; `src/offline/AndroidManifest.xml` keeps the `tools:node="remove"` lines for `INTERNET` and `ACCESS_NETWORK_STATE`;
+  `src/remote/AndroidManifest.xml` adds `INTERNET`, `ACCESS_NETWORK_STATE`, `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`.
+- **Code:** OkHttp, ZXing and the code scanner are `remoteImplementation`. All Remote code lives in `src/remote/kotlin`; `main` reaches it
+  through one same-named object, empty in `src/offline/kotlin`. `offline` opens straight into today's app, no role choice.
+- **Default target:** `installRemoteDebug` on Device A. C5 / hard rule 6: both flavors assemble and the default install launches.
+- **Checks:** `offline`'s `aapt … | grep -i internet` prints nothing; the `aapt dump permissions` diff between the two APKs is exactly
+  the three permissions above.
+- **Code scanner metrics:** accepted and disclosed (D80), no CAMERA fallback.
+- **C1:** "The `offline` flavor MUST NOT declare `INTERNET` in any manifest (debug and test included). The `remote` flavor adds exactly
+  `INTERNET`, `ACCESS_NETWORK_STATE` and `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`, nothing else (D76)."
+- **Remote privacy claim** (SPEC §7, `docs/LIMITATIONS.md`, one short in-app line on sign-up and before the Pairing QR): the server keeps
+  only accounts (email, password hash), sessions and pairings; it passes messages along without being able to read them (end-to-end
+  encrypted with a key that never leaves the two phones) and never stores the Log, app lists, phone names or commands; no frame or
+  screen content ever leaves the Child phone; the QR scanner (Google) sends anonymous usage data to Google.
+- **Amends D78:** the socket is also held whenever the process lives for another reason (screen-share FGS, Sophiel open). Then the Child
+  phone answers Log fetch, Stop and app rules (saved, applied when the service returns); Start is rejected. Every reply carries an
+  "accesibilidad apagada" flag; the Parent card shows it and disables Start.
+- **Seven §7 items:** 27-32 added, 26 reworded.
+
+## D84 — The relay lives in `server/`, deployed by hand to Fly (2026-10-21, human decision, M9 ticket 09)
+
+- **Repo:** `server/` in this repo, Bun + Elysia 1.4.x, TypeScript. C6 / hard rule 5: "Kotlin only in the app; the relay in `server/`
+  is TypeScript on Bun."
+- **Backups:** Fly's automatic daily volume snapshots, default retention. Losing the volume means re-sign-up and re-pair; no Log is lost.
+- **Abuse limits** (memory only, reset on restart): 5 failed logins per email in 15 min lock that email for 15 min; 20 login/sign-up
+  attempts per IP per minute; a claim code dies after 5 wrong guesses. Nothing about IPs touches disk.
+- **Server checks** (`bun test`): relay round trip; offline Child phone → "sin conexión" at once; 10 s timeout; unpair from each side;
+  a deleted account's device token rejected; login lockout; schema check (only D79's three tables and columns). Replay rejection is a
+  Kotlin test on the Child phone.
+- **Deploy:** the human holds the Fly account. A `/wizard` script covers sign-up, `flyctl`, `fly launch --no-deploy`, the 1 GB volume
+  and the first `fly deploy`; `fly.toml`, `Dockerfile` and `idleTimeout` 25 s live in `server/`. Later deploys are a by-hand
+  `fly deploy`, no CI.
+- **Server URL per build type:** `remoteRelease` uses `https://<app>.fly.dev`; `remoteDebug` uses `http://localhost:3000` through
+  `adb reverse tcp:3000 tcp:3000` to a local `bun run`, with a debug-only network security config allowing cleartext to `localhost`
+  only. The real server is verified with a release build.
+- **Deployed (2026-10-21):** app `sophiel-relay`, `https://sophiel-relay.fly.dev`, region `dfw`, volume `sophiel_data` 1 GB; `relayUrl` in
+  `gradle.properties` points at it. A bad login answers 401.
+
+## D85 — M9 written into SPEC; the freeze is lifted for M9 only (2026-10-21, `/wayfinder` ticket 08)
+
+M9 — Remote is in SPEC §5 with its deliverables in build order and V1-V9, and C1, C5, C6, §1, §3, §4.1, §7, §8, §9 and M7 amended to
+match D76-D84. M9 is new feature work by D76's scope change, so the feature freeze that returns at the end of M8 (D53) is lifted again
+for M9 only and returns at its end. The wire details SPEC fixes beyond D79 (endpoint list, frame shapes, QR text, token sizes) are
+implementation choices made while writing, not human decisions: change them freely if the build finds a reason.
+
+## D86 — M8 sign-off: V7 and V8 (2026-10-21, human confirmation + agent checks, M8 ticket 31)
+
+- **V7 Log and report:** the human confirmed the Informe works as intended (share sheet opens with the
+  text; Hoy and 7 días). The report text is `LogReport`, built from the same `LogCounts` as the dashboard,
+  JVM-tested for both periods (`LogReportTest`).
+- **V8 permissions:** `aapt dump permissions` on the debug APK: no `INTERNET`. Permissions are
+  `SYSTEM_ALERT_WINDOW`, `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_MEDIA_PROJECTION`, `POST_NOTIFICATIONS`
+  (+ the framework's dynamic-receiver one); no `uses-permission` added since M6.
+- **V8 manifest diff since M6** (343b03e): the `<queries>` block, `BlockActivity`, the service config
+  (`typeWindowStateChanged`, `flagReportViewIds`, `isAccessibilityTool`), and `android:localeConfig`
+  with `locales_config.xml` (the Idioma switch, D72: a UI-polish addition after M8's spec, not a permission).
+- **V8 tests:** `:safecore:test` 65 pass; `:app:testDebugUnitTest` 137 pass (0 failures, 0 skipped);
+  `ParityTest` 3/3 on the connected SM-A715F (instrumented, not JVM).
+- **Open:** M5 V1 and V2 on screen share were not re-run in this session. The human runs them on A and B
+  before SPEC §9 M8 is ticked and the freeze returns.
+
+## D87 — Dark theme for the Parent app (amends D43) (2026-10-25, human decision, UI redesign)
+
+The evaluator asked for a dark mode, so "light theme only" in D43 is dropped. Ajustes gets a **Tema**
+switch next to Idioma: Sistema (default, follows the phone) / Claro / Oscuro, stored with the other
+settings and applied at once. Each colour role gets a dark value
+rather than an inversion: warm ink ground, the state colours keep their meaning (green only ever means
+protected, amber stopped, red Sin protección). The Child-facing block and guard screens stay dark in
+both themes. Everything else in D43 stands: Spanish first, English in `values-en/`, all text through
+resources. The dark palette is drafted in `.scratch/mockup/next-v2/` and is still a proposal there;
+DESIGN.md's "light only" lines (and its "don't follow system dark mode") are rewritten when the
+redesign is ported.

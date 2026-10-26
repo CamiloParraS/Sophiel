@@ -20,4 +20,10 @@
 - **Blocked app**: an app the Child can't open while Protection is on: always, because the Parent marked it (rule), or for a while, because of escalation. Opening it sends the phone Home and shows Sophiel's block screen.
 - **Escalation**: an app becoming blocked for 15 minutes because it was the episode app of 3 masking episodes within 10 minutes. Only masked episodes count; the Parent can turn it off or lift one block early with the PIN.
 - **Trusted app**: an app the Parent marked as never scanned; no masks appear over it and it never counts toward escalation. A split screen is trusted only if every app on it is.
-- **Report**: a summary of the Log the Parent sends out of the phone through another app (share sheet). Sophiel itself never sends anything.
+- **Report**: a summary of the Log the Parent sends out of the phone through another app (share sheet). Sophiel never sends the Report itself.
+- **Offline build**: the Sophiel that never connects to anything. It has no roles, no Pairing and no Remote; every install is protected the way it is today.
+- **Remote build**: the Sophiel that adds Remote. On first launch each install becomes a Parent phone or a Child phone. What leaves the phone is the login, the Pairing and Remote messages the server cannot read.
+- **Parent phone**: a Remote build install set to the Parent role. It does nothing until the Parent logs in, and then shows only Remote.
+- **Child phone**: a Remote build install set to the Child role: the protected phone. It never logs in; pairing is optional, and without it, it works as before.
+- **Pairing**: a Parent account linked to one Child phone by scanning a QR the Child phone shows behind the PIN. The QR carries the key both phones encrypt with; the server never sees it. One account can have many named Child phones. Either side can unpair; the Child phone only behind the PIN.
+- **Remote**: what the Parent can do from a Parent phone to a paired Child phone that is online: read its newest Log entries, set its apps Normal, Bloqueada or De confianza, and Start or Stop Protection.

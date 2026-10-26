@@ -157,5 +157,110 @@ class LogModelTest {
         assertEquals(1, w.unprotected)
         assertEquals(3, m.today.masked)
         assertEquals(2, m.today.bloqueos)
+        assertEquals(listOf("b", "a"), m.covered.map { it.app })
+        assertEquals(listOf(2, 1), m.covered.map { it.count })
+        assertEquals(at(6, 10), m.covered.first().lastAt)
+        assertEquals(listOf(2), m.forApp("b").map { it.rows.size })
+        assertTrue(m.forApp("nobody").isEmpty())
+    }
+
+    private fun inApp(t: Long, app: String) = Entry(t, "MASKED", listOf("BALANCED", "2", "0.90", app))
+
+    @Test
+    fun maskedEpisodesInOneAppFoldIntoARunUntilTheGapOrAnotherAppBreaksIt() {
+        val m = model(
+            inApp(at(6, 9, 0), "a"), inApp(at(6, 9, 5), "a"), inApp(at(6, 9, 20), "a"), // 15 min gap: new run
+            inApp(at(6, 9, 22), "b"), inApp(at(6, 9, 23), "a"),
+            Entry(at(6, 9, 24), "OFF", listOf("USER")), inApp(at(6, 9, 25), "a"),
+        )
+        val rows = m.days.last().grouped(LogFilter.ALL) // newest first
+        assertEquals(listOf("Masked", "Off", "Masked", "Masked", "Masked", "MaskedRun"), rows.map { it::class.simpleName })
+        assertEquals(2, (rows[5] as LogRow.MaskedRun).episodes.size)
+        assertEquals(at(6, 9, 0), (rows[5] as LogRow.MaskedRun).since)
+        assertEquals(7, rows.sumOf { (it as? LogRow.MaskedRun)?.episodes?.size ?: 1 })
+    }
+
+    @Test
+    fun uncheckedStretchesFoldIntoOneLinePerDayWithTheirTimeSummed() {
+        fun unchecked(t: Long, s: Int, app: String) = Entry(t, "UNANALYZABLE", listOf("$s", app))
+        val m = model(unchecked(at(6, 1, 0), 3, "s"), unchecked(at(6, 1, 1), 1, "s"), unchecked(at(6, 1, 2), 2, "s"), unchecked(at(6, 1, 3), 4, "t"))
+        val rows = m.days.last().grouped(LogFilter.ALL)
+        assertEquals(1, rows.size)
+        val s = rows[0] as LogRow.Unanalyzable
+        assertEquals(4, s.count)
+        assertEquals(10, s.seconds)
+        assertEquals("", s.app) // two apps: none named
+        assertEquals(at(6, 1, 3), s.at)
+        assertEquals(4, m.week.unchecked) // the counts still see every stretch
+        val one = model(unchecked(at(6, 1, 0), 3, "s"), unchecked(at(6, 3, 0), 1, "s")).days.last().grouped(LogFilter.ALL)
+        assertEquals("s", (one.single() as LogRow.Unanalyzable).app)
+    }
+
+    @Test
+    fun gapsWithOneReasonBackToBackFoldIntoOneLineAndBlipsStayBrief() {
+        fun gap(t: Long, s: Int, r: String) = Entry(t, "UNPROTECTED", listOf("$s", r))
+        val m = model(gap(at(6, 1, 0), 30, "APP_CLOSED"), gap(at(6, 1, 3), 40, "APP_CLOSED"), gap(at(6, 1, 4), 12, "RESTARTED"), gap(at(6, 3, 0), 20, "APP_CLOSED"))
+        val rows = m.days.last().grouped(LogFilter.ALL)
+        assertEquals(3, rows.size)
+        val folded = rows[2] as LogRow.Unprotected
+        assertEquals(2, folded.count)
+        assertEquals(70, folded.seconds)
+        assertEquals(false, folded.brief)
+        assertEquals(true, (rows[0] as LogRow.Unprotected).brief)
+        assertEquals(4, m.week.unprotected) // the counts still see every gap
+    }
+
+    @Test
+    fun aStopThenATurnOnFoldIntoOnePauseALoneStopStays() {
+        val m = model(
+            Entry(at(6, 8, 0), "OFF", listOf("USER")), Entry(at(6, 8, 8), "ON", listOf("BALANCED", "NORMAL")),
+            Entry(at(6, 9, 0), "OFF", listOf("SCREEN_OFF")),
+        )
+        val rows = m.days.last().grouped(LogFilter.ALL)
+        assertEquals(listOf("Off", "Paused"), rows.map { it::class.simpleName })
+        val p = rows[1] as LogRow.Paused
+        assertEquals(at(6, 8, 0), p.at)
+        assertEquals(8 * 60, p.seconds)
+        assertEquals("USER", p.reason)
+        assertEquals(2, m.days.last().off) // the counts still see every stop
+    }
+
+    @Test
+    fun aPauseUnderAMinuteLeavesNoLine() {
+        val m = model(Entry(at(6, 8, 0), "OFF", listOf("USER")), Entry(at(6, 8, 0) + 2_000, "ON", listOf("BALANCED", "NORMAL")))
+        assertEquals(emptyList<LogRow>(), m.days.last().grouped(LogFilter.ALL))
+        assertEquals(1, m.days.last().off) // the counts still see the stop
+    }
+
+    @Test
+    fun weekUnprotectedTimeSumsTheGaps() {
+        val m = model(Entry(at(5, 3), "UNPROTECTED", listOf("90", "APP_CLOSED")), Entry(at(6, 3), "UNPROTECTED", listOf("45", "RESTARTED")), masked(at(6, 4), "0.90"))
+        assertEquals(135, m.week.unprotectedSeconds)
+        assertEquals(2, m.week.unprotected)
+        assertEquals(45, m.today.unprotectedSeconds)
+    }
+
+    @Test
+    fun pairedLineIsAQuietRowAndOldKindsStillParse() {
+        val m = model(Entry(at(6, 9), "PAIRED", emptyList()), Entry(at(6, 10), "OFF", listOf("USER")), masked(at(6, 11), "0.60"))
+        val rows = m.days.last().rows
+        assertEquals(listOf(LogRow.Masked::class, LogRow.Off::class, LogRow.Paired::class), rows.map { it::class })
+        assertEquals(1, m.today.masked)
+    }
+
+    @Test
+    fun remoteMarkerAndUnpairParseAndOldOnLinesAreLocal() {
+        val m = model(
+            Entry(at(6, 8), "ON", listOf("BALANCED", "NORMAL")), // an old line, before M9
+            Entry(at(6, 9), "OFF", listOf("REMOTE")),
+            Entry(at(6, 10), "ON", listOf("BALANCED", "NORMAL", "REMOTE")),
+            Entry(at(6, 11), "UNPAIRED", listOf("PARENT")),
+            Entry(at(6, 11, 30), "UNPAIRED", listOf("CHILD")),
+        )
+        val rows = m.days.last().rows
+        val unpaired = rows.filterIsInstance<LogRow.Unpaired>()
+        assertEquals(listOf(false, true), unpaired.map { it.byParent })
+        assertEquals(listOf(true, false), rows.filterIsInstance<LogRow.On>().map { it.remote })
+        assertEquals("REMOTE", rows.filterIsInstance<LogRow.Off>().single().reason)
     }
 }

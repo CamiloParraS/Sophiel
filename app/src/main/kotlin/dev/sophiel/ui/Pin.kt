@@ -1,5 +1,10 @@
 package dev.sophiel.ui
 
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
@@ -52,12 +57,17 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -71,6 +81,7 @@ import dev.sophiel.pin.PinStore
 import dev.sophiel.pin.formatCountdown
 import dev.sophiel.ui.theme.Ease
 import dev.sophiel.ui.theme.Palette
+import dev.sophiel.ui.theme.lift
 import dev.sophiel.ui.theme.motion
 import dev.sophiel.ui.theme.reducedMotion
 import kotlinx.coroutines.delay
@@ -100,12 +111,16 @@ private fun PinSlots(length: Int, shake: Int) {
     LaunchedEffect(shake) {
         if (shake > 0 && !reduced) x.animateTo(0f, keyframes { durationMillis = 320; -9f at 64; 8f at 144; -5f at 224; 0f at 320 })
     }
+    val typed = stringResource(R.string.pin_digits_typed, length)
     Row(
-        Modifier.height(14.dp).offset { IntOffset(x.value.dp.roundToPx(), 0) },
+        Modifier.height(14.dp).offset { IntOffset(x.value.dp.roundToPx(), 0) }.semantics(mergeDescendants = true) { contentDescription = typed },
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         repeat(maxOf(MIN_DIGITS, length)) { i ->
-            Box(Modifier.size(14.dp).clip(CircleShape).background(if (i < length) Palette.Fg else Palette.Fg.copy(alpha = .18f)))
+            val fill by androidx.compose.animation.animateColorAsState(
+                if (i < length) Palette.Moss else Palette.Moss.copy(alpha = .18f), motion(tween(100, easing = Ease)), label = "dot",
+            )
+            Box(Modifier.size(14.dp).clip(CircleShape).background(fill))
         }
     }
 }
@@ -113,14 +128,14 @@ private fun PinSlots(length: Int, shake: Int) {
 /** One pad key: fills its row slot, scales down while pressed (like PillButton). */
 @Composable
 private fun RowScope.PinKey(
-    enabled: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier, bg: Color = Palette.Btn,
+    enabled: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier, bg: Color = Palette.Surface,
     onLongClick: (() -> Unit)? = null, content: @Composable () -> Unit,
 ) {
     val source = remember { MutableInteractionSource() }
     val pressed by source.collectIsPressedAsState()
     val scale by animateFloatAsState(if (pressed) .96f else 1f, motion(tween(120, easing = Ease)), label = "key")
     Box(
-        modifier.weight(1f).height(64.dp).scale(scale).clip(RoundedCornerShape(14.dp)).background(bg)
+        modifier.weight(1f).height(64.dp).scale(scale).lift(RoundedCornerShape(14.dp)).clip(RoundedCornerShape(14.dp)).background(bg)
             .combinedClickable(source, ripple(), enabled = enabled, role = Role.Button, onLongClick = onLongClick, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) { content() }
@@ -128,32 +143,29 @@ private fun RowScope.PinKey(
 
 /**
  * Number pad. [enabled] gates taps; [dim] greys it out (locked or done), so a quick verify doesn't flash it.
- * [onConfirm], if given, fills the bottom-left slot with a ✓ key; [busy] shows a spinner there.
+ * [onConfirm], if given, fills the bottom-left slot with a ✓ key once [canConfirm] (empty until then); [busy] shows a spinner there.
  */
 @Composable
 private fun PinKeys(
     enabled: Boolean, onDigit: (Char) -> Unit, onDelete: () -> Unit, onClear: () -> Unit, dim: Boolean = false,
     onConfirm: (() -> Unit)? = null, canConfirm: Boolean = false, busy: Boolean = false,
+    confirmLabel: String = stringResource(R.string.pin_unlock),
 ) {
     val haptic = LocalHapticFeedback.current
     val deleteLabel = stringResource(R.string.pin_delete)
-    val confirmLabel = stringResource(R.string.pin_unlock)
     val tap = { haptic.performHapticFeedback(HapticFeedbackType.KeyboardTap) }
     Column(Modifier.widthIn(max = 340.dp).fillMaxWidth().alpha(if (dim) .35f else 1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         listOf("123", "456", "789", " 0<").forEach { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 row.forEach { k ->
                     when (k) {
-                        ' ' -> if (onConfirm == null) Spacer(Modifier.weight(1f)) else {
-                            val primary = MaterialTheme.colorScheme.primary
+                        ' ' -> if (onConfirm == null || !(canConfirm || busy)) Spacer(Modifier.weight(1f)) else PinKey(
+                            enabled && !busy, onConfirm, Modifier.semantics { contentDescription = confirmLabel },
+                            bg = MaterialTheme.colorScheme.primary,
+                        ) {
                             val fg = MaterialTheme.colorScheme.onPrimary
-                            PinKey(
-                                enabled && canConfirm && !busy, onConfirm, Modifier.semantics { contentDescription = confirmLabel },
-                                bg = primary.copy(alpha = if (canConfirm || busy) 1f else .45f),
-                            ) {
-                                if (busy) CircularProgressIndicator(Modifier.size(20.dp), color = fg, trackColor = fg.copy(alpha = .4f), strokeWidth = 2.dp)
-                                else SIcon(R.drawable.ic_check, fg, 24.dp)
-                            }
+                            if (busy) CircularProgressIndicator(Modifier.size(20.dp), color = fg, trackColor = fg.copy(alpha = .4f), strokeWidth = 2.dp)
+                            else SIcon(R.drawable.ic_check, fg, 24.dp)
                         }
                         '<' -> PinKey(
                             enabled, { tap(); onDelete() }, Modifier.semantics { contentDescription = deleteLabel },
@@ -170,6 +182,53 @@ private fun PinKeys(
 }
 
 private enum class Attempt { Idle, Wrong, Right }
+
+/**
+ * D70: the PIN sheet's padlock, large and upright. A wrong PIN rattles it; the right one springs the shackle open, turns it
+ * green, then shrinks it toward the top end, where the header's open-lock chip takes over. [onOpened] runs when that is done.
+ */
+@Composable
+private fun PinLock(attempt: Attempt, locked: Boolean, shake: Int, onOpened: () -> Unit) {
+    val reduced = reducedMotion()
+    val shut = remember { Animatable(1f) }
+    val fly = remember { Animatable(0f) }
+    val wobble = remember { Animatable(0f) }
+    var width by remember { mutableIntStateOf(0) }
+    val opened by rememberUpdatedState(onOpened)
+    LaunchedEffect(shake) {
+        if (shake > 0 && !reduced) wobble.animateTo(0f, keyframes { durationMillis = 360; -12f at 60; 10f at 150; -6f at 240; 3f at 300; 0f at 360 })
+    }
+    LaunchedEffect(attempt == Attempt.Right) {
+        if (attempt != Attempt.Right) return@LaunchedEffect
+        if (reduced) { shut.snapTo(0f); delay(450); opened(); return@LaunchedEffect }
+        shut.animateTo(0f, spring(dampingRatio = .45f, stiffness = 500f))
+        delay(120)
+        fly.animateTo(1f, tween(320, easing = Ease))
+        opened()
+    }
+    val color by animateColorAsState(
+        // D73: the hero's badge, Moss with a light lock (mint when it opens, the hero's red ink when locked out), not a grey disc.
+        when { attempt == Attempt.Right -> Palette.Mint; locked -> Palette.RedInk; else -> Palette.DarkLock }, motion(tween(200, easing = Ease)), label = "lock",
+    )
+    // The sheet doesn't scroll: a short screen gets a smaller disc so the keys still fit.
+    val disc = if (LocalConfiguration.current.screenHeightDp < 720) 80.dp else 112.dp
+    Box(Modifier.fillMaxWidth().onSizeChanged { width = it.width }, contentAlignment = Alignment.Center) {
+        Box(
+            Modifier.size(disc).graphicsLayer {
+                val f = fly.value
+                // Toward the header's unlocked chip at the top end; tuned by eye to the sheet's padding, not measured.
+                translationX = f * (width / 2f - 28.dp.toPx())
+                translationY = -f * 36.dp.toPx()
+                scaleX = 1f - .65f * f; scaleY = 1f - .65f * f
+                alpha = 1f - .6f * f
+                rotationZ = wobble.value
+            }.clip(CircleShape).background(Palette.Moss),
+            contentAlignment = Alignment.Center,
+        ) {
+            Canvas(Modifier.size(disc * .6f)) { drawPadlock(color, shut.value, tilt = 0f) }
+        }
+    }
+}
 
 /**
  * The PIN sheet's content (D38, D44): slots, keys (the ✓ key unlocks), Cancelar.[onUnlocked] runs after a right PIN and a
@@ -207,9 +266,7 @@ fun ColumnScope.PinPrompt(pin: PinStore, clock: () -> Long, onUnlocked: () -> Un
             when (result) {
                 PinResult.Ok -> {
                     haptic.performHapticFeedback(HapticFeedbackType.Confirm)
-                    attempt = Attempt.Right
-                    delay(450)
-                    onUnlocked()
+                    attempt = Attempt.Right // PinLock opens, then calls onUnlocked
                 }
                 PinResult.Wrong -> {
                     // The 5th wrong PIN locks: the countdown says it, so no stale "attempts left" afterwards.
@@ -221,7 +278,8 @@ fun ColumnScope.PinPrompt(pin: PinStore, clock: () -> Long, onUnlocked: () -> Un
         }
     }
 
-    Text(stringResource(R.string.pin_title), style = MaterialTheme.typography.titleLarge)
+    PinLock(attempt, locked, shake, onUnlocked)
+    Text(stringResource(R.string.pin_title), Modifier.asHeading(), style = MaterialTheme.typography.titleLarge)
     Text(stringResource(R.string.pin_subtitle), style = MaterialTheme.typography.bodyMedium, color = Palette.Dim)
     PinSlots(digits.length, shake)
     val (message, color) = when {
@@ -231,17 +289,24 @@ fun ColumnScope.PinPrompt(pin: PinStore, clock: () -> Long, onUnlocked: () -> Un
         sawLock -> stringResource(R.string.pin_try_again) to Palette.Dim
         else -> "" to Palette.Dim
     }
-    Text(message, Modifier.heightIn(min = 20.dp), style = MaterialTheme.typography.bodyMedium, color = color, textAlign = TextAlign.Center)
+    // Live region: wrong/locked/unlocked are spoken when they appear. The countdown ticks every second, so while locked
+    // the spoken text is fixed and TalkBack announces the lock once, not each tick.
+    val lockedSpoken = stringResource(R.string.pin_locked_spoken)
+    Text(
+        message,
+        Modifier.heightIn(min = 20.dp).semantics { liveRegion = LiveRegionMode.Assertive; if (locked) contentDescription = lockedSpoken },
+        style = MaterialTheme.typography.bodyMedium, color = color, textAlign = TextAlign.Center,
+    )
     val keysOn = !busy && !locked && attempt != Attempt.Right
     PinKeys(
         keysOn, { if (digits.length < MAX_DIGITS) digits += it }, { digits = digits.dropLast(1) }, { digits = "" },
         dim = locked || attempt == Attempt.Right, onConfirm = ::submit, canConfirm = digits.length >= MIN_DIGITS, busy = busy,
     )
-    PillButton(stringResource(R.string.pin_cancel), onCancel, Modifier.widthIn(min = 200.dp))
+    SButton(stringResource(R.string.pin_cancel), onCancel, Modifier.widthIn(min = 200.dp))
     Text(
         stringResource(R.string.pin_forgot),
         Modifier.clip(RoundedCornerShape(8.dp)).clickable(role = Role.Button) { forgot = !forgot }.heightIn(min = 48.dp).padding(horizontal = 12.dp, vertical = 14.dp),
-        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary,
+        style = MaterialTheme.typography.bodyMedium, color = Palette.GreenFg,
     )
     AnimatedVisibility(forgot, enter = expandVertically(motion(tween(240, easing = Ease))), exit = shrinkVertically(motion(tween(240, easing = Ease)))) {
         Text(stringResource(R.string.pin_forgot_body), Modifier.widthIn(max = 300.dp), style = MaterialTheme.typography.bodySmall, color = Palette.Dim, textAlign = TextAlign.Center)
@@ -250,12 +315,12 @@ fun ColumnScope.PinPrompt(pin: PinStore, clock: () -> Long, onUnlocked: () -> Un
 
 /**
  * Create + confirm (D38): enter, enter again, a mismatch asks for the confirm again. [onCreate] saves the
- * PIN (off-main, in PinStore). The wizard's step 1 passes [subtitle] and [top] (its step and dots); Cambiar PIN reuses it.
+ * PIN (off-main, in PinStore). The wizard's step 1 is [bare], with no header; Cambiar PIN reuses it.
  */
 @Composable
 fun CreatePinScreen(
     onCreate: suspend (String) -> Unit, modifier: Modifier = Modifier, title: String = stringResource(R.string.pin_create_title),
-    subtitle: String? = null, onBack: (() -> Unit)? = null, top: @Composable () -> Unit = {},
+    subtitle: String? = null, onBack: (() -> Unit)? = null, top: @Composable () -> Unit = {}, bare: Boolean = false,
 ) {
     val scope = rememberCoroutineScope()
     val haptic = LocalHapticFeedback.current
@@ -263,34 +328,46 @@ fun CreatePinScreen(
     var digits by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     var shake by remember { mutableIntStateOf(0) }
+    val view = LocalView.current
+    val mismatchText = stringResource(R.string.pin_create_mismatch)
     Column(modifier.fillMaxSize()) {
-        HeaderBar(title, subtitle = subtitle, start = { if (onBack != null) FlatIconButton(R.drawable.ic_back, stringResource(R.string.back), onBack) })
-        top()
+        if (!bare) { // the wizard draws its own top: back and progress tiles
+            HeaderBar(title, subtitle = subtitle, start = { if (onBack != null) SButton(null, onBack, icon = R.drawable.ic_back, label = stringResource(R.string.back)) })
+            top()
+        }
         Column(
-            Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 18.dp),
+            Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).cutoutPadding().pageWidth().padding(horizontal = 18.dp, vertical = 18.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(14.dp, Alignment.CenterVertically),
         ) {
+            // D74: the PIN sheet's padlock (Moss disc, light lock), shut, so creating the PIN starts from the same mark that later asks for it.
+            Box(Modifier.size(88.dp).clip(CircleShape).background(Palette.Moss), contentAlignment = Alignment.Center) {
+                Canvas(Modifier.size(52.dp)) { drawPadlock(Palette.DarkLock, 1f, tilt = 0f) }
+            }
             Text(
                 stringResource(if (state.step == CreateStep.ENTER) R.string.pin_create_enter else R.string.pin_create_confirm),
-                style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center,
+                Modifier.asHeading(), style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center,
             )
             PinSlots(digits.length, shake)
             Text(
                 if (state.mismatch) stringResource(R.string.pin_create_mismatch) else "",
                 Modifier.heightIn(min = 20.dp), style = MaterialTheme.typography.bodyMedium, color = Palette.RedFg, textAlign = TextAlign.Center,
             )
-            PinKeys(!busy, { if (digits.length < MAX_DIGITS) digits += it }, { digits = digits.dropLast(1) }, { digits = "" })
-            PillButton(
-                stringResource(if (state.step == CreateStep.ENTER) R.string.pin_continue else R.string.pin_save),
-                {
+            PinKeys(
+                !busy, { if (digits.length < MAX_DIGITS) digits += it }, { digits = digits.dropLast(1) }, { digits = "" },
+                onConfirm = {
                     val next = state.submit(digits)
                     digits = ""
                     state = next
-                    if (next.mismatch) { shake++; haptic.performHapticFeedback(HapticFeedbackType.Reject) }
+                    if (next.mismatch) {
+                        shake++
+                        haptic.performHapticFeedback(HapticFeedbackType.Reject)
+                        view.announceForAccessibility(mismatchText) // a second identical mismatch changes no text, so a live region stays silent
+                    }
                     next.result?.let { pin -> scope.launch { busy = true; onCreate(pin) } }
                 },
-                Modifier.widthIn(min = 200.dp), style = PillStyle.Suggested, busy = busy, enabled = digits.length >= MIN_DIGITS,
+                canConfirm = digits.length >= MIN_DIGITS, busy = busy,
+                confirmLabel = stringResource(if (state.step == CreateStep.ENTER) R.string.pin_continue else R.string.pin_save),
             )
             Text(stringResource(R.string.pin_create_note), Modifier.widthIn(max = 300.dp), style = MaterialTheme.typography.bodySmall, color = Palette.Dim, textAlign = TextAlign.Center)
         }

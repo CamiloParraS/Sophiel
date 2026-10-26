@@ -1,11 +1,15 @@
 package dev.sophiel.ui
 
+import android.app.Activity
 import androidx.annotation.DrawableRes
+import androidx.compose.foundation.Canvas
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -17,6 +21,12 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.displayCutout
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
@@ -25,66 +35,108 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.draw.shadow
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.foundation.border
+import androidx.compose.foundation.interaction.InteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.sophiel.ui.theme.Palette
+import dev.sophiel.ui.theme.lift
 import dev.sophiel.ui.theme.motion
 
 // Shared parts, cut from mockups/gnome2.html (D44). Controls are in Controls.kt, sheet and dialog in Overlays.kt.
+
+/** Landscape: keep content out of a side camera cutout. Backgrounds stay full-bleed when this comes after them. */
+@Composable
+fun Modifier.cutoutPadding(): Modifier = windowInsetsPadding(WindowInsets.displayCutout.only(WindowInsetsSides.Horizontal))
+
+/** Reading width on tablets and landscape: content centred, at most 640 dp. Fills first, so it centres even under a parent that measures loosely (a Column). Put it after the background so that stays full-bleed. */
+fun Modifier.pageWidth(): Modifier = fillMaxWidth().wrapContentWidth(Alignment.CenterHorizontally).widthIn(max = 640.dp).fillMaxWidth()
 
 @Composable
 fun SIcon(@DrawableRes id: Int, tint: Color = Palette.Dim, size: Dp = 18.dp, modifier: Modifier = Modifier) =
     Icon(painterResource(id), contentDescription = null, tint = tint, modifier = modifier.size(size))
 
-/** Flat grey bar: centred bold title (optional subtitle), start and end slots, 1 px bottom edge. */
+/** Marks a title as a heading for TalkBack's heading navigation. */
+fun Modifier.asHeading(): Modifier = semantics { heading() }
+
+/** A visible keyboard/switch-access focus ring for controls drawn with `indication = null`. */
+@Composable
+fun Modifier.focusRing(source: InteractionSource, shape: Shape): Modifier {
+    val focused by source.collectIsFocusedAsState()
+    return if (focused) border(2.dp, Palette.GreenFg, shape) else this
+}
+
+/** True under [HeaderBar]: header buttons wear the glass-on-dark look Status and Log use. */
+internal val LocalOnDark = androidx.compose.runtime.compositionLocalOf { false }
+
+/** The dark headers composed right now. The status-bar icons follow this list ([StatusIconsHost]), so none can be left stuck light. */
+private val darkBars = androidx.compose.runtime.mutableStateListOf<Any>()
+
+/** Light status-bar icons while this is composed (a list: wizard steps cross-fade, so two can overlap). */
+@Composable
+internal fun LightStatusIcons() {
+    DisposableEffect(Unit) {
+        val token = Any()
+        darkBars.add(token)
+        onDispose { darkBars.remove(token) }
+    }
+}
+
+/** The one place the status-bar icon colour is set: dark on the page, light while a dark header shows. Once, at the root. */
+@Composable
+internal fun StatusIconsHost() {
+    val view = LocalView.current
+    val light = darkBars.isEmpty()
+    androidx.compose.runtime.SideEffect {
+        WindowCompat.getInsetsController((view.context as Activity).window, view).isAppearanceLightStatusBars = light
+    }
+}
+
+/**
+ * The header of every screen but the two heroes (D75): on the page, a white 44 dp back disc and a bold title at the left,
+ * optional subtitle, end slot (the unlocked chip on parent screens). No band: the ink belongs to the state card.
+ */
 @Composable
 fun HeaderBar(
     title: String,
     modifier: Modifier = Modifier,
     subtitle: String? = null,
-    start: @Composable () -> Unit = {},
+    start: (@Composable () -> Unit)? = null,
     end: @Composable () -> Unit = {},
 ) {
-    Row(
-        modifier
-            .fillMaxWidth()
-            .background(Palette.Head)
-            .drawBehind { drawLine(Palette.Border, Offset(0f, size.height), Offset(size.width, size.height), 1.dp.toPx()) }
-            .statusBarsPadding()
-            .heightIn(min = 46.dp)
-            .padding(horizontal = 6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) { start() }
-        Column(Modifier.weight(2f), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(title, style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center)
-            if (subtitle != null) Text(subtitle, style = MaterialTheme.typography.bodySmall, color = Palette.Dim, textAlign = TextAlign.Center)
+    Box(modifier.fillMaxWidth().background(Palette.Chalk)) {
+        Row(
+            Modifier.fillMaxWidth().statusBarsPadding().cutoutPadding().heightIn(min = 64.dp).padding(start = 8.dp, end = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (start != null) Box(Modifier.size(44.dp).shadow(1.dp, CircleShape).clip(CircleShape).background(Palette.Surface), contentAlignment = Alignment.Center) { start() }
+            Column(Modifier.weight(1f).padding(start = if (start != null) 12.dp else 8.dp, end = 8.dp)) {
+                Text(title, Modifier.asHeading(), style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, fontSize = 22.sp, letterSpacing = (-.5).sp), color = Palette.Moss)
+                if (subtitle != null) Text(subtitle, style = MaterialTheme.typography.bodySmall, color = Palette.Dim)
+            }
+            end()
         }
-        Box(Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) { end() }
     }
-}
-
-/** Header button: icon only, 34 dp visual, no fill, inside a 48 dp touch target. */
-@Composable
-fun FlatIconButton(@DrawableRes icon: Int, label: String, onClick: () -> Unit) {
-    Box(
-        Modifier.size(48.dp).clip(RoundedCornerShape(10.dp)).clickable(role = Role.Button, onClick = onClick).semantics { contentDescription = label },
-        contentAlignment = Alignment.Center,
-    ) { SIcon(icon, Palette.Fg) }
 }
 
 class GroupScope {
@@ -97,9 +149,9 @@ class GroupScope {
 fun PreferenceGroup(modifier: Modifier = Modifier, title: String? = null, footnote: String? = null, content: GroupScope.() -> Unit) {
     val scope = GroupScope().apply(content)
     Column(modifier) {
-        if (title != null) Text(title, Modifier.padding(start = 4.dp, end = 4.dp, bottom = 6.dp), style = MaterialTheme.typography.labelMedium, color = Palette.Dim)
-        val shape = RoundedCornerShape(12.dp)
-        Column(Modifier.fillMaxWidth().clip(shape).background(Palette.Card).border(1.dp, Palette.Border, shape)) {
+        if (title != null) Text(title, Modifier.asHeading().padding(start = 4.dp, end = 4.dp, bottom = 6.dp), style = MaterialTheme.typography.labelMedium, color = Palette.Dim)
+        val shape = RoundedCornerShape(16.dp)
+        Column(Modifier.fillMaxWidth().lift(shape).clip(shape).background(Palette.Card)) {
             scope.items.forEachIndexed { i, row ->
                 if (i > 0) Box(Modifier.fillMaxWidth().height(1.dp).background(Palette.Border))
                 row()
@@ -108,6 +160,25 @@ fun PreferenceGroup(modifier: Modifier = Modifier, title: String? = null, footno
         if (footnote != null) Text(footnote, Modifier.padding(start = 4.dp, end = 4.dp, top = 6.dp), style = MaterialTheme.typography.bodyMedium, color = Palette.Dim)
     }
 }
+
+/** The app's language (D72): the Activity's configuration, which follows the Idioma switch; Locale.getDefault() may still be the phone's. */
+@Composable
+fun appLocale(): java.util.Locale = androidx.compose.ui.platform.LocalConfiguration.current.locales[0]
+
+/** "hace 12 minutos" / "12 minutes ago" in [locale], whatever the phone's language (DateUtils follows the system's). */
+fun relativeTime(at: Long, now: Long, locale: java.util.Locale): String {
+    val f = android.icu.text.RelativeDateTimeFormatter.getInstance(android.icu.util.ULocale.forLocale(locale))
+    val min = (now - at) / 60_000
+    return when {
+        min < 1 -> f.format(android.icu.text.RelativeDateTimeFormatter.Direction.PLAIN, android.icu.text.RelativeDateTimeFormatter.AbsoluteUnit.NOW)
+        min < 60 -> f.format(min.toDouble(), android.icu.text.RelativeDateTimeFormatter.Direction.LAST, android.icu.text.RelativeDateTimeFormatter.RelativeUnit.MINUTES)
+        min < 24 * 60 -> f.format((min / 60).toDouble(), android.icu.text.RelativeDateTimeFormatter.Direction.LAST, android.icu.text.RelativeDateTimeFormatter.RelativeUnit.HOURS)
+        else -> f.format((min / 1440).toDouble(), android.icu.text.RelativeDateTimeFormatter.Direction.LAST, android.icu.text.RelativeDateTimeFormatter.RelativeUnit.DAYS)
+    }
+}
+
+/** Minimum row height; Status packs its rows tighter. */
+val LocalRowMin = androidx.compose.runtime.compositionLocalOf { 56.dp }
 
 /** Prefix icon, title, description, end slot. With [onClick], tapping anywhere on the row runs it. */
 @Composable
@@ -124,18 +195,36 @@ fun PrefRow(
         modifier
             .fillMaxWidth()
             .let { if (onClick != null) it.clickable(role = Role.Button, onClick = onClick) else it }
-            .heightIn(min = 56.dp)
+            .heightIn(min = LocalRowMin.current)
             .padding(horizontal = 14.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (icon != null) SIcon(icon, iconTint)
+        if (icon != null) Box(Modifier.size(36.dp).clip(RoundedCornerShape(12.dp)).background(Palette.Btn), contentAlignment = Alignment.Center) { SIcon(icon, iconTint) } // D75: the icon sits in a soft tile
         Column(Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.titleMedium)
             if (description != null) Text(description, style = MaterialTheme.typography.bodyMedium, color = Palette.Dim)
         }
         if (end != null) end()
     }
+}
+
+/** Dims a disabled row over 200 ms, so a list does not change brightness in one frame when the service binds. */
+@Composable
+fun Modifier.dimmed(enabled: Boolean): Modifier {
+    val a by androidx.compose.animation.core.animateFloatAsState(
+        if (enabled) 1f else Palette.DISABLED, motion(tween(200, easing = dev.sophiel.ui.theme.Ease)), label = "dim",
+    )
+    return graphicsLayer { alpha = a }
+}
+
+/** The radio answer: the tick fades and grows from .8 when its row is chosen, fades out when it is not. */
+@Composable
+fun SelectTick(selected: Boolean, tint: Color) {
+    val t by androidx.compose.animation.core.animateFloatAsState(
+        if (selected) 1f else 0f, motion(tween(120, easing = dev.sophiel.ui.theme.Ease)), label = "tick",
+    )
+    SIcon(dev.sophiel.R.drawable.ic_check, tint, modifier = Modifier.graphicsLayer { alpha = t; scaleX = .8f + .2f * t; scaleY = .8f + .2f * t })
 }
 
 /** A switch row toggles from anywhere on it. */
@@ -146,7 +235,7 @@ fun SwitchRow(
 ) =
     PrefRow(
         title,
-        modifier.alpha(if (enabled) 1f else .5f).toggleable(checked, enabled = enabled, role = Role.Switch, onValueChange = onChange),
+        modifier.dimmed(enabled).toggleable(checked, enabled = enabled, role = Role.Switch, onValueChange = onChange),
         description,
         icon,
         end = { RoundSwitch(checked, onChange = null) },
@@ -156,7 +245,7 @@ enum class TagKind { Neutral, Ok, Recommended, VerySafe, Safe, Doubtful }
 
 @Composable
 fun Tag(text: String, kind: TagKind = TagKind.Neutral, modifier: Modifier = Modifier) {
-    val primary = MaterialTheme.colorScheme.primary
+    val primary = Palette.GreenFg
     val (bg, fg) = when (kind) {
         TagKind.Neutral -> Palette.Btn to Palette.Dim
         TagKind.Ok -> Palette.tint(Palette.Green, .2f) to Palette.GreenFg
@@ -173,7 +262,7 @@ enum class Tone { Ok, Off, Ready, Warn, Alert }
 /** AdwStatusPage: big symbolic icon in a disc, title, one line. Colours and icon cross-fade when the state changes. */
 @Composable
 fun StatusPage(@DrawableRes icon: Int, title: String, text: String, tone: Tone, modifier: Modifier = Modifier, spinner: Boolean = false) {
-    val primary = MaterialTheme.colorScheme.primary
+    val primary = Palette.GreenFg
     val (bg, fg) = when (tone) {
         Tone.Ok -> Palette.tint(Palette.Green) to Palette.GreenFg
         Tone.Off -> Palette.Btn to Palette.Dim
@@ -195,7 +284,7 @@ fun StatusPage(@DrawableRes icon: Int, title: String, text: String, tone: Tone, 
         }
         Crossfade(title to text, animationSpec = motion(tween(120)), label = "headline") { (t, d) ->
             Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(t, style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center)
+                Text(t, Modifier.asHeading(), style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center)
                 Text(d, Modifier.widthIn(max = 280.dp), style = MaterialTheme.typography.bodyLarge, color = Palette.Dim, textAlign = TextAlign.Center)
             }
         }
